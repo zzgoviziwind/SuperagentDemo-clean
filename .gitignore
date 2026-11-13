@@ -1,4 +1,5 @@
 .venv/
+.deps/
 node_modules/
 __pycache__/
 *.pyc
@@ -15,5 +16,10 @@ logs/
 dist/
 playwright-report/
 test-results/
+.tmp/
+.test-tmp/
+.pytest-temp*/
+tests/runtime/schema_tmp/
+tests/runtime/schema_normal/
 *.db
 *.sqlite*
