@@ -1,0 +1,5 @@
+.env
+*.local.ps1
+state/
+backups/
+restored/

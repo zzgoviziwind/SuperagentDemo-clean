@@ -1,0 +1,62 @@
+name: superagent
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+    ports:
+      - '127.0.0.1:8080:80'
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: superagent
+      POSTGRES_USER: superagent
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U superagent -d superagent']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    environment:
+      - SUPERAGENT_DATABASE_URL=postgresql+psycopg://superagent:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/superagent
+      - SUPERAGENT_API_TOKEN=${SUPERAGENT_API_TOKEN:?Set SUPERAGENT_API_TOKEN in deploy/.env}
+      - SUPERAGENT_WORKSPACES_ROOT=/state/workspaces
+      - SUPERAGENT_USERS_JSON
+      - SUPERAGENT_SESSION_SECRET
+      - SUPERAGENT_ALLOWED_ORIGINS
+      - SUPERAGENT_CODEX_EXECUTABLE
+      - SUPERAGENT_FEISHU_ENABLED
+      - SUPERAGENT_FEISHU_APP_ID
+      - SUPERAGENT_FEISHU_APP_SECRET
+      - SUPERAGENT_FEISHU_OPEN_ID
+      - SUPERAGENT_FEISHU_OWNER_ID
+      - SUPERAGENT_FEISHU_WORKBENCH_URL
+      - HLZJ_REDMINE_API_KEY
+    ports:
+      - '127.0.0.1:8765:8765'
+    volumes:
+      - state:/state
+      - ${SUPERAGENT_REPOSITORIES_PATH:-./repositories}:/repos:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, 'import os,urllib.request; r=urllib.request.Request("http://127.0.0.1:8765/health",headers={"Authorization":"Bearer "+os.environ["SUPERAGENT_API_TOKEN"]}); urllib.request.urlopen(r,timeout=3)']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+volumes:
+  database:
+  state:

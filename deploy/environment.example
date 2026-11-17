@@ -1,0 +1,29 @@
+# Copy to deploy/.env for Compose. Never commit the filled file.
+# Set Windows process environment variables in your credential-managed launcher.
+SUPERAGENT_API_TOKEN=
+SUPERAGENT_DATABASE_URL=sqlite:///./deploy/state/control.db
+SUPERAGENT_WORKSPACES_ROOT=./deploy/state/workspaces
+# JSON argv array for local Codex, omit to disable execution.
+SUPERAGENT_CODEX_EXECUTABLE=
+# Dedicated absolute directory, separate from the interactive user's CODEX_HOME.
+# SUPERAGENT_CODEX_HOME=E:/Workspace/superagentDemo/data/codex-state
+# SUPERAGENT_ATTACHMENTS_ROOT=E:/Workspace/superagentDemo/data/attachments
+# SUPERAGENT_RUN_IDLE_TIMEOUT_SECONDS=1800
+# Optional, omit entirely when unused. Keep values in local secret-managed environment.
+# SUPERAGENT_USERS_JSON=<JSON user array with user_id, role, token>
+# SUPERAGENT_SESSION_SECRET=<at least 32 random bytes>
+# SUPERAGENT_ALLOWED_ORIGINS=https://your-approved-host
+# Optional Feishu private decision reminders (disabled unless enabled explicitly).
+# SUPERAGENT_FEISHU_ENABLED=1
+# SUPERAGENT_FEISHU_APP_ID=
+# SUPERAGENT_FEISHU_APP_SECRET=
+# SUPERAGENT_FEISHU_OPEN_ID=
+# SUPERAGENT_FEISHU_OWNER_ID=local-admin
+# SUPERAGENT_FEISHU_WORKBENCH_URL=https://your-approved-host
+# HLZJ_REDMINE_API_KEY=<local secret>
+# PostgreSQL password and URL must use the same value. URL-encode reserved characters.
+POSTGRES_PASSWORD=
+# Compose uses a mounted repository root, configured project paths use /repos/<name>.
+SUPERAGENT_REPOSITORIES_PATH=./repositories
+# Docker execution disabled until a Codex executable and account are configured in the image.
+# Real DingTalk and Redmine adapters are disabled by default.
