@@ -26,6 +26,20 @@ function replyTarget(event?: Row, target?: Row, channel = event?.source) {
   }
   return "原渠道 · 回复目标未显示";
 }
+export function draftState(draft: Row, approval?: Row, task?: Row) {
+  const status = draft.delivery?.write_status;
+  if (status === 'succeeded') return '已回复';
+  if (status === 'unknown') return '发送结果未知';
+  if (status === 'failed') return '回复发送失败';
+  if (task?.status === 'cancelled' || approval?.status?.startsWith('expired')
+    || (task?.revision != null && approval?.revision != null && approval.revision !== task.revision)
+    || (task?.control_version != null && approval?.control_version != null && approval.control_version !== task.control_version)) return '历史回复草稿';
+  if (approval?.status === 'pending') return '待审批';
+  if (approval?.status === 'approved') return '已批准，待发送';
+  if (approval?.status === 'rejected') return '已拒绝';
+  return '未发送';
+}
+
 export function DeliveriesPanel({
   taskId,
   events,
@@ -39,6 +53,7 @@ export function DeliveriesPanel({
   controlVersion,
   canWrite,
   onChange,
+  onSnapshot,
 }: {
   taskId: string;
   events: Row[];
@@ -51,6 +66,7 @@ export function DeliveriesPanel({
   updateEdit?: UpdateReplyEdit;
   controlVersion?: number;
   canWrite: boolean;
+  onSnapshot?: (snapshot: { taskId: string; drafts: Row[] | null }) => void;
   onChange: () => Promise<void>;
 }) {
   const editor = useRef<HTMLDetailsElement>(null);
@@ -72,13 +88,14 @@ export function DeliveriesPanel({
   >({});
   const load = useCallback(async () => {
     try {
-      setDrafts(
-        await request<Row[]>(`/tasks/${encodeURIComponent(taskId)}/deliveries`),
-      );
+      const result = await request<Row[]>(`/tasks/${encodeURIComponent(taskId)}/deliveries`);
+      setDrafts(result);
+      onSnapshot?.({ taskId, drafts: result });
     } catch (e) {
       setError((e as Error).message);
+      onSnapshot?.({ taskId, drafts: null });
     }
-  }, [taskId]);
+  }, [taskId, onSnapshot]);
   useEffect(() => {
     void load();
     const timer = window.setInterval(() => {
@@ -248,8 +265,6 @@ export function DeliveriesPanel({
           </div>
         </Modal>
       )}
-      {events.some(e => e.data?.routing_status === "self_context") &&
-        <p className="muted">消息列表已有本账号发言。平台发送状态单独记录。</p>}
       {(() => {
         const judgment = [...events].reverse().find(e => e.source === "runtime" && e.event_type === "reply_decision"
           && e.data?.revision === revision && e.data?.control_version === controlVersion);
@@ -257,7 +272,13 @@ export function DeliveriesPanel({
         const label = ({ skip: "本轮无需回复", review: "本轮建议人工确认", send: "本轮建议回复" } as Row)[judgment.data.decision];
         return <p><strong>{label}</strong> · {judgment.content}</p>;
       })()}
-      {drafts.map((draft) => {
+      {[...drafts].sort((a, b) => {
+        const rank = (d: Row) => {
+          const state = draftState(d, d.approval ?? approvals.find(a => a.id === d.approval_id), { status: taskStatus, revision, control_version: controlVersion });
+          return ['待审批', '已批准，待发送', '发送结果未知', '回复发送失败'].includes(state) ? 0 : state === '已回复' ? 1 : 2;
+        };
+        return rank(a) - rank(b) || b.id - a.id;
+      }).map((draft) => {
         const approval =
           draft.approval ?? approvals.find((a) => a.id === draft.approval_id);
         const status = draft.delivery?.write_status;
@@ -267,20 +288,27 @@ export function DeliveriesPanel({
         };
         const source = events.find(event => String(event.id) === String(draft.event_id));
         const destination = replyTarget(source, approval?.action?.target, approval?.action?.source ?? source?.source);
-        const stale = taskStatus === "cancelled" || (revision != null && approval?.revision != null && approval.revision !== revision) || (controlVersion != null && approval?.control_version != null && approval.control_version !== controlVersion);
-        const title = status === "succeeded" ? "已回复" : status === "unknown" ? "发送结果未知" : status === "failed" ? "回复发送失败" : stale ? "历史回复草稿" : "尚未回复";
+        const title = draftState(draft, approval, { status: taskStatus, revision, control_version: controlVersion });
+        const stale = title === '历史回复草稿';
+        const Card = stale ? 'details' : 'article';
         return (
-          <article className={`artifact reply-card reply-${status ?? 'draft'}`} key={draft.id}>
-            <h4>{title}</h4>
-            <p>{status === "succeeded" ? "已记录渠道发送成功。" : status === "unknown" ? "渠道未返回明确结果。可在原会话核对，系统不会重试这次发送。" : status === "failed" ? "已记录发送失败。修正失败原因后，可点击重新编辑回复，保存新草稿并审批发送。" : stale ? "此草稿的审批已失效。可复用正文，按当前目标重新编辑、审批发送。" : approval?.status === "pending" ? "核对正文后批准，再确认发送。" : approval?.status === "approved" ? "正文已批准，下一步发送到原会话。" : "草稿审批已结束，可重新撰写回复。"}</p>
-            <p className="muted">{destination}</p>
+          <Card className={`artifact reply-card reply-${status ?? 'draft'}`} key={draft.id}>
+            {stale ? <summary>{title} #{draft.id}</summary> : <h4>{title}</h4>}
+            {(status && status !== "succeeded" || !status && (stale || approval?.status !== "pending")) && <p>{status === "unknown"
+              ? "渠道未返回明确结果，请在原会话核对。"
+              : status === "failed" ? "修正失败原因后，可重新编辑并审批发送。"
+              : stale ? "审批已失效，可复用正文后重新审批。"
+              : approval?.status === "approved" ? "正文已批准，可确认发送到原会话。"
+              : "草稿审批已结束，可重新撰写回复。"}</p>}
+            <p className="muted">{destination}{status === 'succeeded' && (draft.delivery?.reconciled_at ?? draft.delivery?.sent_at)
+              ? ` · ${new Date(draft.delivery.reconciled_at ?? draft.delivery.sent_at).toLocaleString('zh-CN')}` : ''}</p>
             <ConversationContent content={draft.content} />
             {canWrite && status !== "unknown" && status !== "succeeded" && (stale || status === "failed" || approval?.status === "rejected") && (
               <div className="actions wrap">
                 <button disabled={busy} onClick={() => replaceEdit({ eventId: String(draft.event_id), content: draft.content })}>{status === "failed" ? "重新编辑回复" : "复用为新草稿"}</button>
               </div>
             )}
-            {canWrite && !deliveryBlocked && !stale && approval?.status === "pending" && (
+            {canWrite && !deliveryBlocked && !stale && !status && approval?.status === "pending" && (
               <div className="actions wrap">
                 <button
                   disabled={busy}
@@ -392,7 +420,7 @@ export function DeliveriesPanel({
               <p>草稿 #{draft.id} · 目标版本 {approval?.revision ?? "—"}</p>
               <pre>{JSON.stringify({target: approval?.action?.target, approval: approval?.status, delivery: draft.delivery}, null, 2)}</pre>
             </details>
-          </article>
+          </Card>
         );
       })}
     </div>

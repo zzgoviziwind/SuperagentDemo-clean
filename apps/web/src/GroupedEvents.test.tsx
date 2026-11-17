@@ -164,7 +164,7 @@ it('closes selected receipts, keeps filter counts, and can link a retained messa
  render(<GroupedEvents onOpenTask={vi.fn()} onManage={vi.fn()}/>);
  fireEvent.click(await screen.findByRole('button',{name:/待研判 2$/}));
  fireEvent.click(await screen.findByRole('button',{name:/测试体检号我们有吗/}));
- expect(screen.getByRole('heading',{name:'事件研判'})).toBeTruthy();
+ expect(screen.getByRole('heading',{name:'测试体检号我们有吗'})).toBeTruthy();
  expect(screen.getByText('事件 #7 已登记 · 暂未分派项目或 Worker。')).toBeTruthy();
  fireEvent.click(screen.getByRole('button',{name:'关闭，无需处理'}));
  expect(await screen.findByText('事件 #9 已登记 · 暂未分派项目或 Worker。')).toBeTruthy();

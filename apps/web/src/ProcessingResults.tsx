@@ -49,7 +49,7 @@ export function ProcessingResults({ artifacts, events, group, onOpenSession }: {
     </div>
     <div className="result-stage"><h4>系统核验</h4>
       <p className="muted">检查回复是否生成、分析是否有读取依据，或代码改动是否有测试证据。</p>
-      {verification ? <><p>最近一次系统评估 · {verificationLabel(verification)}</p><details><summary>查看核验依据 · {time(verification.created_at)}</summary><ArtifactView artifact={verification} revision={group.revision} /></details></> : <p>当前目标尚无核验记录。</p>}
+      {verification ? <><p>最近一次系统评估 · {verificationLabel(verification)}</p><details data-event-verification><summary>查看核验依据 · {time(verification.created_at)}</summary><ArtifactView artifact={verification} revision={group.revision} /></details></> : <p>当前目标尚无核验记录。</p>}
     </div>
     {!!remaining.length && <details><summary>本次处理的其他记录（{remaining.length}）</summary>{remaining.map(record)}</details>}
     {!!historical.length && <details><summary>历史目标的处理记录（{historical.length}）</summary>{historical.map(record)}</details>}

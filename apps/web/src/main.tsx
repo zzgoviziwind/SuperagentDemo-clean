@@ -27,6 +27,10 @@ import { replyNeedsEngine } from "./EventNextStep";
 import type { EventScope } from "./eventState";
 import "./style.css";
 import "./workbench-theme.css";
+import "./ide-shell.css";
+import "./darcula.css";
+import { WorkbenchIcon } from "./WorkbenchIcon";
+import { ContentPaletteSelect } from "./ContentPaletteSelect";
 
 type Row = Record<string, any>;
 type Task = Row & {
@@ -106,6 +110,7 @@ export function App() {
   const [pathMode, setPathMode] = useState("none");
   const [reconcileEvidence, setReconcileEvidence] = useState("");
   const [reconcileOutcome, setReconcileOutcome] = useState("");
+  const [replySnapshot, setReplySnapshot] = useState<{ taskId: string; drafts: Record<string, any>[] | null }>();
   const [replyEdits, setReplyEdits] = useState<Record<string, ReplyEdit>>({});
   const [ending, setEnding] = useState<{ id: string; version: number } | null>(null);
   const [message, setMessage] = useState("");
@@ -333,7 +338,7 @@ export function App() {
   const eventSupplement = task && canTaskWrite && !["completed", "cancelled"].includes(task.status) ? (
     <details className="advanced-panel">
       <summary>补充给 Agent</summary>
-      <p className="muted">补充会保存到本事件和执行会话。等待输入时，保存后可在事件处理里继续。</p>
+      <p className="muted">补充会保存到本事件和执行会话。若任务正在等待人工处理，保存后请回到顶部点击「恢复」。</p>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -526,46 +531,43 @@ export function App() {
   ) ?? [];
   const reviewLink = new URLSearchParams(window.location.search);
   const reviewLinkId = reviewLink.get("task") === String(task?.id) ? reviewLink.get("approval") : null;
+  const eventReply = task && detail ? (
+    <section className="event-reply-section"><h3>渠道回复</h3>
+    {hasReferenceReads && <p className="muted">此事件使用了跨目录资料，结果仅在工作台内查看。</p>}
+      <DeliveriesPanel
+        key={task.id}
+        taskId={String(task.id)}
+        events={detail.events}
+        approvals={detail.approvals}
+        artifacts={detail.artifacts}
+        revision={task.revision}
+        taskStatus={task.status}
+        outcomeUnknown={!!task.outcome_unknown}
+        edit={replyEdits[task.id] ?? emptyReplyEdit}
+        updateEdit={(update) => setReplyEdits(current => {
+          const previous = current[task.id] ?? emptyReplyEdit;
+          const next = update(previous);
+          if (next === previous) return current;
+          if (next.content || next.eventId) return { ...current, [task.id]: next };
+          const remaining = { ...current };
+          delete remaining[task.id];
+          return remaining;
+        })}
+        controlVersion={task.control_version}
+        canWrite={canTaskWrite && !hasReferenceReads}
+        onSnapshot={setReplySnapshot}
+        onChange={refresh}
+      />
+    </section>
+  ) : null;
   const eventOperations = task && detail ? (
           <>
-
-            <section className="event-reply-section"><h3>渠道回复</h3>
-            {hasReferenceReads && <p className="muted">此事件使用了跨目录资料，结果仅在工作台内查看。</p>}
             <div className="detail-grid">
-              <section>
-
-                {(
-                  <div>
-                  <DeliveriesPanel
-                    key={task.id}
-                    taskId={task.id}
-                    events={detail.events}
-                    approvals={detail.approvals}
-                    artifacts={detail.artifacts}
-                    revision={task.revision}
-                    taskStatus={task.status}
-                    outcomeUnknown={!!task.outcome_unknown}
-                    edit={replyEdits[task.id] ?? emptyReplyEdit}
-                    updateEdit={(update) => setReplyEdits(current => {
-                      const previous = current[task.id] ?? emptyReplyEdit;
-                      const next = update(previous);
-                      if (next === previous) return current;
-                      if (next.content || next.eventId) return { ...current, [task.id]: next };
-                      const remaining = { ...current };
-                      delete remaining[task.id];
-                      return remaining;
-                    })}
-                    controlVersion={task.control_version}
-                    canWrite={canTaskWrite && !hasReferenceReads}
-                    onChange={refresh}
-                  />
-                  </div>
-                )}
-
+              <section aria-label="执行审批">
                 {
                   (activeApprovals.length ? (
                     activeApprovals.map((a) => (
-                      <article key={a.id} ref={node => focusLinkedApproval(node, String(task.id), String(a.id))} tabIndex={-1} className="artifact">
+                      <article key={a.id} data-execution-approval ref={node => focusLinkedApproval(node, String(task.id), String(a.id))} tabIndex={-1} className="artifact">
                         <strong>
                           {a.title ?? a.action_type ?? "动作审批"}
                         </strong>
@@ -683,16 +685,16 @@ export function App() {
                 </section>
               </div>
             </div>
-            </section>
             <EventGroupDiagnostics id={String(task.id)} onOpen={openTask} />
           </>
         ) : null;
 
   return (
-    <div className="shell">
-      <aside>
+    <div className="shell ide-shell">
+      <header className="ide-toolbar">
         <a
           className="brand"
+          aria-label="SuperAgent"
           href="#"
           onClick={(e) => {
             e.preventDefault();
@@ -701,29 +703,17 @@ export function App() {
             navigate("事件中心");
           }}
         >
-          <span className="logo">S</span>SuperAgent
+          <span className="logo" aria-hidden="true">S</span>
+          <span className="brand-copy">SuperAgent</span>
         </a>
-        <p className="workspace-label">研发协作空间</p>
-        <nav aria-label="主导航">
-          {[
-            { title: "工作空间", items: ["事件中心", "Worker 工作台"] },
-            { title: "配置与连接", items: ["项目设置", ...(isAdmin ? ["事件规则", "管理设置"] : []), "运行状态"] },
-          ].map(group => <div className="nav-group" key={group.title}>
-            <small>{group.title}</small>
-            {group.items.map(item => <button key={item} aria-current={page === item ? "page" : undefined} onClick={() => navigate(item)}>{item}</button>)}
-          </div>)}
-          <details className="nav-advanced" open={["消息记录", "订阅关系", "分派复核"].includes(page) ? true : undefined}>
-            <summary>更多工具</summary>
-            {[...(isAdmin ? ["消息记录", "订阅关系", "分派复核"] : [])].map(item => <button key={item} aria-current={page === item ? "page" : undefined} onClick={() => navigate(item)}>{item}</button>)}
-          </details>
-        </nav>
-        {canWrite && <button className="primary sidebar-create" aria-haspopup="dialog" onClick={event => {
+        <span className="ide-workspace-name">研发协作空间</span>
+        <ContentPaletteSelect />
+        {canWrite && <button className="primary ide-create" aria-haspopup="dialog" onClick={event => {
           event.currentTarget.focus({ preventScroll: true });
           setError("");
           setCreating(true);
         }}>＋ 提出事件</button>}
-        <div className="sidebar-bottom">
-          <details className="sidebar-account"><summary>{user ? (user.name ?? user.username ?? user.user_id ?? user.role) : "账号与登录"}</summary><div className="account-actions">
+          <details className="ide-account"><summary>{user ? (user.name ?? user.username ?? user.user_id ?? user.role) : "账号与登录"}</summary><div className="account-actions">
             {user ? (
               <>
                 <button
@@ -748,14 +738,40 @@ export function App() {
               <button onClick={() => setLoginOpen(true)}>登录</button>
             )}
           </div></details>
-          {settings.service_mode === "preview" && <small className="preview-indicator" title="独立预览，连接与自动执行已关闭">独立预览 · 自动执行已关闭</small>}
-
-          <span className={`dot ${health.status ? "online" : ""}`} />
-          {health.status ? "控制服务已连接" : "等待连接服务"}
-          <small>Web · 钉钉 · Redmine</small>
-        </div>
+      </header>
+      <aside className="ide-rail">
+        <nav aria-label="主导航">
+          {[
+            { title: "工作空间", items: [["事件中心", "事件"], ["Worker 工作台", "Worker"]] },
+            { title: "配置与连接", items: [["项目设置", "项目"], ...(isAdmin ? [["事件规则", "规则"], ["管理设置", "设置"]] : []), ["运行状态", "状态"]] },
+          ].map(group => <div className="ide-tool-group" role="group" aria-label={group.title} key={group.title}>
+            {group.items.map(([item, label]) => <button type="button" key={item} title={item} aria-label={item}
+              aria-current={page === item ? "page" : undefined} onClick={() => navigate(item)}>
+              <WorkbenchIcon name={item} /><span aria-hidden="true">{label}</span>
+            </button>)}
+          </div>)}
+          {isAdmin && <details className="ide-tools-more">
+            <summary title="更多工具" aria-label="更多工具" data-current={["消息记录", "订阅关系", "分派复核"].includes(page)}>
+              <WorkbenchIcon name="更多工具" /><span aria-hidden="true">更多</span>
+            </summary>
+            <div className="ide-more-items">
+              {["消息记录", "订阅关系", "分派复核"].map(item => <button type="button" key={item}
+                aria-current={page === item ? "page" : undefined} onClick={event => {
+                  const menu = event.currentTarget.closest("details");
+                  if (menu) {
+                    menu.open = false;
+                    menu.querySelector("summary")?.focus();
+                  }
+                  navigate(item);
+                }}><WorkbenchIcon name={item} />{item}</button>)}
+            </div>
+          </details>}
+        </nav>
       </aside>
       <main className={page === "事件中心" ? "workspace-page event-center-page" : page === "Worker 工作台" ? "workspace-page worker-page" : page === "消息记录" ? "workspace-page" : "content-page"}>
+        <header className="workbench-page-heading">
+          <h1><WorkbenchIcon name={page} />{page}</h1>
+        </header>
         {loginOpen && !user && (
           <section>
             <h2>登录工作空间</h2>
@@ -1003,7 +1019,7 @@ export function App() {
           />
         )}
         {page === "事件中心" && user && (
-            <GroupedEvents key={eventHomeVersion} taskDetail={detail} initialGroupId={focusedGroup} operations={eventOperations} operationsId={task ? String(task.id) : undefined}
+            <GroupedEvents key={eventHomeVersion} taskDetail={detail} initialGroupId={focusedGroup} operations={eventOperations} reply={eventReply} replySnapshot={replySnapshot} operationsId={task ? String(task.id) : undefined}
               initialScope={eventScope} onScopeChange={setEventScope} projects={projects} canManage={isAdmin}
               overview={<ArchitecturePanel onNavigate={navigate} isAdmin={isAdmin} eventStatus={eventScope.status} />}
               endAction={endEventAction} controls={<>
@@ -1211,6 +1227,11 @@ export function App() {
         )}
 
       </main>
+      <footer className="ide-status">
+        <span><span className={`dot ${health.status ? "online" : ""}`} aria-hidden="true" />{health.status ? "控制服务已连接" : "等待连接服务"}</span>
+        {settings.service_mode === "preview" && <span className="ide-preview">独立预览 · 自动执行已关闭</span>}
+        <span className="ide-channels">Web · 钉钉 · Redmine</span>
+      </footer>
       {creating && (
         <Modal className="event-create-dialog" labelledBy="create-title" busy={busy} onClose={() => {
           setError("");

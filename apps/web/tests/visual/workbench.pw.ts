@@ -136,6 +136,72 @@ test("navigation and native project drawer keyboard behavior", async ({ page }, 
   await nav.getByRole("button", { name: "Worker 工作台", exact: true }).click();
   await expect(page.locator(".session-workbench")).toBeVisible();
   await capture(page, info, "07-worker");
+  const more = nav.locator("summary[aria-label='更多工具']");
+  await more.focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Tab");
+  await expect(nav.getByRole("button", { name: "消息记录", exact: true })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "消息记录", level: 1 })).toBeVisible();
+  await expect(more).toBeFocused();
+  await expect(more).toHaveAttribute("data-current", "true");
+  await expect(nav.getByRole("button", { name: "消息记录", exact: true })).toBeHidden();
+});
+
+test("content palette follows navigation and persists after reload", async ({ page }, info) => {
+  const palette = page.getByRole("combobox", { name: "内容区配色" });
+  await expect(palette).toHaveValue("slate");
+  await page.getByRole("button", { name: /请只读分析.*#1001/ }).first().click();
+  const accents = new Set<string>();
+  for (const choice of ["slate", "cypress", "walnut", "iris"]) {
+    await palette.selectOption(choice);
+    await expect(page.locator("html")).toHaveAttribute("data-content-palette", choice);
+    accents.add(await palette.evaluate(node => getComputedStyle(node).getPropertyValue("--accent").trim()));
+    await capture(page, info, `palette-${choice}`);
+  }
+  expect(accents.size).toBe(4);
+  await page.getByRole("button", { name: "Worker 工作台", exact: true }).click();
+  await expect(palette).toHaveValue("iris");
+  await page.reload();
+  await expect(palette).toHaveValue("iris");
+  await expect(page.locator("html")).toHaveAttribute("data-content-palette", "iris");
+  await page.getByRole("button", { name: "管理设置", exact: true }).click();
+  await expect(page.getByRole("button", { name: "保存消息与交付方式", exact: true }))
+    .toHaveCSS("background-color", "rgb(98, 81, 133)");
+  await capture(page, info, "palette-iris-settings");
+});
+
+test("Darcula themes event panels, settings controls and dialogs", async ({ page }, info) => {
+  const palette = page.getByRole("combobox", { name: "内容区配色" });
+  await palette.selectOption("darcula");
+  await page.reload();
+  await expect(palette).toHaveValue("darcula");
+  await expect(page.locator("html")).toHaveCSS("color-scheme", "dark");
+  await page.locator(".event-choice").filter({ hasText: "#1001" }).first().click();
+  await expect(page.locator(".event-detail")).toHaveCSS("background-color", "rgb(43, 43, 44)");
+  if (info.project.name !== "narrow") {
+    await expect(page.locator(".event-index")).toHaveCSS("background-color", "rgb(48, 48, 51)");
+  }
+  await capture(page, info, "darcula-event");
+  const create = page.getByRole("button", { name: "＋ 提出事件", exact: true });
+  await create.click();
+  const dialog = page.getByRole("dialog", { name: "提出事件" });
+  await expect(dialog).toHaveCSS("background-color", "rgb(43, 43, 44)");
+  await expect(dialog.getByLabel("问题标题")).toHaveCSS("background-color", "rgb(37, 38, 42)");
+  await expect(dialog.getByRole("button", { name: "关闭提出事件" }))
+    .toHaveCSS("background-color", "rgb(51, 52, 55)");
+  await capture(page, info, "darcula-form");
+  await page.keyboard.press("Escape");
+  await expect(create).toBeFocused();
+  await page.getByRole("button", { name: "管理设置", exact: true }).click();
+  await expect(page.getByLabel("交付方式")).toHaveCSS("color-scheme", "dark");
+  await expect(page.getByRole("button", { name: "正在检查…", exact: true })).toHaveCount(0, { timeout: 45_000 });
+  await capture(page, info, "darcula-settings");
+  await page.getByRole("button", { name: "Worker 工作台", exact: true }).click();
+  await expect(page.locator(".session-index")).toHaveCSS("background-color", "rgb(48, 48, 51)");
+  await capture(page, info, "darcula-worker");
+  await palette.selectOption("slate");
+  await expect(page.locator("html")).toHaveCSS("color-scheme", "light");
 });
 
 test("stage model settings and prompt preview", async ({ page }, info) => {

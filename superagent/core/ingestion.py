@@ -309,10 +309,10 @@ def _route_impl(session, event, resolver, *, settings=None, semantic_decision=No
               TaskRoute.project_id == project.id, TaskRoute.route_key.in_(keys)).with_for_update())}
     candidates = {route.task_id for route in routes.values()}
     if reply_key and reply_key not in routes:
-        # Older and manually linked receipts may not have a message alias.
+        # Older, manually linked and own-account context receipts may have no alias.
         previous_ids = set(session.scalars(select(Event.task_id).join(Task, Task.id == Event.task_id).where(
             Task.project_id == project.id, Event.source == "dingtalk",
-            Event.data["routing_status"].as_string().in_(("routed", "manually_linked")),
+            Event.data["routing_status"].as_string().in_(("routed", "manually_linked", "self_context")),
             Event.data["thread_id"].as_string() == data.get("thread_id"),
             Event.data["metadata"]["profile"].as_string() == metadata.get("profile", ""),
             Event.data["metadata"]["message_id"].as_string() == reply)))

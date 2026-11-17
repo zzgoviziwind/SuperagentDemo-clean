@@ -9,6 +9,9 @@ const python = path.join(repoRoot, ".venv", process.platform === "win32" ? "Scri
 const runId = process.env.SUPERAGENT_VISUAL_RUN_ID ?? new Date().toISOString().replace(/[:.]/g, "-");
 process.env.SUPERAGENT_VISUAL_RUN_ID = runId;
 const evidenceRoot = path.join(repoRoot, ".test-tmp/design-workflow-visual", runId);
+const apiPort = Number(process.env.SUPERAGENT_VISUAL_API_PORT ?? 8877);
+const webPort = Number(process.env.SUPERAGENT_VISUAL_WEB_PORT ?? 5177);
+const previewState = apiPort === 8877 ? "design-workflow-preview" : `design-workflow-preview-${apiPort}`;
 mkdirSync(evidenceRoot, { recursive: true });
 console.log(`Visual evidence: ${evidenceRoot}`);
 
@@ -27,7 +30,7 @@ export default defineConfig({
     ["html", { outputFolder: path.join(evidenceRoot, "report"), open: "never" }],
   ],
   use: {
-    baseURL: "http://127.0.0.1:5177",
+    baseURL: `http://127.0.0.1:${webPort}`,
     channel: "msedge",
     locale: "zh-CN",
     reducedMotion: "reduce",
@@ -41,16 +44,16 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `"${python}" deploy/preview.py --state .test-tmp/design-workflow-preview --port 8877`,
+      command: `"${python}" deploy/preview.py --state .test-tmp/${previewState} --port ${apiPort}`,
       cwd: repoRoot,
-      url: "http://127.0.0.1:8877/health",
+      url: `http://127.0.0.1:${apiPort}/health`,
       reuseExistingServer: false,
       timeout: 60_000,
     },
     {
       command: "node tests/visual/serve.mjs",
       cwd: webRoot,
-      url: "http://127.0.0.1:5177",
+      url: `http://127.0.0.1:${webPort}`,
       reuseExistingServer: false,
       timeout: 60_000,
     },

@@ -1,51 +1,72 @@
 :root {
   color-scheme: light;
-  --canvas: #f2f4f8;
+  --canvas: #f6f8fa;
   --surface: #ffffff;
-  --ink: #202635;
-  --muted: #536075;
-  --line: #d9deea;
-  --accent: #5143a4;
-  --accent-deep: #3c307e;
-  --accent-surface: #efecfa;
-  --sidebar: #20243a;
-  --sidebar-text: #e9eaf4;
-  --sidebar-muted: #bdc4da;
-  --focus: #5743b5;
+  --ink: #192636;
+  --muted: #526477;
+  --line: #dbe2e9;
+  --accent: #245b8f;
+  --accent-deep: #174672;
+  --accent-surface: #e7f0f9;
+  --subtle: #f1f5f8;
+  --tool-window: #eff1f5;
+  --tab-rail: #e8ebf1;
+  --accent-line: #a0b9d2;
+  --focus: var(--accent);
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+
+:root[data-content-palette="cypress"] {
+  --canvas: #f3f7f3;
+  --surface: #fcfefc;
+  --ink: #20352d;
+  --muted: #4e6359;
+  --line: #d0ded5;
+  --accent: #2f6554;
+  --accent-deep: #224e40;
+  --accent-surface: #deeee5;
+  --subtle: #edf4ee;
+  --tool-window: #e7f0e9;
+  --tab-rail: #dce8df;
+  --accent-line: #90b3a2;
+}
+
+:root[data-content-palette="walnut"] {
+  --canvas: #f8f4ed;
+  --surface: #fffdf8;
+  --ink: #382e29;
+  --muted: #68594f;
+  --line: #e4d8ca;
+  --accent: #81553e;
+  --accent-deep: #653d2a;
+  --accent-surface: #f2e5d9;
+  --subtle: #f7efe4;
+  --tool-window: #f1eae0;
+  --tab-rail: #ebe0d3;
+  --accent-line: #c5a38a;
+}
+
+:root[data-content-palette="iris"] {
+  --canvas: #f6f3fa;
+  --surface: #fefdff;
+  --ink: #2d293c;
+  --muted: #605773;
+  --line: #ded6e9;
+  --accent: #625185;
+  --accent-deep: #49376b;
+  --accent-surface: #ede6f7;
+  --subtle: #f3eef9;
+  --tool-window: #ede8f4;
+  --tab-rail: #e6dfef;
+  --accent-line: #b3a2cc;
 }
 
 body { background: var(--canvas); color: var(--ink); }
 main { color: var(--ink); }
+main a { color: var(--accent-deep); text-underline-offset: 2px; }
 main h1, main h2, main h3 { color: var(--ink); letter-spacing: -.02em; }
 main :is(section, article), .grouped-event-workbench > section { border-color: var(--line); }
 .muted, .capability-note, .eyebrow { color: var(--muted); }
-
-.shell > aside {
-  padding: 24px 16px 16px;
-  background: var(--sidebar);
-  color: var(--sidebar-text);
-  border-right: 0;
-  scrollbar-width: thin;
-  scrollbar-color: #66718d var(--sidebar);
-}
-.shell > aside .brand { color: #fff; font-size: 20px; }
-.shell > aside .logo { background: #6a58cb; color: #fff; border-radius: 8px; }
-.shell > aside :is(.workspace-label, .nav-group > small, .sidebar-bottom, .sidebar-bottom small, .nav-advanced summary) {
-  color: var(--sidebar-muted);
-}
-.shell > aside .workspace-label { margin: 20px 8px 18px; }
-.shell > aside .nav-group { margin-bottom: 16px; }
-.shell > aside .nav-group > small { padding: 8px; }
-.shell > aside nav button { color: var(--sidebar-text); border-radius: 7px; padding: 8px 10px; font-size: 14px; }
-.shell > aside nav button:hover { color: #fff; background: #353b56; }
-.shell > aside nav button[aria-current="page"] {
-  color: #fff; background: #413775; box-shadow: inset 3px 0 #c4b7ff;
-}
-.shell > aside .sidebar-account { border-color: #535a73; }
-.shell > aside .dot.online { background: #87dab4; }
-.shell > aside .preview-indicator { color: #f6d99d; }
-.shell > aside :focus-visible { outline-color: #d7caff; }
 
 .shell button.primary, .event-create-dialog button.primary {
   background: var(--accent); border-color: var(--accent); color: #fff;
@@ -57,11 +78,42 @@ main :is(section, article), .grouped-event-workbench > section { border-color: v
 dialog :is(button, input, select, textarea, summary):focus-visible {
   outline: 2px solid var(--focus); outline-offset: 3px;
 }
-.shell > aside :is(button, summary):focus-visible { outline-color: #d7caff; }
-.shell main button:not(.primary, .event-choice, .event-status-filters button, .live-stages button, .topology-node) {
-  background: var(--surface); border-color: var(--line);
+.shell main button:not(.primary, .event-choice, .event-status-filters button, .live-stages button, .topology-node, .session-choice, .group-name-button) {
+  background: var(--surface); border-color: var(--line); color: var(--ink);
 }
+.shell main button:not(.primary, .event-choice, .event-status-filters button, .live-stages button, .topology-node, .session-choice, .group-name-button):hover:not(:disabled) {
+  background: var(--subtle); border-color: var(--accent-line);
+}
+.group-name-button:hover {
+  background: var(--accent-surface);
+}
+.shell :is(button, input:not([type=checkbox], [type=radio]), select, textarea),
+dialog :is(button, input:not([type=checkbox], [type=radio]), select, textarea) { border-radius: 7px; }
 .shell main :is(input, select, textarea) { border-color: var(--line); }
+:is(.shell main, .settings-drawer, .event-create-dialog) :is(input:not([type=checkbox], [type=radio]), select, textarea) {
+  background-color: var(--surface);
+  color: var(--ink);
+}
+.settings-drawer, .settings-drawer-footer, .event-create-dialog {
+  background-color: var(--surface);
+  color: var(--ink);
+}
+.project-row.selected {
+  background: var(--accent-surface);
+  border-color: var(--accent);
+  box-shadow: inset 4px 0 var(--accent);
+}
+.project-row.selected strong { color: var(--accent-deep); }
+input.group-switch:checked { background: var(--accent); }
+.shell > main > .workbench-page-heading {
+  flex: none;
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  margin: 0 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+.workbench-page-heading h1 { margin: 0 0 8px; font-size: 1.35rem; line-height: 1.4; }
 
 /* One set of badges serves the lists, detail panels and overview. */
 [data-state=triage] { --event-bg:#fff4d8; --event-ink:#6d460a; --event-color:#a2660c; --event-border:#ebd6a6; }
@@ -71,9 +123,43 @@ dialog :is(button, input, select, textarea, summary):focus-visible {
 [data-state=completed] { --event-bg:#e4f3e9; --event-ink:#205b3f; --event-color:#357351; --event-border:#bedfcc; }
 [data-state=closed] { --event-bg:#edf0f5; --event-ink:#495569; --event-color:#616e85; --event-border:#d8dfea; }
 
-.event-center-page, .content-page { padding: 14px; }
+.shell > main { padding: 14px 18px; }
+.worker-page :is(.session-index, .conversation),
+.content-page > section,
+.content-page .project-settings > section { border-radius: 9px; box-shadow: none; }
+.worker-page .session-list { gap: 0; }
+.worker-page .session-choice {
+  background: var(--surface);
+  border: 1px solid transparent;
+  border-bottom-color: var(--line);
+  text-align: left;
+  box-shadow: none;
+}
+.worker-page .session-choice:hover { background: var(--subtle); }
+.worker-page .session-choice[aria-pressed=true] {
+  color: var(--ink);
+  background: var(--accent-surface);
+  border-color: var(--accent-line);
+}
+.worker-page .conversation-empty {
+  padding: 24px 12px;
+  color: var(--muted);
+}
+.worker-page .conversation-empty h3 { color: var(--ink); }
+.worker-page .conversation-empty p { font-size: .875rem; }
+.content-page > .setup-panel {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.settings-layout .settings-summary {
+  background: var(--subtle);
+  border-color: var(--line);
+  box-shadow: none;
+}
+.settings-layout .setup-step { border-radius: 9px; box-shadow: none; }
 .event-center-page > .grouped-event-workbench { gap: 12px; }
-.grouped-event-workbench > section { border-radius: 12px; box-shadow: none; }
+.grouped-event-workbench > section { border-radius: 9px; box-shadow: none; }
 .grouped-event-workbench .event-index-controls { padding: 10px 12px; }
 .grouped-event-workbench .event-index-controls .section-heading { margin-bottom: 8px; }
 .grouped-event-workbench .event-search-row {
@@ -88,11 +174,12 @@ dialog :is(button, input, select, textarea, summary):focus-visible {
 .grouped-event-workbench .event-list-filters[hidden] { display: none; }
 .grouped-event-workbench .event-list-filters :is(label, select) { min-width: 0; }
 .grouped-event-workbench .event-applied-conditions {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 8px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; margin-top: 8px;
   color: var(--muted); font-size: .8125rem;
 }
-.event-applied-conditions > span { flex: 1 1 120px; min-width: 0; overflow-wrap: anywhere; }
-.event-applied-conditions > button { flex: none; min-height: 36px; }
+.event-applied-conditions > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.event-applied-conditions > button { min-height: 36px; white-space: nowrap; }
+.event-applied-conditions > button[data-concealed=true] { visibility: hidden; }
 .grouped-event-workbench .event-list-empty { padding: 20px 10px; }
 .event-list-empty p { margin: 0 0 10px; line-height: 1.6; }
 .event-list-empty .muted { font-size: .875rem; }
@@ -116,9 +203,9 @@ dialog :is(button, input, select, textarea, summary):focus-visible {
   border: 1px solid transparent; border-bottom-color: var(--line);
   border-radius: 7px; margin: 0; padding: 12px 10px; background: var(--surface);
 }
-.event-center-page .grouped-event-workbench .event-choice:hover { background: #f5f5fb; }
+.event-center-page .grouped-event-workbench .event-choice:hover { background: var(--subtle); }
 .event-center-page .grouped-event-workbench .event-choice[data-state][aria-pressed=true] {
-  color: var(--ink); background: var(--accent-surface); border-color: #a89ad5; box-shadow: none;
+  color: var(--ink); background: var(--accent-surface); border-color: var(--accent-line); box-shadow: none;
 }
 .grouped-event-workbench .event-choice p { color: var(--muted); margin: 4px 0; }
 .grouped-event-workbench .event-choice small { color: var(--muted); font-size: .75rem; }
@@ -131,13 +218,20 @@ dialog :is(button, input, select, textarea, summary):focus-visible {
 .event-center-page .grouped-event-workbench .event-detail > .section-heading h2 { min-width: 0; overflow-wrap: anywhere; }
 .event-state-badge.badge { font-size: .75rem; border-radius: 5px; }
 .event-center-page .grouped-event-workbench .event-detail { padding: clamp(14px, 2.2vw, 30px); }
-.event-center-page .grouped-event-workbench .event-detail > .section-heading h2 { font-size: clamp(1.2rem, 2vw, 1.65rem); }
-.event-center-page .grouped-event-workbench .event-detail > section {
+.event-center-page .grouped-event-workbench .event-detail > .section-heading h2 { font-size: 1.25rem; }
+.event-center-page .grouped-event-workbench .event-detail > section,
+.event-center-page .grouped-event-workbench .event-detail-panel > section {
   border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 16px 0; box-shadow: none;
 }
-.event-center-page .grouped-event-workbench .event-detail > .event-action-strip {
-  background: #f6f5fb; border: 1px solid #e0dcee; border-radius: 8px; padding: 13px 16px;
+.event-center-page .grouped-event-workbench .event-detail .event-detail-panel > .event-action-strip {
+  background: var(--subtle); border: 1px solid var(--line); border-radius: 8px; padding: 13px 16px;
 }
+.event-progress-summary { overflow-wrap: anywhere; }
+.event-progress-summary h3 { margin: 6px 0 2px; font-size: 1.125rem; }
+.event-progress-summary p { max-inline-size: 72ch; }
+.event-progress-actions { margin-top: 12px; gap: 8px; }
+.event-progress-actions button { min-height: 44px; }
+[data-event-supplement] { margin-top: 12px; }
 .grouped-event-workbench .engine-recovery { margin-top: 10px; }
 .event-action-strip .event-controls { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; }
 .event-controls h3 { font-size: .875rem; margin: 0; }
@@ -147,12 +241,11 @@ dialog :is(button, input, select, textarea, summary):focus-visible {
 .event-controls .control-hints { font-size: .8125rem; color: var(--muted); }
 .event-handoff-content { flex: 1 0 100%; min-width: 0; }
 .event-handoff-content textarea { width: 100%; }
-.grouped-event-workbench .event-list-back { display: inline-flex; min-height: 44px; margin: 0 0 10px; align-items: center; }
 .settings-event-return { margin-bottom: 10px; }
 
 .topology-panel { border-radius: 12px; }
 .topology-panel .live-overview {
-  margin: 12px 0 22px; padding: 16px; background: #f7f7fc; border: 1px solid var(--line); border-radius: 10px;
+  margin: 12px 0 22px; padding: 16px; background: var(--subtle); border: 1px solid var(--line); border-radius: 10px;
 }
 .topology-panel .live-overview .section-heading { align-items: baseline; gap: 10px; }
 .topology-panel .live-overview .section-heading p { margin: 5px 0; }
@@ -168,14 +261,15 @@ dialog :is(button, input, select, textarea, summary):focus-visible {
 .topology-panel .topology-node[aria-pressed="true"] { background: var(--accent-surface); border-color: var(--accent); box-shadow: none; }
 
 @media (max-width: 600px) {
-  .shell > aside { padding: 12px; }
-  .event-center-page, .content-page { padding: 8px; }
+  .shell > main { padding: 10px; }
   .grouped-event-workbench .event-index-controls { padding: 12px; }
   .event-center-page .event-status-filters button,
   .event-center-page .event-applied-conditions button { min-height: 44px; }
 }
 @media (forced-colors: active) {
   .shell button:focus-visible, dialog :focus-visible { outline-color: Highlight; }
+  .shell > aside nav button[aria-current=page],
+  .worker-page .session-choice[aria-pressed=true],
   .event-center-page .grouped-event-workbench .event-choice[aria-pressed=true],
   .grouped-event-workbench .event-status-filters button[aria-pressed=true] { border: 2px solid Highlight; }
 }

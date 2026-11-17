@@ -230,7 +230,7 @@ it("任务执行结果未知时不提供审批、发送和保存草稿动作", a
   await user.click(screen.getByText("撰写新的回复草稿"));
   await user.selectOptions(screen.getByLabelText("回复来源事件"), "1");
   await user.type(screen.getByLabelText("回复草稿"), "已经编辑的草稿");
-  await waitFor(() => expect(screen.getAllByRole("heading", { name: "尚未回复" })).toHaveLength(2));
+  await waitFor(() => expect(screen.getAllByRole("heading", { name: /^(待审批|已批准，待发送)$/ })).toHaveLength(2));
   expect(screen.queryByRole("button", { name: "批准回复草稿" })).toBeNull();
   expect(screen.queryByRole("button", { name: "发送已批准回复" })).toBeNull();
   expect((screen.getByRole("button", { name: "保存草稿，待审批发送" }) as HTMLButtonElement).disabled).toBe(true);
@@ -300,5 +300,5 @@ it("已回复直接展示结果，取消后的草稿隐藏发送动作", async (
   render(<DeliveriesPanel taskId="2" taskStatus="cancelled" events={[]} approvals={[]} canWrite onChange={changed} />);
   await screen.findByRole("heading", {name: "已回复"});
   expect(screen.queryByRole("button", {name: "发送已批准回复"})).toBeNull();
-  expect(screen.getByRole("heading", {name: "历史回复草稿"})).toBeTruthy();
+  expect(screen.getByText(/历史回复草稿/).closest("details")?.open).toBe(false);
 });

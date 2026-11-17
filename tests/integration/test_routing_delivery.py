@@ -715,8 +715,8 @@ def test_redmine_stop_retains_inflight_http_worker_until_it_finishes(sessions, m
     asyncio.run(scenario())
 
 
-def quoted_message(ident, target, content="请继续检查边界", *, conversation="chat", profile="test"):
-    return normalize_event({"type": "user_im_message_receive_at", "sender_open_dingtalk_id": "trusted",
+def quoted_message(ident, target, content="请继续检查边界", *, conversation="chat", profile="test", sender="trusted"):
+    return normalize_event({"type": "user_im_message_receive_at", "sender_open_dingtalk_id": sender,
                             "conversation_id": conversation, "message_id": ident, "content": content,
                             "event_time": "2026-11-13T01:00:00Z",
                             "quoted_message": {"message_id": target, "conversation_id": conversation}},
@@ -730,6 +730,27 @@ def test_ticket_and_plain_message_reply_alias_chain(sessions, content):
     third = receive(sessions, quoted_message("followup-again", "followup"))
     assert first["task_id"] == second["task_id"] == third["task_id"]
     assert receive(sessions, quoted_message("followup-again", "followup"))["duplicate"]
+    with sessions() as session:
+        assert len(session.scalars(select(Task)).all()) == 1
+
+
+def test_quote_of_own_account_context_only_routes_within_original_chat_and_account(sessions):
+    original = receive(sessions, message("original", "请检查账号同步"))
+    own = receive(sessions, quoted_message("own", "original", "哪个字段对不上？", sender="self"))
+    assert own["task_id"] == original["task_id"]
+    assert own["data"]["routing_status"] == "self_context"
+
+    with sessions.begin() as session:
+        session.get(Project, 1).dingtalk_chat_ids = ["chat", "other-chat"]
+    for event in (quoted_message("cross-chat", "own", conversation="other-chat"),
+                  quoted_message("cross-account", "own", profile="other-account")):
+        other = receive(sessions, event)
+        assert other["task_id"] is None
+        assert other["data"]["routing_reason"] == "reply_target_missing_or_ambiguous"
+
+    reply = receive(sessions, quoted_message("answer", "own", "请核对手动创建的账号字段"))
+    assert reply["task_id"] == original["task_id"]
+    assert reply["data"]["routing_status"] == "routed"
     with sessions() as session:
         assert len(session.scalars(select(Task)).all()) == 1
 
