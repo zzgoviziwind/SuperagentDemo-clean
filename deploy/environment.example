@@ -15,10 +15,12 @@ SUPERAGENT_CODEX_EXECUTABLE=
 # SUPERAGENT_ALLOWED_ORIGINS=https://your-approved-host
 # Optional Feishu private decision reminders (disabled unless enabled explicitly).
 # SUPERAGENT_FEISHU_ENABLED=1
+# SUPERAGENT_FEISHU_MODE=card
 # SUPERAGENT_FEISHU_APP_ID=
 # SUPERAGENT_FEISHU_APP_SECRET=
 # SUPERAGENT_FEISHU_OPEN_ID=
-# SUPERAGENT_FEISHU_OWNER_ID=local-admin
+# SUPERAGENT_FEISHU_OWNER_ID=admin
+# Only used by link mode.
 # SUPERAGENT_FEISHU_WORKBENCH_URL=https://your-approved-host
 # HLZJ_REDMINE_API_KEY=<local secret>
 # PostgreSQL password and URL must use the same value. URL-encode reserved characters.

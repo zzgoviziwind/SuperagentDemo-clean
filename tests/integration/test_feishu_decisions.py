@@ -1,6 +1,9 @@
 import asyncio
 import json
 from collections import defaultdict
+from urllib.error import HTTPError
+
+import pytest
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -67,3 +70,22 @@ def test_preview_cannot_enable_real_feishu(monkeypatch):
     monkeypatch.setenv('SUPERAGENT_SERVICE_MODE', 'preview')
     monkeypatch.setattr(feishu.log, 'error', lambda *_: (_ for _ in ()).throw(AssertionError()))
     assert feishu.Config.load() is None
+
+
+@pytest.mark.parametrize('code', [21001, 20002])
+def test_policy_denial_does_not_try_another_token_endpoint(monkeypatch, code):
+    requests = []
+
+    def post(url, payload):
+        requests.append((url, payload))
+        error = HTTPError(url, 400, 'test', None, None)
+        error.feishu_code = code
+        error.feishu_log_id = 'test-log-id'
+        raise error
+
+    monkeypatch.setattr(feishu, '_post', post)
+    config = feishu.Config('cli_test', 'test-secret', 'ou_test', 'owner', '', 'card')
+    error = feishu.FeishuAccessPolicyDenied if code == 21001 else HTTPError
+    with pytest.raises(error):
+        feishu._token(config)
+    assert len(requests) == 1

@@ -22,6 +22,7 @@ from superagent.api.operations import router as operations_router, operations
 from superagent.api.conversation_providers import router as conversation_providers_router
 from superagent.api.local_agents import router as local_agents_router
 from superagent.core import feishu_decisions
+from superagent.core.feishu_cards import CardApprovals
 
 @asynccontextmanager
 async def lifespan(app):
@@ -43,10 +44,18 @@ async def lifespan(app):
     semantic_routing_service.sessions = Session
     await semantic_routing_service.start()
     feishu_config = feishu_decisions.Config.load()
-    reminders = asyncio.create_task(feishu_decisions.run(Session, scheduler, feishu_config)) if feishu_config else None
+    cards = None
+    reminders = None
+    if feishu_config and feishu_config.mode == 'card':
+        cards = CardApprovals(Session, scheduler, feishu_config, _decide_worker_approval)
+        cards.start()
+    elif feishu_config:
+        reminders = asyncio.create_task(feishu_decisions.run(Session, scheduler, feishu_config))
     try:
         yield
     finally:
+        if cards:
+            await cards.close()
         if reminders:
             reminders.cancel()
             await asyncio.gather(reminders, return_exceptions=True)
@@ -446,23 +455,30 @@ def approvals():
     with Session() as s: return [dump(x) for x in s.scalars(select(Approval)).all()]
 @app.post('/api/v1/approvals/{ident}/decision')
 async def decide(ident: int, body: DecisionIn, request: Request):
-    if body.decision not in ('approve','reject'): raise HTTPException(422,'无效决定')
+    return await _decide_worker_approval(ident, body.decision, body.action_hash, request.state.principal)
+
+
+async def _decide_worker_approval(ident, decision, action_hash, principal):
+    if decision not in ('approve', 'reject'): raise HTTPException(422, '无效决定')
     with Session() as s:
         a=get(s,Approval,ident); task_id=a.task_id
     async with scheduler.lock(task_id):
         with Session.begin() as s:
             a=get(s,Approval,ident); t=get(s,Task,a.task_id)
-            gov.require_permission(request.state.principal, 'approval.decide', gov.task_owner(task_id, s))
+            owner = gov.task_owner(task_id, s)
+            gov.require_permission(principal, 'approval.decide', owner)
+            if principal.authentication == 'feishu' and (owner != principal.user_id or t.outcome_unknown):
+                raise HTTPException(409, '任务负责人已变化或执行状态需核对')
             if a.action.get('method') not in ('item/fileChange/requestApproval','item/commandExecution/requestApproval'):
                 raise HTTPException(409,'请从回复草稿处理这项外部发送审批')
-            if a.status!='pending' or a.action_hash!=body.action_hash or a.revision!=t.revision or a.control_version!=t.control_version or t.status!='waiting_approval': raise HTTPException(409,'审批已过期或动作不匹配')
-            if body.decision=='approve':
+            if a.status!='pending' or a.action_hash!=action_hash or a.revision!=t.revision or a.control_version!=t.control_version or t.status!='waiting_approval': raise HTTPException(409,'审批已过期或动作不匹配')
+            if decision=='approve':
                 if t.kind in ('analysis','reply'): raise HTTPException(409,'只读分析或回复不允许批准扩大执行权限，请拒绝该请求')
                 from pathlib import Path
                 from superagent.runtime.workspace import validate_allowed_paths
                 p=get(s,Project,t.project_id)
                 try:
-                    if not p.enabled: raise ValueError('disabled')
+                    if not p.enabled or p.archived: raise ValueError('disabled')
                     validate_allowed_paths(t.workspace_path,[],p.allowed_paths)
                     if a.action['method']=='item/commandExecution/requestApproval':
                         if '.' not in p.allowed_paths: raise ValueError('command scope')
@@ -479,10 +495,10 @@ async def decide(ident: int, body: DecisionIn, request: Request):
             if not client: raise HTTPException(409,'执行会话不可用，请人工对账')
             a.status='dispatching'; request_id=a.action['request_id']
             approval_revision=a.revision; approval_control=a.control_version
-            record(s,t.id,'approval_decision',body.decision,{'approval_id':ident})
-            gov.audit_action(s,request.state.principal,'approval.decide',ident,{'approval_id':ident,'decision':body.decision,'revision':t.revision})
+            record(s,t.id,'approval_decision',decision,{'approval_id':ident})
+            gov.audit_action(s,principal,'approval.decide',ident,{'approval_id':ident,'decision':decision,'revision':t.revision,'source':'feishu' if principal.authentication == 'feishu' else 'web'})
         try:
-            await client.respond_approval(request_id,body.decision)
+            await client.respond_approval(request_id,decision)
         except Exception:
             with Session.begin() as s:
                 a=s.get(Approval,ident); t=s.get(Task,task_id); a.status='unknown'
@@ -497,9 +513,9 @@ async def decide(ident: int, body: DecisionIn, request: Request):
             stale=t.revision!=approval_revision or t.control_version!=approval_control or t.status!='waiting_approval' or a.status!='dispatching'
             if stale:
                 a.status='expired_after_dispatch'
-                record(s,task_id,'stale_approval_dispatched',body.decision,{'approval_id':ident,'revision':approval_revision})
+                record(s,task_id,'stale_approval_dispatched',decision,{'approval_id':ident,'revision':approval_revision})
             else:
-                a.status='approved' if body.decision=='approve' else 'rejected'
+                a.status='approved' if decision=='approve' else 'rejected'
                 s.flush()
                 remaining=any(x.action.get('method') in ('item/fileChange/requestApproval','item/commandExecution/requestApproval') for x in s.scalars(select(Approval).where(Approval.task_id==task_id, Approval.revision==t.revision, Approval.control_version==t.control_version, Approval.status=='pending')))
                 advance(s,t,{'status':'waiting_approval' if remaining else 'running'})
