@@ -169,7 +169,6 @@ export function GroupedEvents({
   const filtersId=useId();
   const [loading,setLoading]=useState(true);
   const isEmptyResult=!items.length && !loading && !listError;
-  const showReset=hasConditions && (items.length>0 || !!listError);
   const [opening,setOpening]=useState(false);
   const [view,setView]=useState<'list'|'detail'>('list');
   const viewRef=useRef<'list'|'detail'>('list');
@@ -683,7 +682,7 @@ export function GroupedEvents({
           </div>
           <div className="event-applied-conditions" aria-label={hasConditions ? '当前筛选条件' : undefined}>
             <span title={conditionSummary || undefined}>{conditionSummary || '未应用筛选'}</span>
-            <button type="button" data-concealed={!showReset} disabled={busy || !showReset} onClick={resetConditions}>重置条件</button>
+            <button type="button" data-concealed={!hasConditions} disabled={busy || !hasConditions} onClick={resetConditions}>重置条件</button>
           </div>
           <div id={filtersId} className="event-list-filters" hidden={!filtersOpen}>
             <label>来源<select disabled={busy} value={source} onChange={e=>changeFilter(setSource,e.target.value)}><option value="">全部来源</option><option value="dingtalk">钉钉</option><option value="redmine">Redmine</option><option value="web">工作台</option><option value="field">现场</option></select></label>
@@ -747,7 +746,6 @@ export function GroupedEvents({
           {isEmptyResult && <div className="event-list-empty">
             <p role="status">{hasConditions ? '暂无匹配事件。' : '暂无事件。'}</p>
             <p className="muted">{hasConditions ? '试试其他关键词，或重置搜索和筛选条件。' : '新收到的消息和提出的事件会出现在这里，可刷新查看。'}</p>
-            {hasConditions && <button type="button" disabled={busy} onClick={resetConditions}>查看全部事件</button>}
           </div>}
           {more&&<button disabled={busy||loading} onClick={()=>void load(loadedEnd.current)}>加载更多事件</button>}
         </div>

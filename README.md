@@ -4,13 +4,19 @@
 
 2026-11-14 产品修订：按参考文章展示分支架构，默认配置收敛为本机 Agent、消息响应、交付方式三步。可直接选择本机已登录 Codex，查看每条事件真实 Router 判断和 Worker 会话，继续发言纠正。功能边界见 [架构与产品工作台](docs/架构与产品工作台.md)，最新检查见 [产品修订验收](docs/产品修订验收-20261114.md)。
 
-独立演示预览执行 `.\deploy\start-preview.ps1`，打开 [新版工作台](http://127.0.0.1:8876)。后台进程不依赖当前终端，重复启动会检查并复用已有实例；停止用 `.\deploy\stop-preview.ps1`。演示数据、日志和进程记录位于 `data/preview-service`，真实渠道、自动执行和模型开关默认关闭。
+历史 Python 演示预览可通过 `.\deploy\start-preview.ps1` 启动，通过 `.\deploy\stop-preview.ps1` 停止。演示数据位于 `data/preview-service`。
 
 当前交付面向 Windows 本机、单服务进程和 SQLite。真实 Codex 修复演示、钉钉消息驱动的业务代码只读分析，以及 Redmine 工单和图片接收已经通过验收。自动化测试另使用受控假渠道验证故障与权限边界。当前验收范围及剩余事项以 [验收报告](docs/验收报告.md) 为准，不将容器配置等同于 Linux/PostgreSQL 运行验收。
 
 ## 启动工作台
 
-需要 Python 3.12、Node.js 22、Git。Windows PowerShell 在仓库根目录执行：
+日常开发和 Windows 交付均以 `main` 上的 TypeScript 版本为准。已安装实例通过安装目录下的 `SuperAgent.cmd Status` 查询实际地址。新安装、启动及数据目录见 [Windows 工作台说明](deploy/windows-ts/README.md)。
+
+Python 3.12 服务保留作历史版本回切，操作见 [Python 回切说明](deploy/windows-ts/PYTHON-ROLLBACK.md)。
+
+### 历史 Python 服务启动
+
+需要 Python 3.12、Node.js 22、Git。仅在需要启动历史版本时，在仓库根目录执行：
 
 ```powershell
 py -3.12 -m venv .venv
@@ -65,19 +71,23 @@ flowchart LR
 
 ## 开发与验证
 
+TypeScript 后端使用 Node.js 24，工作台使用同一版本。Windows PowerShell 在仓库根目录执行：
+
 ```powershell
-.venv\Scripts\python.exe -m pytest tests -q
+npm ci
+npm test
+npm run build
+npm --prefix apps/web ci
 npm --prefix apps/web test
 npm --prefix apps/web run build
 ```
 
 测试全部使用临时项目、数据库和假渠道。不要将测试通过解释为真实钉钉、Redmine、Codex 账号或 PostgreSQL 已验收。Windows 测试需要允许本机回环通信及创建测试子进程。
 
-- `superagent/core`：持久任务、调度、预算、权限、路由和交付账本。
-- `superagent/runtime`：Codex 协议、工作区和执行证据。
-- `superagent/connectors`：钉钉、Redmine、附件与历史恢复。
+- `apps/server`：TypeScript 控制服务、任务、权限、路由与交付。
+- `packages`：SQLite 存储、Codex 运行时、渠道和 Windows 进程管理。
 - `apps/web`：中文工作台。
-- `deploy`：Windows 启停、Compose 配置、备份与恢复。
+- `deploy/windows-ts`：Windows 安装、启停与回切。
 - `tests`：模块、跨模块、HTTP 黑盒与审查回归。
 
 首版只支持单个控制服务进程，不使用多副本领取任务。默认不合并代码、不推送、不部署业务系统、不修改真实业务数据；修复产物在任务工作区中，交付动作由负责人明确决定。
@@ -94,4 +104,4 @@ npm --prefix apps/web run build
 - [真实渠道验收记录](docs/真实渠道验收记录.md)
 - [真实 Codex 验收记录](docs/真实Codex验收记录.md)
 
-六周工作包已拆给七个并行会话，由主会话集中审查、整合和提交。仓库为本地 Git 仓库；远端地址尚未配置。
+历史工作包的分工和验收记录见上方文档。

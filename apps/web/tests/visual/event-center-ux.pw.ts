@@ -96,10 +96,10 @@ test('event conditions stay visible when collapsed and empty results recover wit
   await capture(page, info, '08-collapsed-conditions');
   await page.getByRole('searchbox').fill('event-center-no-match-20261116');
   await expect(page.getByText('暂无匹配事件。', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '重置条件', exact: true })).toBeHidden();
+  await expect(reset).toBeVisible();
   expect((await statuses.boundingBox())!.y).toBeCloseTo(initialStatusY, 0);
   await capture(page, info, '09-empty-recovery');
-  await page.getByRole('button', { name: '查看全部事件', exact: true }).click();
+  await reset.click();
   await expect(page.getByRole('searchbox')).toBeFocused();
   await expect(page.getByRole('searchbox')).toHaveValue('');
   await expect(page.getByLabel('当前筛选条件')).toHaveCount(0);
@@ -111,6 +111,20 @@ test('event conditions stay visible when collapsed and empty results recover wit
     }
   }
   await capture(page, info, '10-restored-list');
+  const emptyStatuses = await statuses.getByRole('button').filter({ hasText: /\s0$/ }).all();
+  expect(emptyStatuses.length).toBeGreaterThanOrEqual(2);
+  for (const emptyStatus of emptyStatuses.slice(0, 2)) {
+    await emptyStatus.click();
+    await expect(emptyStatus).toHaveAttribute('aria-pressed', 'true');
+    await expect(reset).toBeVisible();
+    await expect(page.getByText('暂无匹配事件。', { exact: true })).toBeVisible();
+    await expect(reset).toBeVisible();
+  }
+  await capture(page, info, '17-empty-status-switch');
+  await reset.press('Enter');
+  await expect(reset).toBeHidden();
+  await expect(page.getByRole('searchbox')).toBeFocused();
+  await expect(page.locator('.event-choice')).toHaveCount(2);
   expect(writes).toEqual([]);
   expect(errors).toEqual([]);
 });

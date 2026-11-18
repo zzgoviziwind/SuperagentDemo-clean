@@ -28,7 +28,7 @@ it('resets hidden source, project, status and search conditions without losing t
   expect(conditions.textContent).toContain('工作项目');
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: '没有匹配的关键词' } });
   await screen.findByText('暂无匹配事件。');
-  fireEvent.click(screen.getByRole('button', { name: '查看全部事件' }));
+  fireEvent.click(screen.getByRole('button', { name: '重置条件' }));
   await waitFor(() => {
     const requestUrl = fetch.mock.calls.filter(([url]) => url.includes('/index')).at(-1)![0];
     const params = new URL(requestUrl, 'http://localhost').searchParams;
