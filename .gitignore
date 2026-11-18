@@ -30,4 +30,5 @@ tests/runtime/schema_normal/
 
 # 本机运行日志与 pytest 证据目录
 *.log
+.rewrite-oracle/
 .pytest-*/
