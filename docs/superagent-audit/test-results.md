@@ -2,7 +2,7 @@
 
 ## 执行范围
 
-- 2026-11-17，北京时间。Windows、Python 3.12.10、pytest 9.2.0、Node 22.20.0、Git 2.45.1.windows.1。基线 HEAD `fc5cf2d0e497319b81fb00397ecca39a1cd516ec`，包含未提交改动。实际测试的 226 个文件见 [SHA-256 清单](evidence/source-sha256.txt)；后端仅对被忽略的 `.test-tmp/superagent-audit-20261117` 副本执行，前端在原路径使用既有依赖，构建产物写入隔离目录。
+- 2026-11-17，北京时间。Windows、Python 3.12.10、pytest 9.2.0、Node 22.20.0、Git 2.45.1.windows.1。基线 HEAD `fc5cf2d0e497319b81fb00397ecca39a1cd516ec`，包含未提交改动。实际测试的 226 个文件见 SHA-256 清单（本机证据：`evidence/source-sha256.txt`）；后端仅对被忽略的 `.test-tmp/superagent-audit-20261117` 副本执行，前端在原路径使用既有依赖，构建产物写入隔离目录。
 - 回查时，快照与原工作树有四个文件差异：`superagent/core/feishu_decisions.py`、`tests/integration/test_feishu_decisions.py`、`deploy/verify_feishu_card.py`、`deploy/verify-feishu-card.ps1`；本审计没有修改它们。快照后的飞书改动不计入当次验证。按清单可重跑同版本；重跑前先校验哈希。
 - 所用真实资源仅临时 SQLite、临时文件、样例 Git 仓库和模拟适配器；没有访问工作台 8765、项目数据库、真实模型、真实账号、真实消息或任何 Git 远端。无业务源码改动、提交或部署。
 - TCP 回环黑盒启动遇到 Winsock 10013，Windows 默认 asyncio 事件循环初始化也未在本轮等待窗口内完成。Git for Windows 在本地克隆时调用的 MSYS 子进程遇到 `NtCreateDirectoryObject ... 0xC0000022`。没有申请更高权限。分别改用 SQLite 直接调用及明确拒绝 I/O 的单线程定时测试循环，验证可执行的逻辑；它们不能替代协议、进程树、TCP、真实 Git 或模型验收。
@@ -11,15 +11,15 @@
 
 | 批次 | 执行命令简写 | 实际结果 | 耗时（墙钟） | 原始证据 |
 | --- | --- | --- | ---: | --- |
-| B0 | 标准 pytest 全量与独立收集 | 独立收集 562 项；全量在本机环境下未完成，主动停止审计自己启动的进程；无全量通过/失败数 | 收集 3.66 s（pytest 报告）；全量未完成 | [收集结果](evidence/backend-collected.txt)；H0 复现相同 TCP 权限问题 |
-| B1 | 标准 pytest，数据层、规则、工作区和取证抽样 | 57 通过、1 失败、1 跳过、2 未选；另 9 个子断言通过。工作区测试失败由隔离 Git 克隆限制复现；硬链接不可用而跳过 1 条 | 23.55 s | [B1](evidence/backend-no-socket.txt)、[本地 clone 诊断](evidence/git-clone-diagnostic.txt) |
-| B2 | 同进程定时测试循环跑语义分流、路由/交付、审批、巡检 | 136 通过、1 失败、15 未选。通过含 H1/H6/H8 的第一版 3 个探针；唯败是 DWS 历史回放测试需要启动真正的假 DWS 子进程，替代循环不支持其 I/O，监听状态未至 running。不给 DWS 进程集成计分 | 62.89 s | [B2](evidence/backend-socketless.txt)、[定时测试运行器](evidence/socketless_runner.py) |
-| B3 | 标准 pytest，角色/预算/审计链/SQLite 快照 | 43 通过、32 未选；包括角色边界、并发预算账、IO 外的事件追踪、SQLite 快照往返和异常 | 12.50 s | [B3](evidence/backend-lifecycle-governance.txt) |
-| B4 | 5 个同进程控制探针 | 5 通过；三个是复验，另两个分别验证静默超时和只向正确 Worker 追加。探针证实的缺口本身不算能力通过 | 7.66 s | [B4](evidence/inprocess-probes.txt)、[探针源码](evidence/inprocess_probes.py) |
-| H0 | 四个真实子进程黑盒探针 | 4 个在 fixture 启动检查报 10013，测试正文未运行；无功能失败判定 | 50.28 s | [H0](evidence/probes-pytest.txt)、[黑盒探针源码](evidence/audit_probes.py) |
-| F1 | `npm test` | 108 通过、2 失败（21 文件，1 文件失败） | 43.84 s | [F1](evidence/frontend-vitest.txt) |
-| F2 | `npm run build -- --outDir <隔离路径>` | 类型检查、Vite 生产构建成功，67 个模块，产物写入隔离目录 | 23.88 s | [F2](evidence/frontend-build.txt) |
-| F3 | `npm test -- src/App.test.tsx -t '飞书链接打开当前审批\|事件中心使用满高'`（正则分隔符为普通竖线） | 审批链接通过、布局断言再次失败、20 未选 | 11.89 s | [F3](evidence/frontend-targeted.txt) |
+| B0 | 标准 pytest 全量与独立收集 | 独立收集 562 项；全量在本机环境下未完成，主动停止审计自己启动的进程；无全量通过/失败数 | 收集 3.66 s（pytest 报告）；全量未完成 | 收集结果（本机证据：`evidence/backend-collected.txt`）；H0 复现相同 TCP 权限问题 |
+| B1 | 标准 pytest，数据层、规则、工作区和取证抽样 | 57 通过、1 失败、1 跳过、2 未选；另 9 个子断言通过。工作区测试失败由隔离 Git 克隆限制复现；硬链接不可用而跳过 1 条 | 23.55 s | B1（本机证据：`evidence/backend-no-socket.txt`）、本地 clone 诊断（本机证据：`evidence/git-clone-diagnostic.txt`） |
+| B2 | 同进程定时测试循环跑语义分流、路由/交付、审批、巡检 | 136 通过、1 失败、15 未选。通过含 H1/H6/H8 的第一版 3 个探针；唯败是 DWS 历史回放测试需要启动真正的假 DWS 子进程，替代循环不支持其 I/O，监听状态未至 running。不给 DWS 进程集成计分 | 62.89 s | B2（本机证据：`evidence/backend-socketless.txt`）、[定时测试运行器](evidence/socketless_runner.py) |
+| B3 | 标准 pytest，角色/预算/审计链/SQLite 快照 | 43 通过、32 未选；包括角色边界、并发预算账、IO 外的事件追踪、SQLite 快照往返和异常 | 12.50 s | B3（本机证据：`evidence/backend-lifecycle-governance.txt`） |
+| B4 | 5 个同进程控制探针 | 5 通过；三个是复验，另两个分别验证静默超时和只向正确 Worker 追加。探针证实的缺口本身不算能力通过 | 7.66 s | B4（本机证据：`evidence/inprocess-probes.txt`）、[探针源码](evidence/inprocess_probes.py) |
+| H0 | 四个真实子进程黑盒探针 | 4 个在 fixture 启动检查报 10013，测试正文未运行；无功能失败判定 | 50.28 s | H0（本机证据：`evidence/probes-pytest.txt`）、[黑盒探针源码](evidence/audit_probes.py) |
+| F1 | `npm test` | 108 通过、2 失败（21 文件，1 文件失败） | 43.84 s | F1（本机证据：`evidence/frontend-vitest.txt`） |
+| F2 | `npm run build -- --outDir <隔离路径>` | 类型检查、Vite 生产构建成功，67 个模块，产物写入隔离目录 | 23.88 s | F2（本机证据：`evidence/frontend-build.txt`） |
+| F3 | `npm test -- src/App.test.tsx -t '飞书链接打开当前审批\|事件中心使用满高'`（正则分隔符为普通竖线） | 审批链接通过、布局断言再次失败、20 未选 | 11.89 s | F3（本机证据：`evidence/frontend-targeted.txt`） |
 
 B1–B4 合计 **238 个不同的通过项**，其中 233 个仓库测试，5 个新增审计探针；另有 2 个环境/运行器相关失败、1 跳过。三项重复探针没有重复计数。挑选用例与测试替身有偏，不能将通过数当作全量通过率或生产成功率。前端全量失败判断以 F1 为准，F3 用来区分可重现性。
 
@@ -47,7 +47,7 @@ F1/F3 的判断依据：
 
 ## 复跑命令（PowerShell）
 
-使用已准备的快照目录。若需重建，在新目录按 [清单](evidence/source-sha256.txt) 逐条复制并核对 SHA-256，不要覆盖其他人的目录。以下只在隔离目录执行；每次用全新的 `--basetemp`。使用已有 venv 与 node_modules。遇到同一权限错误跳过 TCP/Git 专项，不连接现有工作台。
+使用已准备的快照目录。若需重建，在新目录按 清单（本机证据：`evidence/source-sha256.txt`） 逐条复制并核对 SHA-256，不要覆盖其他人的目录。以下只在隔离目录执行；每次用全新的 `--basetemp`。使用已有 venv 与 node_modules。遇到同一权限错误跳过 TCP/Git 专项，不连接现有工作台。
 
 ```powershell
 $repo = (Get-Location).Path

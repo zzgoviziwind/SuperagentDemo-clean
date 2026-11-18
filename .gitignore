@@ -27,3 +27,7 @@ tests/runtime/schema_tmp/
 tests/runtime/schema_normal/
 *.db
 *.sqlite*
+
+# 本机运行日志与 pytest 证据目录
+*.log
+.pytest-*/

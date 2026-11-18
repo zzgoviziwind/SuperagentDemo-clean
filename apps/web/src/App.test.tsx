@@ -108,25 +108,25 @@ describe("工作台关键交互", () => {
     expect(screen.queryByRole("button", { name: "批准" })).toBeNull();
   });
 
-  it("事件中心使用满高工作区，账号和分派复核入口移入左侧", async () => {
+  it("事件中心使用满高工作区，账号位于顶栏且分派复核可从左侧进入", async () => {
     const user = userEvent.setup();
     setup(() => new Response("{}"));
     const account = await screen.findByText("测试用户");
-    expect(account.closest("aside")).toBeTruthy();
+    expect(account.closest("header.ide-toolbar")).toBeTruthy();
     expect(account.closest("details")?.open).toBe(false);
     expect(document.querySelector("main.event-center-page")).toBeTruthy();
-    expect(document.querySelector("main>header")).toBeNull();
+    expect(document.querySelector("main > header.workbench-page-heading")?.textContent).toContain("事件中心");
     expect(document.querySelector("main>footer")).toBeNull();
     expect(screen.getAllByRole("button", { name: "＋ 提出事件" })).toHaveLength(1);
     await user.click(await screen.findByRole("button", { name: /修复导出/ }));
     expect(screen.queryByText("处理设置")).toBeNull();
     expect(screen.queryByText(/导出事件完整快照/)).toBeNull();
     expect(screen.getByText("事件处理")).toBeTruthy();
-    await user.click(screen.getByText("更多工具"));
+    await user.click(screen.getByLabelText("更多工具"));
     await user.click(screen.getByRole("button", { name: "分派复核" }));
     expect(await screen.findByRole("heading", { name: "分派管理与人工复核" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "系统如何工作" })).toBeNull();
-    expect(document.querySelector("main>header")).toBeNull();
+    expect(document.querySelector("main > header.workbench-page-heading")?.textContent).toContain("分派复核");
     await user.click(screen.getByRole("button", {name:"Worker 工作台"}));
     expect(document.querySelector(".relation-nav")).toBeNull();
     expect(document.querySelector("main.worker-page")).toBeTruthy();
