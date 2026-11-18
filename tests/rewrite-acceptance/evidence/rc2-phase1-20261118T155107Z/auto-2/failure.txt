@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\probe.py", line 21, in <module>
+    raise RuntimeError("Use the stage0.py entry point")
+RuntimeError: Use the stage0.py entry point
+Traceback (most recent call last):
+  File "C:\Users\examp\AppData\Local\Temp\p1rc2-r2o_0gri\phase1.py", line 424, in <module>
+    exercise(args,root,report)
+  File "C:\Users\examp\AppData\Local\Temp\p1rc2-r2o_0gri\phase1.py", line 239, in exercise
+    stage0.worker("legacy", Path(tmp), work)
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\stage0.py", line 67, in worker
+    subprocess.run([sys.executable, "-IB", "-X", "utf8", str(HERE / "probe.py"), mode, str(source)],
+  File "C:\Users\examp\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['E:\\Workspace\\Workspace\\Project\\SuperAgentDemo\\.venv\\Scripts\\python.exe', '-IB', '-X', 'utf8', 'C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-acceptance\\probe.py', 'legacy', 'C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-acceptance\\stage0-source-yhtpmu4v']' returned non-zero exit status 1.

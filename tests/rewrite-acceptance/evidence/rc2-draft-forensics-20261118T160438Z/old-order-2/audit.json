@@ -1,0 +1,54 @@
+{
+  "drafts": [
+    {
+      "id": 2,
+      "task_id": 2,
+      "event_id": 4,
+      "approval_id": 3,
+      "content": "离线样例结果",
+      "created_at": "2026-11-18T16:05:35.992000+00:00"
+    }
+  ],
+  "events": [
+    {
+      "id": 8,
+      "event_type": "reply_decision_input",
+      "source": "runtime",
+      "data": "{\"attempt_id\":\"ad1b25b8-741c-4607-b2ef-3d6862515eaa\",\"revision\":1,\"control_version\":1,\"source_event_id\":4,\"guidance_hash\":\"12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126\"}"
+    }
+  ],
+  "approvals": [
+    {
+      "id": 3,
+      "revision": 1,
+      "control_version": 2,
+      "action_hash": "713fb569265876817bfe697c2848ffae871d11b6b148a426ba2092becc9d4540"
+    }
+  ],
+  "audit": [
+    {
+      "id": 8,
+      "actor": "bob",
+      "action": "task.acceptance",
+      "resource": "2"
+    },
+    {
+      "id": 11,
+      "actor": "bob",
+      "action": "task.create",
+      "resource": "3"
+    },
+    {
+      "id": 13,
+      "actor": "bob",
+      "action": "approval.decide",
+      "resource": "4"
+    },
+    {
+      "id": 14,
+      "actor": "bob",
+      "action": "task.acceptance",
+      "resource": "3"
+    }
+  ]
+}

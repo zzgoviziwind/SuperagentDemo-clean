@@ -1,0 +1,75 @@
+--- phase1.py
++++ package-replay.py
+@@ -14,7 +14,7 @@
+ import tempfile
+ import time
+ 
+-HERE = Path(__file__).resolve().parent
++HERE = Path('C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-acceptance')
+ sys.path.insert(0, str(HERE))
+ import stage0
+ 
+@@ -160,7 +160,16 @@
+ 
+ 
+ def repair_approval(call, work, report):
+-    project = call("/projects/1","PATCH",{"allowed_paths":["."]})
++    project_root = work/"含空格 项目"
++    assert project_root.is_dir() and not (project_root/".git").exists()
++    env = env_for(work) | {"GIT_CONFIG_NOSYSTEM":"1","GIT_CONFIG_GLOBAL":"NUL"}
++    git = shutil.which("git")
++    subprocess.run([git,"init","-q","-b","main",str(project_root)],env=env,check=True)
++    (project_root/"fixture-value.txt").write_bytes(b"before\n")
++    subprocess.run([git,"-C",str(project_root),"add","--","fixture-value.txt"],env=env,check=True)
++    subprocess.run([git,"-C",str(project_root),"-c","user.name=fixture","-c","user.email=fixture@localhost","commit","-qm","test（common）：创建合成修复样本"],env=env,check=True)
++    check = "require('node:assert/strict').equal(require('node:fs').readFileSync('fixture-value.txt','utf8'),'after\\n')"
++    project = call("/projects/1","PATCH",{"allowed_paths":["."],"test_command":json.dumps([str(Path('C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-acceptance\\phase1-input-rc2-7p3dxlvh\\node.exe')),"-e",check])})
+     assert project["allowed_paths"] == ["."]
+     task = call("/tasks","POST",{"kind":"repair","title":"离线修复审批","goal":"修复合成文本",
+                                 "project_id":1,"acceptance_criteria":"本轮差异和命令退出码"},"bob")
+@@ -195,6 +204,10 @@
+             and proof["test"]["source"] == "host-command" and proof["test"]["exit_code"] == 0)
+     assert (proof["thread_id"],proof["turn_id"]) == (detail["task"]["codex_thread_id"],detail["task"]["codex_turn_id"])
+     assert all((proof["thread_id"],proof["turn_id"],artifacts["summary"]["content"]))
++    report["repair_change_manifest"] = changes
++    only_repo, = changes["repositories"]
++    assert only_repo["path"] == "." and not only_repo["untracked"]
++    changes = only_repo["snapshot"]
+     assert changes["changed"] == ["fixture-value.txt"] and not changes["untracked"] and changes["diff"]
+     cwd = Path(proof["test"]["cwd"]).resolve()
+     assert cwd.is_relative_to((work/"worker-workspaces").resolve())
+@@ -231,7 +244,7 @@
+             report["diagnostic_fixture_added"] = {"fixtures/environment.ts":stage0.sha(peer.read_bytes())}
+     report["node"] = subprocess.check_output([node,"--version"],text=True).strip()
+     assert report["node"].startswith("v24.")
+-    subprocess.run([*browser,"build",str(work),deps],env=env,cwd=work,check=True,timeout=60)
++    shutil.copytree(Path('C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-acceptance\\phase1-input-rc2-7p3dxlvh\\web'),work/"web")
+     report["web_dist_sha256"] = {p.relative_to(work/"web").as_posix():stage0.sha(p.read_bytes())
+                                  for p in (work/"web").rglob("*") if p.is_file()}
+     with tempfile.TemporaryDirectory(prefix="stage0-source-", dir=HERE) as tmp:
+@@ -247,7 +260,7 @@
+         def call(path,method="GET",body=None,user="admin",allowed=(200,)):
+             return net(port,endpoint(path),method,body,user,allowed)[1]
+         config = {"scheduler_enabled":False, "external_delivery_enabled":True,
+-                  "connectors.dingtalk":{"enabled":True,"profile":"test","self_ids":["fixture-self"]},
++                  "connectors.dingtalk":{"enabled":True,"profile":"test","self_ids":["fixture-self"],"executable":[sys.executable,"-IB",str(HERE/"replay_dws.py")]},
+                   "dingtalk_response_policy":{"delivery":"approved_send","direct_messages":"reply",
+                                               "group_messages":"off","default_project_id":1}}
+         call("/settings","PATCH",config)
+@@ -294,6 +307,7 @@
+         for user in ("admin","bob","alice","viewer"):
+             code, visible = net(port,endpoint(task_path+"/deliveries"),user=user,allowed=(200,403,404))
+             count = len(visible) if isinstance(visible,list) else 0
++            report.setdefault("observed_drafts", {})[user] = [{"id":v["id"],"content":v["content"]} for v in visible] if isinstance(visible,list) else []
+             if code == 200 and user in ("admin","bob"):
+                 assert [row["id"] for row in visible] == [draft["id"]] and visible[0]["content"] == reply_text
+             report["delivery_visibility"][user] = {"status":code,"rows":count,
+@@ -417,7 +431,7 @@
+     p.add_argument("--browser-exe",type=Path,help="installed Chromium executable; default is Edge")
+     p.add_argument("--diagnose-missing-peer",action="store_true",help="diagnostic only: complete a missing fixture import in the private copy")
+     args=p.parse_args()
+-    root=Path(tempfile.mkdtemp(dir=HERE,prefix="phase1-run-"))
++    root=Path(tempfile.mkdtemp(dir='C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-acceptance\\phase1-input-rc2-7p3dxlvh\\server',prefix="phase1-run-"))
+     print("Evidence:",root,flush=True)
+     report={"source":stage0.verify_source(),"entry_sha256":stage0.sha((args.dist/"main.js").read_bytes()),"manual_draft":args.manual_draft}
+     try:

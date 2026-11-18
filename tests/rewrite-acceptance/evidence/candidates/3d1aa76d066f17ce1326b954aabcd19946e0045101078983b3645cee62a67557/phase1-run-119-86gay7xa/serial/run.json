@@ -1,0 +1,25 @@
+{
+  "node": "v24.22.3",
+  "pin": {
+    "dist_sha256": "2986bf738840928c4263f82cb79aef0606ccce58a42ff5d7b3d14592251c1c9c",
+    "files": {
+      "bin/windows-job-x64.exe": "425cd705d1fb3b5e2d47aba00c50145a890a9f664861a0274f2682ac60efe1bc",
+      "field-helpers/field_media_worker.py": "bcfedcf113ee70e002cd114b6461c41284801613d31fbffdab8411deead1ecb1",
+      "field-helpers/field_ocr.py": "e94e2873cab44b40610d15fcc184ecbac87c1a3c900219cdf7a76d14e886f929",
+      "fixtures/environment.ts": "feeaf93819ceff2e44540276b98ed300338e86c88ab94fd10656e19afa8650ab",
+      "fixtures/fake-app-server.ts": "90ec8ba801a2a5b88721f6bc207a07c59914dfd9f1d8792e61544084a3c48b13",
+      "fixtures/fake-channel-sender.ts": "00b911b8090651ced496d74b7c3cd0a2e438b626c267ac59c4c1165fce3821fc",
+      "main.js": "3d1aa76d066f17ce1326b954aabcd19946e0045101078983b3645cee62a67557"
+    },
+    "private_dist": "phase1-run-119-86gay7xa/dist"
+  },
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "seed_sha256": "ef8d1f57d058e341b8f6e8ea5ec683d2a7b432c2690adbd6c1e5bbe8513289ba",
+  "source": {
+    "commit": "7b7587d14399659d7951d3e195af863514fbf118",
+    "contract_sha256": "f5718d78f6e5b64a8c23c1b37b8100084511420bc588a5ba9aa0b7f28d84811c",
+    "files_checked": 346,
+    "fingerprint": "abf0a6922e8da03d65cd53458df256a509d824c3fbf276f58943cc800201b091",
+    "input_sha256": "7ddc38cd2088781c96d99ad63d5c264f13111636d7eaf17a8ea0b49dcc8fc03b"
+  }
+}

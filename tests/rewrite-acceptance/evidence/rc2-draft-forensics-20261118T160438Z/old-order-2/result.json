@@ -1,0 +1,384 @@
+{
+  "bob_created": {
+    "approval": {
+      "action": {
+        "action_hash": "713fb569265876817bfe697c2848ffae871d11b6b148a426ba2092becc9d4540",
+        "kind": "reply",
+        "payload": {
+          "content": "离线样例结果"
+        },
+        "source": "dingtalk",
+        "target": {
+          "conversation_id": "fixture-thread",
+          "message_id": "crash-001",
+          "profile": "test",
+          "recipient_id": "fixture-actor"
+        },
+        "write_status": "preview"
+      },
+      "action_hash": "713fb569265876817bfe697c2848ffae871d11b6b148a426ba2092becc9d4540",
+      "control_version": 2,
+      "created_at": "2026-11-18T16:05:35.992000+00:00",
+      "id": 3,
+      "revision": 1,
+      "status": "pending",
+      "task_id": 2
+    },
+    "approval_id": 3,
+    "content": "离线样例结果",
+    "created_at": "2026-11-18T16:05:35.992000+00:00",
+    "event_id": 4,
+    "id": 2,
+    "task_id": 2
+  },
+  "browser_reconciled": true,
+  "candidate_signoff": false,
+  "crash": {
+    "before_restart": "dispatching",
+    "expires_at": "2026-11-18T16:06:05.114000+00:00",
+    "lease_epoch": 1,
+    "receipt": {
+      "actionHash": "713fb569265876817bfe697c2848ffae871d11b6b148a426ba2092becc9d4540",
+      "actionId": "reply-3",
+      "content": "离线样例结果",
+      "evidenceSource": "offline-channel-fixture",
+      "id": "caadd564-df46-4246-a7b2-9337e1f9319d",
+      "target": {
+        "messageId": "crash-001",
+        "source": "dingtalk",
+        "threadId": "fixture-thread"
+      }
+    },
+    "wait_seconds": 23.621
+  },
+  "crash-host": {
+    "exit_after_receipt": true,
+    "health": {
+      "implementation": "typescript",
+      "status": "ok",
+      "version": "0.2.0-dev.1"
+    },
+    "pid": 53880,
+    "port": 4984,
+    "returncode": 1
+  },
+  "crash_ui_rollback_passed": true,
+  "delivery_visibility": {
+    "admin": {
+      "meets_visibility_rule": true,
+      "rows": 1,
+      "status": 200
+    },
+    "alice": {
+      "meets_visibility_rule": true,
+      "rows": 0,
+      "status": 404
+    },
+    "bob": {
+      "meets_visibility_rule": true,
+      "rows": 1,
+      "status": 200
+    },
+    "viewer": {
+      "meets_visibility_rule": true,
+      "rows": 0,
+      "status": 404
+    }
+  },
+  "dist_set_sha256": "2986bf738840928c4263f82cb79aef0606ccce58a42ff5d7b3d14592251c1c9c",
+  "dist_sha256": {
+    "bin/windows-job-x64.exe": "425cd705d1fb3b5e2d47aba00c50145a890a9f664861a0274f2682ac60efe1bc",
+    "field-helpers/field_media_worker.py": "bcfedcf113ee70e002cd114b6461c41284801613d31fbffdab8411deead1ecb1",
+    "field-helpers/field_ocr.py": "e94e2873cab44b40610d15fcc184ecbac87c1a3c900219cdf7a76d14e886f929",
+    "fixtures/environment.ts": "feeaf93819ceff2e44540276b98ed300338e86c88ab94fd10656e19afa8650ab",
+    "fixtures/fake-app-server.ts": "90ec8ba801a2a5b88721f6bc207a07c59914dfd9f1d8792e61544084a3c48b13",
+    "fixtures/fake-channel-sender.ts": "00b911b8090651ced496d74b7c3cd0a2e438b626c267ac59c4c1165fce3821fc",
+    "main.js": "3d1aa76d066f17ce1326b954aabcd19946e0045101078983b3645cee62a67557"
+  },
+  "entry_sha256": "3d1aa76d066f17ce1326b954aabcd19946e0045101078983b3645cee62a67557",
+  "manual_draft": false,
+  "node": "v24.22.3",
+  "observed_drafts": {
+    "admin": [
+      {
+        "content": "离线样例结果",
+        "id": 2
+      }
+    ],
+    "alice": [],
+    "bob": [
+      {
+        "content": "离线样例结果",
+        "id": 2
+      }
+    ],
+    "viewer": []
+  },
+  "python_rollback": {
+    "artifacts": {
+      "repair": {
+        "4": {
+          "attempt_id": "aabf199b-27c8-4c06-bf3c-008f83ba2478",
+          "content_sha256": "dfdae8e6e64f17cf05d71898eff737e198e1e974ace4ecf9f72416dc38b19178",
+          "kind": "summary",
+          "revision": 1
+        },
+        "5": {
+          "attempt_id": "aabf199b-27c8-4c06-bf3c-008f83ba2478",
+          "content_sha256": "d836b79837e8ea5468eb062030c5b0073287edcb6a606bb1bcc678cc8418acb6",
+          "kind": "verification",
+          "revision": 1
+        },
+        "6": {
+          "attempt_id": "aabf199b-27c8-4c06-bf3c-008f83ba2478",
+          "content_sha256": "f6b99eac1a03887e5c9602f27997a2efafec83c0f1866789983bbe0ebc28c31f",
+          "kind": "changes",
+          "revision": 1
+        }
+      },
+      "worker": {
+        "2": {
+          "attempt_id": "ad1b25b8-741c-4607-b2ef-3d6862515eaa",
+          "content_sha256": "dfdae8e6e64f17cf05d71898eff737e198e1e974ace4ecf9f72416dc38b19178",
+          "kind": "summary",
+          "revision": 1
+        },
+        "3": {
+          "attempt_id": "ad1b25b8-741c-4607-b2ef-3d6862515eaa",
+          "content_sha256": "ce19d9a3642cd1cef0f0c09734eb365d5d686c98520fa8d1307f6f83cab31f9c",
+          "kind": "verification",
+          "revision": 1
+        }
+      }
+    },
+    "integrity": "ok",
+    "ledger": "succeeded",
+    "port": 50031,
+    "receipt_count": 1,
+    "same_file_id": "31806672369873875",
+    "status": "completed",
+    "task": 2
+  },
+  "recovered": {
+    "after_reconcile": {
+      "action_hash": "713fb569265876817bfe697c2848ffae871d11b6b148a426ba2092becc9d4540",
+      "action_id": "reply-3",
+      "claimed_at": "2026-11-18T16:05:41.458000+00:00",
+      "dispatching_at": "2026-11-18T16:05:41.461000+00:00",
+      "reason": "dispatch_outcome_pending_reconciliation",
+      "reconciled_at": "2026-11-18T16:06:08.119000+00:00",
+      "reconciliation_evidence": "独立假渠道回执 caadd564-df46-4246-a7b2-9337e1f9319d",
+      "write_status": "succeeded"
+    },
+    "before_reconcile": "unknown",
+    "receipt_count": 1
+  },
+  "repair": {
+    "approval_id": 4,
+    "approval_status": "approved",
+    "artifacts": {
+      "4": {
+        "attempt_id": "aabf199b-27c8-4c06-bf3c-008f83ba2478",
+        "content_sha256": "dfdae8e6e64f17cf05d71898eff737e198e1e974ace4ecf9f72416dc38b19178",
+        "kind": "summary",
+        "revision": 1
+      },
+      "5": {
+        "attempt_id": "aabf199b-27c8-4c06-bf3c-008f83ba2478",
+        "content_sha256": "d836b79837e8ea5468eb062030c5b0073287edcb6a606bb1bcc678cc8418acb6",
+        "kind": "verification",
+        "revision": 1
+      },
+      "6": {
+        "attempt_id": "aabf199b-27c8-4c06-bf3c-008f83ba2478",
+        "content_sha256": "f6b99eac1a03887e5c9602f27997a2efafec83c0f1866789983bbe0ebc28c31f",
+        "kind": "changes",
+        "revision": 1
+      }
+    },
+    "attempt_id": "aabf199b-27c8-4c06-bf3c-008f83ba2478",
+    "changed": [
+      "fixture-value.txt"
+    ],
+    "id": 3,
+    "proof": {
+      "evidence_source": "offline-codex-fixture",
+      "host_checked": true,
+      "kind": "repair",
+      "paths": [
+        "fixture-value.txt"
+      ],
+      "project_key": "618f232ba9f8ce4a87027949464ba5419aae38d65c42c1abd24d4e0b854a9e62",
+      "repair_verified": true,
+      "test": {
+        "command": "管理员配置的项目验证",
+        "command_sha256": "e273282fa56da2a97c7deffb48cd8958e2a40fe278a6911b6c010ce99ed652e8",
+        "cwd": "C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-acceptance\\phase1-input-rc2-jip20n7n\\server\\phase1-run-x514qf6r\\worker-workspaces\\3-nv7RTM",
+        "exit_code": 0,
+        "source": "host-command",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "thread_id": "d1cb84d3-2008-445c-aece-68fd061380fc",
+      "tool_less": false,
+      "turn_id": "0925ac1f-7307-41f2-9b63-50429e1725d8",
+      "turn_status": "completed",
+      "workspace_kind": "project",
+      "workspace_sha256": "6fc84210de40bfce18c238e9dddb3a330f43ace4454d4c14ea7e8726f24a7a14"
+    },
+    "status": "completed"
+  },
+  "repair_change_manifest": {
+    "repositories": [
+      {
+        "path": ".",
+        "snapshot": {
+          "base_sha": "c2b26e0fb032a10bec7dd0dd015d0a2161fd2cdb",
+          "changed": [
+            "fixture-value.txt"
+          ],
+          "diff": "diff --git a/fixture-value.txt b/fixture-value.txt\nindex 90be1f3056c4f471f977a28497b8d4b392c55a02..294186e497a23bf3fbfde12aacc7f720f668fe9a 100644\n--- a/fixture-value.txt\n+++ b/fixture-value.txt\n@@ -1 +1 @@\n-before\n+after\n",
+          "sha256": "4d68434a230e71c05ba594a1fd3b51ac2ac6c557992d1fee05349dc42682c98b",
+          "untracked": []
+        },
+        "untracked": []
+      }
+    ],
+    "sha256": "6fc84210de40bfce18c238e9dddb3a330f43ace4454d4c14ea7e8726f24a7a14"
+  },
+  "restarted-host": {
+    "exit_after_receipt": false,
+    "health": {
+      "implementation": "typescript",
+      "status": "ok",
+      "version": "0.2.0-dev.1"
+    },
+    "pid": 48820,
+    "port": 9297,
+    "returncode": 0
+  },
+  "source": {
+    "commit": "7b7587d14399659d7951d3e195af863514fbf118",
+    "contract_sha256": "f5718d78f6e5b64a8c23c1b37b8100084511420bc588a5ba9aa0b7f28d84811c",
+    "files_checked": 346,
+    "fingerprint": "abf0a6922e8da03d65cd53458df256a509d824c3fbf276f58943cc800201b091",
+    "input_sha256": "7ddc38cd2088781c96d99ad63d5c264f13111636d7eaf17a8ea0b49dcc8fc03b"
+  },
+  "visibility": {
+    "admin": {
+      "counts": {
+        "completed": 1,
+        "waiting_resource": 1
+      },
+      "detail_checks": {
+        "/artifacts/1": 200,
+        "/artifacts/1/download": 200,
+        "/artifacts/2": 200,
+        "/artifacts/2/download": 200,
+        "/tasks/1": 200,
+        "/tasks/1/export": 200,
+        "/tasks/2": 200,
+        "/tasks/2/export": 200
+      },
+      "pending_approval_ids": [
+        3
+      ],
+      "task_ids": [
+        1,
+        2
+      ]
+    },
+    "alice": {
+      "counts": {
+        "waiting_resource": 1
+      },
+      "detail_checks": {
+        "/artifacts/1": 200,
+        "/artifacts/1/download": 200,
+        "/artifacts/2": 404,
+        "/artifacts/2/download": 404,
+        "/tasks/1": 200,
+        "/tasks/1/export": 200,
+        "/tasks/2": 404,
+        "/tasks/2/export": 404
+      },
+      "pending_approval_ids": [],
+      "task_ids": [
+        1
+      ]
+    },
+    "bob": {
+      "counts": {
+        "completed": 1
+      },
+      "detail_checks": {
+        "/artifacts/1": 404,
+        "/artifacts/1/download": 404,
+        "/artifacts/2": 200,
+        "/artifacts/2/download": 200,
+        "/tasks/1": 404,
+        "/tasks/1/export": 404,
+        "/tasks/2": 200,
+        "/tasks/2/export": 200
+      },
+      "pending_approval_ids": [
+        3
+      ],
+      "task_ids": [
+        2
+      ]
+    },
+    "viewer": {
+      "counts": {},
+      "detail_checks": {
+        "/artifacts/1": 404,
+        "/artifacts/1/download": 404,
+        "/artifacts/2": 404,
+        "/artifacts/2/download": 404,
+        "/tasks/1": 404,
+        "/tasks/1/export": 404,
+        "/tasks/2": 404,
+        "/tasks/2/export": 404
+      },
+      "pending_approval_ids": [],
+      "task_ids": []
+    }
+  },
+  "web_dist_sha256": {
+    "assets/index-Cwy39Lf-.js": "a668e93f3647ba739db21726cb7b995a1cfba5eec99faa8c33990bee294afca3",
+    "assets/index-nguacDrZ.css": "269ce983286ac9499f1259bc9377d5a5ca246d60501cf3d55ba75f92116e9f3b",
+    "field-timeline.example.json": "aaa0527c53832ead5cd309de07d6e9e36a48875dde39e0e76839f6cf844d7479",
+    "index.html": "47fc10b5fc19d0716a2bbf07ac9fb906c53759d27c37fd5b4cc530e5bc98d8fb"
+  },
+  "worker": {
+    "artifacts": {
+      "2": {
+        "attempt_id": "ad1b25b8-741c-4607-b2ef-3d6862515eaa",
+        "content_sha256": "dfdae8e6e64f17cf05d71898eff737e198e1e974ace4ecf9f72416dc38b19178",
+        "kind": "summary",
+        "revision": 1
+      },
+      "3": {
+        "attempt_id": "ad1b25b8-741c-4607-b2ef-3d6862515eaa",
+        "content_sha256": "ce19d9a3642cd1cef0f0c09734eb365d5d686c98520fa8d1307f6f83cab31f9c",
+        "kind": "verification",
+        "revision": 1
+      }
+    },
+    "attempt_id": "ad1b25b8-741c-4607-b2ef-3d6862515eaa",
+    "event_id": 4,
+    "proof": {
+      "evidence_source": "offline-codex-fixture",
+      "host_checked": true,
+      "kind": "reply",
+      "paths": [],
+      "project_key": "3583c2724afcd8c6150546e4db70f8a8b4978fd08b0048d2a58f36f6388bb94e",
+      "thread_id": "9930a32c-ed9f-4d33-bf85-5b32301fa2c9",
+      "tool_less": true,
+      "turn_id": "cebe4e84-3d20-4a57-9c06-1464efc39c77",
+      "turn_status": "completed",
+      "workspace_kind": "fixture"
+    },
+    "status": "completed",
+    "task_id": 2
+  }
+}

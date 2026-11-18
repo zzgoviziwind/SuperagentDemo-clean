@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\phase1-input-rc2-43cm89x3\phase1.py", line 433, in <module>
+    exercise(args,root,report)
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\phase1-input-rc2-43cm89x3\phase1.py", line 311, in exercise
+    repair_approval(call,work,report)
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\phase1-input-rc2-43cm89x3\phase1.py", line 207, in repair_approval
+    assert changes["changed"] == ["fixture-value.txt"] and not changes["untracked"] and changes["diff"]
+           ~~~~~~~^^^^^^^^^^^
+KeyError: 'changed'

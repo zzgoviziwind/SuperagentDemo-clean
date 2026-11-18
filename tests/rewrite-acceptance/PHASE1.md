@@ -1,5 +1,23 @@
 # 阶段 1 独立复测记录
 
+## Windows 实包复跑
+
+从仓库根目录使用已安装项目依赖的 Python 3.12。脚本从指定 ZIP 校验并加载 Node、服务依赖、完整 dist 和前端静态文件。浏览器默认使用本机 Edge。使用单独安装的 Chromium 时传入 `--browser-exe`，Playwright 安装在其他工作区时传入 `--web-deps` 指向对应的 node_modules。
+
+```powershell
+$packages = @(Get-ChildItem deploy/windows-ts/.artifacts/rc2/packages -File -Filter *.zip)
+if ($packages.Count -ne 1) { throw '需要唯一的发布 ZIP' }
+$options = @('--package', $packages[0].FullName, '--expect-zip', 'bf4593ef65608835c766b43349ba8fdfea5a14609472fe1cd47a7f22da48c9dc', '--rounds', '2')
+python -IB -X utf8 tests/rewrite-acceptance/phase1_package.py @options
+if ($LASTEXITCODE -ne 0) { throw '自动路径未通过' }
+python -IB -X utf8 tests/rewrite-acceptance/phase1_package.py @options --manual-draft
+if ($LASTEXITCODE -ne 0) { throw '人工路径未通过' }
+```
+
+自动路径在 review_ready 时等待唯一草稿，核对来源事件、正文、审批版本和实际 Worker attempt，使用原审批执行投递、强杀和浏览器对账，再由归属成员验收任务。任务验收会推进 control_version。人工路径关闭调度，检查草稿为空后仅由 bob 创建一次。两条路径分别检查创建请求次数、四身份可见性、Python 同库读回和回执唯一性。每次运行打印新证据目录，按轮保留 HTTP、浏览器截图和可只读核查的压缩合成 SQLite 快照。
+
+下文的开发包记录沿用当时的测试步骤；其中自动路径使用 Worker 摘要手建渠道草稿。
+
 2026-11-18，Windows。**最终开发包在两个独立临时根中完成自动 Worker、工具审批、任务验收、强杀、浏览器对账和 Python 同库回切。此前的两项阻断均已关闭。** 本次以真实进程和非空旧库验收阶段 1 的业务闭环。安装器与干净 Windows 用户环境待独立验收。
 
 ## 最终构建的两轮实证

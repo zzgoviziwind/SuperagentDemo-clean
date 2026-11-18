@@ -1,11 +1,10 @@
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { once } from 'node:events';
+import { dirname, isAbsolute, join } from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { spawnOwned } from '@superagent/windows-job';
-import { FakeCodex, type CodexEvent } from '../../../../packages/runtime/index.ts';
+import { FakeCodex } from '../../../../packages/runtime/index.ts';
 import { offlineEnvironment } from '../../../../packages/runtime/fixtures/environment.ts';
 import { openStorage, type Storage } from '../../../../packages/storage/src/index.ts';
 import { registerAuth } from '../auth.ts';
@@ -14,7 +13,9 @@ import { registerIntake } from '../intake.ts';
 import { registerChannels, connectorStatuses } from '../deliveries/channels.ts';
 import { buildWorkerPrompt, WORKER_PROMPTS } from '../worker/prompts.ts';
 import { createWorkbenchScheduler, enqueueSemanticReceipt, registerWorkbench,
-  type WorkbenchModelClient, type WorkbenchModelDriver, type WorkbenchModelKind } from './index.ts';
+  type WorkbenchModelDriver, type WorkbenchModelKind } from './index.ts';
+import { pinnedWorkbenchDriver } from './model-driver.ts';
+import { comparisonAssessmentPrompt } from './prompts.ts';
 import { fields, now } from './store.ts';
 import { readCodexThread } from './thread-reader.ts';
 import type { WorkbenchSchedulerOptions } from './scheduler.ts';
@@ -28,54 +29,46 @@ const identities = [
   { user_id: 'viewer', role: 'viewer', token: 'offline-viewer' },
 ];
 const env = { SUPERAGENT_USERS_JSON: JSON.stringify(identities) };
+const fixtureEnv = { ...env, SUPERAGENT_DRIVER: 'fixture' };
+const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP44KAAAAN0AVEsSGUpAAAAAElFTkSuQmCC', 'base64');
 
-async function imageProtocolFixture(cwd: string, thread: string, prompt: string, paths: readonly string[]) {
-  const script = [
-    "import { readFileSync, realpathSync } from 'node:fs';",
-    "import { dirname } from 'node:path';",
-    "let body = ''; for await (const part of process.stdin) body += part;",
-    "const { method, params } = JSON.parse(body);",
-    "const [text, ...images] = params.input;",
-    "const png = '89504e470d0a1a0a';",
-    "if (method !== 'turn/start' || text.type !== 'text' || !images.length || !images.every(({type,path}) =>",
-    "  type === 'localImage' && dirname(realpathSync(path)) === process.cwd() && readFileSync(path).subarray(0,8).toString('hex') === png)) process.exit(7);",
-    "const binding = {threadId: params.threadId, turnId: 'offline-image-turn'};",
-    "const frames = [{method:'item/completed', params:{...binding, item:{type:'agentMessage', id:'offline-image-result',text:'离线样例结果', simulated:true}}},",
-    "  {method:'turn/completed', params:{...binding, turn:{id:binding.turnId, status:'completed'}}}];",
-    "process.stdout.write(JSON.stringify({ binding, frames }));",
-  ].join('\n');
-  const owned = await spawnOwned(process.execPath, ['--input-type=module', '-e', script], { cwd, env: offlineEnvironment(cwd) });
-  const child = owned.child;
-  let output = '';
-  child.stdout.setEncoding('utf8').on('data', chunk => { output += chunk; });
-  const closed = once(child, 'close');
-  child.stdin.end(JSON.stringify({ method: 'turn/start', params: { threadId: thread,
-    input: [{ type: 'text', text: prompt }, ...paths.map(path => ({ type: 'localImage', path }))] } }));
-  const timer = setTimeout(owned.terminate, 5_000);
-  try {
-    const [code] = await closed;
-    if (code !== 0) throw new Error('离线图片协议未确认');
-    const reply = JSON.parse(output);
-    if (reply.binding.threadId !== thread || typeof reply.binding.turnId !== 'string' || reply.frames.length !== 2)
-      throw new Error('离线图片轮次归属无效');
-    return { binding: reply.binding as { threadId: string; turnId: string }, frames: reply.frames as CodexEvent[] };
-  } finally { clearTimeout(timer); }
+vi.mock('@superagent/windows-job', { spy: true });
+
+async function observeNextModelPipe() {
+  const actual = await vi.importActual<typeof import('@superagent/windows-job')>('@superagent/windows-job');
+  const frames: { method: string; params: { threadId?: string; input?: { type: string; text?: string; path?: string }[] } }[] = [];
+  const files = new Map<string, Buffer>();
+  vi.mocked(spawnOwned).mockImplementationOnce(async (...args) => {
+    const owned = await actual.spawnOwned(...args);
+    const stdin = owned.child.stdin;
+    const write = stdin.write.bind(stdin);
+    vi.spyOn(stdin, 'write').mockImplementation((...parts: Parameters<typeof stdin.write>) => {
+      const frame = JSON.parse(String(parts[0])) as (typeof frames)[number];
+      frames.push(frame);
+      for (const input of frame.params?.input ?? []) {
+        if (input.type === 'localImage' && input.path) files.set(input.path, readFileSync(input.path));
+      }
+      return write(...parts);
+    });
+    return owned;
+  });
+  return { frames, files };
 }
 
 function fixture(text: (kind: WorkbenchModelKind) => unknown, meter = false,
   exitAt?: 'before_turn_response') {
   const submitted: { thread: string; kind: WorkbenchModelKind; prompt: string; turn?: string }[] = [];
   const observed: { thread: unknown; turn: unknown; text: unknown }[] = [];
-  const imageInputs: { path: string; bytes: Buffer }[] = [];
   const startupErrors: string[] = [];
-  const driver: WorkbenchModelDriver = { source: 'offline-codex-fixture', available: () => true, imagesAvailable: () => true,
+  const imageInputs: {path: string; bytes: Buffer}[] = [];
+  const driver: WorkbenchModelDriver = { source: 'offline-codex-fixture', available: () => true,
+    imagesAvailable: () => true,
     async open(cwd, kind, signal) {
+      const pipe = await observeNextModelPipe();
       const client = await FakeCodex.start({ cwd, scenario: 'reply', persistThreads: true, exitAt, signal }).catch(error => {
         startupErrors.push(String(error));
         throw error;
       });
-      let imageFrames: CodexEvent[] | undefined;
-      const startImages = (client as WorkbenchModelClient).startTurnWithImages?.bind(client);
       return { billing: meter ? 'metered' : 'fixture', startThread: mode => client.startThread(mode),
         resumeThread: thread => client.resumeThread(thread), async startTurn(thread, prompt, profile) {
           const evidence: (typeof submitted)[number] = { thread, prompt, kind };
@@ -84,17 +77,12 @@ function fixture(text: (kind: WorkbenchModelKind) => unknown, meter = false,
           evidence.turn = binding.turnId;
           return binding;
         }, async startTurnWithImages(thread, prompt, profile, paths) {
-          for (const path of paths) imageInputs.push({ path, bytes: readFileSync(path) });
-          const evidence: (typeof submitted)[number] = { thread, prompt, kind };
-          submitted.push(evidence);
-          const result = startImages ? { binding: await startImages(thread, prompt, profile, paths), frames: undefined }
-            : await imageProtocolFixture(cwd, thread, prompt, paths);
-          const { binding, frames } = result;
-          imageFrames = frames;
-          evidence.turn = binding.turnId;
+          const binding = await client.startTurnWithImages(thread, prompt, profile, paths);
+          submitted.push({thread,prompt,kind,turn:binding.turnId});
+          for (const [path, bytes] of pipe.files) imageInputs.push({path,bytes});
           return binding;
         }, close: () => client.close(), async *events() {
-          for await (const packet of imageFrames ?? client.events()) {
+          for await (const packet of client.events()) {
             const item = fields(packet.params.item);
             if (packet.method === 'item/completed' && item.type === 'agentMessage') {
               if (item.simulated !== true || item.text !== '离线样例结果') throw new Error('预期独立假协议的本轮响应');
@@ -121,12 +109,34 @@ describe('冻结 SQLite 工作台调度', () => {
     db().prepare(`INSERT INTO governance_settings(key,value,updated_at) VALUES(?,?,?)
       ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at`).run(key, JSON.stringify(value), now());
   }
+  it('默认研判驱动把已暂存原图放入本轮协议，拒绝跨目录文件', async () => {
+    sample();
+    await boot();
+    const cwd = join(root, 'comparison');
+    mkdirSync(cwd);
+    const name = 'source-3-12345678-1234-4321-9134-1234567890ab.png';
+    const image = join(cwd,name);
+    writeFileSync(image,png);
+    const external = join(root,name);
+    writeFileSync(external,png);
+    const driver = pinnedWorkbenchDriver(db(),fixtureEnv);
+    const pipe = await observeNextModelPipe();
+    const client = await driver.open(cwd,'semantic',new AbortController().signal);
+    try {
+      const thread = await client.startThread('read-only');
+      await expect(client.startTurnWithImages!(thread,'拒绝跨目录',{},[external])).rejects.toThrow();
+      const binding = await client.startTurnWithImages!(thread,'核对合成原图',{},[image]);
+      expect(binding.threadId).toBe(thread);
+      expect(pipe.frames.filter(frame => frame.method === 'turn/start')).toHaveLength(1);
+      expect([...pipe.files.entries()]).toEqual([[image,png]]);
+    } finally { await client.close(); }
+  });
   function sample() {
     root = mkdtempSync(join(base, '工作台 副本-'));
     const source = process.env.WORKBENCH_FROZEN_DB;
     if (source) copyFileSync(source, join(root, 'sample.db'));
   }
-  async function boot(driver: WorkbenchModelDriver, pollMs = 0, stopWorker?: (taskId: number) => Promise<boolean>,
+  async function boot(driver?: WorkbenchModelDriver, pollMs = 0, stopWorker?: (taskId: number) => Promise<boolean>,
     ports?: WorkbenchSchedulerOptions['ports']) {
     storage = openStorage(join(root, 'sample.db'), { stateRoot: root });
     const { lease } = storage.startController('workbench-' + Math.random());
@@ -138,7 +148,7 @@ describe('冻结 SQLite 工作台调度', () => {
     registerIntake(app, db(), env);
     registerControls(app, db());
     registerChannels(app, storage, lease, root, ports ? { ...env, SUPERAGENT_DRIVER: 'fixture' } : env);
-    const runtime = createWorkbenchScheduler(db(), { lease, stateRoot: root, driver, env, pollMs, stopWorker, ports });
+    const runtime = createWorkbenchScheduler(db(), { lease, stateRoot: root, driver, env: driver ? env : fixtureEnv, pollMs, stopWorker, ports });
     registerWorkbench(app, db(), runtime);
     await app.ready();
     return runtime;

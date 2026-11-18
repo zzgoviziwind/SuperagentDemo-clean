@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\phase1-input-rc2-1xet2wa3\phase1.py", line 424, in <module>
+    exercise(args,root,report)
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\phase1-input-rc2-1xet2wa3\phase1.py", line 298, in exercise
+    assert [row["id"] for row in visible] == [draft["id"]] and visible[0]["content"] == reply_text
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

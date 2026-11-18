@@ -159,8 +159,18 @@ def sqlite_read(work, query, parameters=()):
         return c.execute(query,parameters).fetchall()
 
 
-def repair_approval(call, work, report):
-    project = call("/projects/1","PATCH",{"allowed_paths":["."]})
+def repair_approval(call, work, report, node):
+    project_root = work/"含空格 项目"
+    assert project_root.is_dir() and not (project_root/".git").exists()
+    git = [shutil.which("git"), "-C", str(project_root)]
+    env = env_for(work) | {"GIT_CONFIG_NOSYSTEM":"1", "GIT_CONFIG_GLOBAL":os.devnull}
+    subprocess.run([*git,"init","-q","-b","main"],env=env,check=True)
+    (project_root/"fixture-value.txt").write_bytes(b"before\n")
+    subprocess.run([*git,"add","--","fixture-value.txt"],env=env,check=True)
+    subprocess.run([*git,"-c","user.name=fixture","-c","user.email=fixture@localhost",
+                    "commit","-qm","test（common）：创建合成修复样本"],env=env,check=True)
+    check = r"""require('node:assert/strict').equal(require('node:fs').readFileSync('fixture-value.txt','utf8'),'after\n')"""
+    project = call("/projects/1","PATCH",{"allowed_paths":["."],"test_command":json.dumps([node,"-e",check])})
     assert project["allowed_paths"] == ["."]
     task = call("/tasks","POST",{"kind":"repair","title":"离线修复审批","goal":"修复合成文本",
                                 "project_id":1,"acceptance_criteria":"本轮差异和命令退出码"},"bob")
@@ -195,6 +205,10 @@ def repair_approval(call, work, report):
             and proof["test"]["source"] == "host-command" and proof["test"]["exit_code"] == 0)
     assert (proof["thread_id"],proof["turn_id"]) == (detail["task"]["codex_thread_id"],detail["task"]["codex_turn_id"])
     assert all((proof["thread_id"],proof["turn_id"],artifacts["summary"]["content"]))
+    if "repositories" in changes:
+        repo, = changes["repositories"]
+        assert repo["path"] == "." and not repo["untracked"]
+        changes = repo["snapshot"]
     assert changes["changed"] == ["fixture-value.txt"] and not changes["untracked"] and changes["diff"]
     cwd = Path(proof["test"]["cwd"]).resolve()
     assert cwd.is_relative_to((work/"worker-workspaces").resolve())
@@ -213,7 +227,39 @@ def artifact_manifest(rows):
                           "content_sha256":stage0.sha(a["content"].encode("utf-8"))} for a in rows}
 
 
-def exercise(args, work, report):
+def automatic_draft(call, work, task, source_id, summary, report):
+    """Wait read-only while the task is review_ready and the reply collector is active."""
+    def persisted():
+        rows = call(f"/tasks/{task['id']}/deliveries", user="bob")
+        if not rows:
+            return None
+        draft, = rows
+        assert (draft["event_id"], draft["task_id"], draft["content"]) == (source_id, task["id"], summary["content"])
+        return draft
+
+    draft = wait_for(persisted, 30)
+    approval, = [a for a in call(f"/tasks/{task['id']}",user="bob")["approvals"] if a["id"] == draft["approval_id"]]
+    assert approval["status"] == "pending" and approval["action_hash"]
+    assert (approval["revision"], approval["control_version"]) == (summary["revision"], task["control_version"])
+    assert summary["revision"] == task["revision"]
+    audit = draft_events(work, task["id"])
+    decision, = [data for kind,data in audit if kind == "reply_decision"]
+    created, = [data for kind,data in audit if kind == "reply_draft_created"]
+    for data in (decision, created):
+        assert (data["source_event_id"], data["draft_id"]) == (source_id, draft["id"])
+    assert (decision["revision"], decision["control_version"], decision["attempt_id"]) == (
+        task["revision"], task["control_version"], summary["attempt_id"])
+    report["draft_origin"] = {"creator":"runtime","draft":draft,"events":audit}
+    return {**draft, "approval":approval}
+
+
+def draft_events(work, task):
+    rows = sqlite_read(work, """SELECT event_type,data FROM events WHERE task_id=? AND source='runtime'
+        AND event_type IN ('reply_decision','reply_draft_created') ORDER BY id""", (task,))
+    return [(kind,json.loads(data)) for kind,data in rows]
+
+
+def exercise(args, work, report, packaged_web=None):
     node,deps = str(args.node.resolve()), str(args.web_deps.resolve())
     browser = [node,str(HERE/"browser.mjs")]
     env = env_for(work)
@@ -231,7 +277,10 @@ def exercise(args, work, report):
             report["diagnostic_fixture_added"] = {"fixtures/environment.ts":stage0.sha(peer.read_bytes())}
     report["node"] = subprocess.check_output([node,"--version"],text=True).strip()
     assert report["node"].startswith("v24.")
-    subprocess.run([*browser,"build",str(work),deps],env=env,cwd=work,check=True,timeout=60)
+    if packaged_web is None:
+        subprocess.run([*browser,"build",str(work),deps],env=env,cwd=work,check=True,timeout=60)
+    else:
+        shutil.copytree(packaged_web,work/"web")
     report["web_dist_sha256"] = {p.relative_to(work/"web").as_posix():stage0.sha(p.read_bytes())
                                  for p in (work/"web").rglob("*") if p.is_file()}
     with tempfile.TemporaryDirectory(prefix="stage0-source-", dir=HERE) as tmp:
@@ -247,7 +296,8 @@ def exercise(args, work, report):
         def call(path,method="GET",body=None,user="admin",allowed=(200,)):
             return net(port,endpoint(path),method,body,user,allowed)[1]
         config = {"scheduler_enabled":False, "external_delivery_enabled":True,
-                  "connectors.dingtalk":{"enabled":True,"profile":"test","self_ids":["fixture-self"]},
+                  "connectors.dingtalk":{"enabled":True,"profile":"test","self_ids":["fixture-self"],
+                                        "executable":[sys.executable,"-IB",str(HERE/"replay_dws.py")]},
                   "dingtalk_response_policy":{"delivery":"approved_send","direct_messages":"reply",
                                               "group_messages":"off","default_project_id":1}}
         call("/settings","PATCH",config)
@@ -281,13 +331,16 @@ def exercise(args, work, report):
             assert proof_data["tool_less"] and proof_data["thread_id"] and proof_data["turn_id"]
             assert (proof_data["thread_id"],proof_data["turn_id"]) == (result["task"]["codex_thread_id"],result["task"]["codex_turn_id"])
             assert proof["attempt_id"] and proof["attempt_id"] == summary["attempt_id"]
-            accepted = call(task_path+"/acceptance","POST",{"accepted":True,"revision":result["task"]["revision"]},"bob")
-            assert accepted["status"] == "completed"
+            draft = automatic_draft(call,work,result["task"],event["id"],summary,report)
             call("/settings","PATCH",{"scheduler_enabled":False})
-            report["worker"] = {"task_id":task,"event_id":event["id"],"status":accepted["status"],
+            report["worker"] = {"task_id":task,"event_id":event["id"],"status":result["task"]["status"],
                                 "attempt_id":proof["attempt_id"],"proof":proof_data,"artifacts":artifact_manifest([summary,proof])}
             reply_text = summary["content"]
-        draft = call(task_path+"/deliveries","POST",{"event_id":event["id"],"content":reply_text},"bob")
+        else:
+            assert call(task_path+"/deliveries",user="bob") == []
+            draft = call(task_path+"/deliveries","POST",{"event_id":event["id"],"content":reply_text},"bob")
+            assert not draft_events(work,task)
+            report["draft_origin"] = {"creator":"bob","draft_id":draft["id"],"event_id":draft["event_id"]}
         report["visibility"] = visibility(port,task,summary["id"] if summary else None)
         # Check that related execution content also obeys the agreed workbench read policy.
         report["delivery_visibility"] = {}
@@ -299,7 +352,7 @@ def exercise(args, work, report):
             report["delivery_visibility"][user] = {"status":code,"rows":count,
                  "meets_visibility_rule": (code == 200 and count == 1) if user in ("admin","bob") else count == 0}
         if not args.manual_draft:
-            repair_approval(call,work,report)
+            repair_approval(call,work,report,node)
         dpath = f"/deliveries/{draft['id']}"
         decision = {"decision":"approve","action_hash":draft["approval"]["action_hash"]}
         assert call(dpath+"/decision","POST",decision,"bob")["status"] == "approved"
@@ -348,6 +401,12 @@ def exercise(args, work, report):
         final = post(dpath+"/publish")
         assert final["write_status"]=="succeeded" and final["reconciliation_evidence"]==evidence
         assert file_receipt(work) == receipt
+        if summary:
+            # Acceptance advances control_version. Finish delivery under the draft's original approval first.
+            _, accepted = net(port,endpoint(task_path+"/acceptance"),"POST",
+                              {"accepted":True,"revision":summary["revision"]},"bob")
+            assert accepted["status"] == "completed"
+            report["worker"]["status"] = accepted["status"]
         net(port,endpoint("/settings"),"PATCH",{"external_delivery_enabled":False,
               "dingtalk_enabled":False,"connectors.dingtalk":{"enabled":False},"scheduler_enabled":False})
         report["recovered"] = {"before_reconcile":"unknown","after_reconcile":final,"receipt_count":1}
@@ -384,7 +443,8 @@ def rollback(work,report,task,draft,receipt,proof,summary,final):
         for artifact in ([summary,proof] if summary else []):
             match = next(a for a in saved["artifacts"] if a["id"]==artifact["id"])
             assert match["content"] == artifact["content"] and match["attempt_id"] == artifact["attempt_id"]
-        assert get(f"/tasks/{task}/deliveries")[0]["delivery"] == final
+        only_draft, = get(f"/tasks/{task}/deliveries")
+        assert only_draft["id"] == draft["id"] and only_draft["delivery"] == final
         verified = {}
         if summary:
             for key,subject in [("worker",task),("repair",report["repair"]["id"])]:
@@ -407,21 +467,19 @@ def rollback(work,report,task,draft,receipt,proof,summary,final):
        "task":task,"status":expected_status,"receipt_count":1,"ledger":"succeeded","integrity":"ok","artifacts":verified}
 
 
-if __name__ == "__main__":
-    p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--node",type=Path,required=True)
-    p.add_argument("--dist",type=Path,default=ENTRY.parent)
-    p.add_argument("--expect-dist-sha256",help="require this complete distribution file-map digest")
-    p.add_argument("--web-deps",type=Path,required=True)
-    p.add_argument("--manual-draft",action="store_true",help="exercise delivery independently of Worker execution")
-    p.add_argument("--browser-exe",type=Path,help="installed Chromium executable; default is Edge")
-    p.add_argument("--diagnose-missing-peer",action="store_true",help="diagnostic only: complete a missing fixture import in the private copy")
-    args=p.parse_args()
-    root=Path(tempfile.mkdtemp(dir=HERE,prefix="phase1-run-"))
+def run(args, root, packaged_web=None):
+    HTTP_OBSERVATIONS.clear()
+    HTTP_SERVICE.clear()
     print("Evidence:",root,flush=True)
     report={"source":stage0.verify_source(),"entry_sha256":stage0.sha((args.dist/"main.js").read_bytes()),"manual_draft":args.manual_draft}
     try:
-        exercise(args,root,report)
+        exercise(args,root,report,packaged_web)
+        task = report["python_rollback"]["task"]
+        writes = [row for row in HTTP_OBSERVATIONS if row["method"] == "POST" and row["path"] == f"/api/v1/tasks/{task}/deliveries"]
+        assert [row["role"] for row in writes] == (["bob"] if args.manual_draft else [])
+        if args.manual_draft:
+            assert not draft_events(root,task)
+        report["draft_create_posts"] = writes
         report["crash_ui_rollback_passed"]=True
         report["candidate_signoff"]=False  # This focused test does not exercise all Phase 1 gates.
     finally:
@@ -432,3 +490,15 @@ if __name__ == "__main__":
                     if not result["meets_visibility_rule"]]
     if failed_roles:
         raise SystemExit("FAIL related delivery visibility for " + ", ".join(failed_roles))
+
+
+if __name__ == "__main__":
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--node",type=Path,required=True)
+    p.add_argument("--dist",type=Path,default=ENTRY.parent)
+    p.add_argument("--expect-dist-sha256",help="require this complete distribution file-map digest")
+    p.add_argument("--web-deps",type=Path,required=True)
+    p.add_argument("--manual-draft",action="store_true",help="exercise delivery independently of Worker execution")
+    p.add_argument("--browser-exe",type=Path,help="installed Chromium executable; default is Edge")
+    p.add_argument("--diagnose-missing-peer",action="store_true",help="diagnostic only: complete a missing fixture import in the private copy")
+    run(p.parse_args(), Path(tempfile.mkdtemp(dir=HERE,prefix="phase1-run-")))

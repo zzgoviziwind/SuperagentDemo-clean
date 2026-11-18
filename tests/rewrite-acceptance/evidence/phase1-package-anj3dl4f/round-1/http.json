@@ -1,0 +1,498 @@
+[
+  {
+    "body_sha256": "0a8a2f5db2d8e7fa6f05d6ce3aac5b5b59ff3e975f2f67ca8b746c221ed52661",
+    "method": "GET",
+    "path": "/health",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "bc3d3d14f3ba1119264d78143e36724a61b280fc8cb77a7f3dea4b05005936fb",
+    "method": "PATCH",
+    "path": "/api/v1/settings",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "69a2e2675f71052fc45715d79991af2af9a24671acd99e6905b9da06f21f9f05",
+    "method": "POST",
+    "path": "/api/v1/identities",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "86e488491af6bd0704a05865e44d5b93bd1584d569a786cbcd44fd03aa93f54b",
+    "method": "POST",
+    "path": "/api/v1/events",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "70f836b334d370d41dafadbb85705854f00cc2286a64214b8d77a8e3d45dff25",
+    "method": "POST",
+    "path": "/api/v1/events",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "method": "GET",
+    "path": "/api/v1/tasks/2/deliveries",
+    "role": "bob",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "2077e48e1240759cb6a50ffa4b944e4f4540f28716058e4c93c7f4ac624d2859",
+    "method": "POST",
+    "path": "/api/v1/tasks/2/deliveries",
+    "role": "bob",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "3e0b5aff96d47d25c2602422a777ebf195fcb743a585b9bb87d61d3379a56b60",
+    "method": "GET",
+    "path": "/api/v1/tasks",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "3e0b5aff96d47d25c2602422a777ebf195fcb743a585b9bb87d61d3379a56b60",
+    "method": "GET",
+    "path": "/api/v1/tasks?project_id=1",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "f2ad35554957d33231eda2770070908a1b904a704477c638969c8f6e8c217030",
+    "method": "GET",
+    "path": "/api/v1/overview",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "7fccbfa05902dff812cef971643a88ace31c8a9e0beca5cd7c34fb9f667b90ab",
+    "method": "GET",
+    "path": "/api/v1/tasks/1",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "85d260ad75c35e89e1a71c2049130c55ccb2baab38516fc2b2dc6a0e571bb532",
+    "method": "GET",
+    "path": "/api/v1/tasks/2",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "7fccbfa05902dff812cef971643a88ace31c8a9e0beca5cd7c34fb9f667b90ab",
+    "method": "GET",
+    "path": "/api/v1/tasks/1",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "3a3f17e1567f3e58a6102b9a95745302389570346498edbf4e420c53681b5614",
+    "method": "GET",
+    "path": "/api/v1/tasks/1/export",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "b374aca3048d6af6ff9be2eaaa76f822390a2814b21e7e9d3c61384a750c2081",
+    "method": "GET",
+    "path": "/api/v1/artifacts/1",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "b374aca3048d6af6ff9be2eaaa76f822390a2814b21e7e9d3c61384a750c2081",
+    "method": "GET",
+    "path": "/api/v1/artifacts/1/download",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "85d260ad75c35e89e1a71c2049130c55ccb2baab38516fc2b2dc6a0e571bb532",
+    "method": "GET",
+    "path": "/api/v1/tasks/2",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "ee540483b73d886d5c16ceb7bd5f22cf3d1ea1775500c5ed55f643fb02b6fc34",
+    "method": "GET",
+    "path": "/api/v1/tasks/2/export",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "3f951188b89ffca34e46535834e6088e0029fd28e10ab214c40da15cbf1479d5",
+    "method": "GET",
+    "path": "/api/v1/tasks",
+    "role": "alice",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "3f951188b89ffca34e46535834e6088e0029fd28e10ab214c40da15cbf1479d5",
+    "method": "GET",
+    "path": "/api/v1/tasks?project_id=1",
+    "role": "alice",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "7da19cd97c11735e0b7928c337dcf0471c47ad0ffbde3638350c92e223a6150a",
+    "method": "GET",
+    "path": "/api/v1/overview",
+    "role": "alice",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "7fccbfa05902dff812cef971643a88ace31c8a9e0beca5cd7c34fb9f667b90ab",
+    "method": "GET",
+    "path": "/api/v1/tasks/1",
+    "role": "alice",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "7fccbfa05902dff812cef971643a88ace31c8a9e0beca5cd7c34fb9f667b90ab",
+    "method": "GET",
+    "path": "/api/v1/tasks/1",
+    "role": "alice",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "1d0a3649f0ffd571e5e71e32e8cbb03b8d6e29dc9c0fec47d5cb40e7f8175ee9",
+    "method": "GET",
+    "path": "/api/v1/tasks/1/export",
+    "role": "alice",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "b374aca3048d6af6ff9be2eaaa76f822390a2814b21e7e9d3c61384a750c2081",
+    "method": "GET",
+    "path": "/api/v1/artifacts/1",
+    "role": "alice",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "b374aca3048d6af6ff9be2eaaa76f822390a2814b21e7e9d3c61384a750c2081",
+    "method": "GET",
+    "path": "/api/v1/artifacts/1/download",
+    "role": "alice",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "ad1eb232a09d2dcc406319a428ec52a1fb7ca5230bbab9c7eb2674f74fd65bea",
+    "method": "GET",
+    "path": "/api/v1/tasks/2",
+    "role": "alice",
+    "service": "ts",
+    "status": 404
+  },
+  {
+    "body_sha256": "ad1eb232a09d2dcc406319a428ec52a1fb7ca5230bbab9c7eb2674f74fd65bea",
+    "method": "GET",
+    "path": "/api/v1/tasks/2/export",
+    "role": "alice",
+    "service": "ts",
+    "status": 404
+  },
+  {
+    "body_sha256": "36d7ec868d3e4e0b99d81603ac60ba70af7f7cfa5e4009e807da51491e78c548",
+    "method": "GET",
+    "path": "/api/v1/tasks",
+    "role": "bob",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "36d7ec868d3e4e0b99d81603ac60ba70af7f7cfa5e4009e807da51491e78c548",
+    "method": "GET",
+    "path": "/api/v1/tasks?project_id=1",
+    "role": "bob",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "28d225379653d1f5ae21a0bf112d450527de8b58723a11aba39d29eb3b6f8230",
+    "method": "GET",
+    "path": "/api/v1/overview",
+    "role": "bob",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "85d260ad75c35e89e1a71c2049130c55ccb2baab38516fc2b2dc6a0e571bb532",
+    "method": "GET",
+    "path": "/api/v1/tasks/2",
+    "role": "bob",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "ad1eb232a09d2dcc406319a428ec52a1fb7ca5230bbab9c7eb2674f74fd65bea",
+    "method": "GET",
+    "path": "/api/v1/tasks/1",
+    "role": "bob",
+    "service": "ts",
+    "status": 404
+  },
+  {
+    "body_sha256": "ad1eb232a09d2dcc406319a428ec52a1fb7ca5230bbab9c7eb2674f74fd65bea",
+    "method": "GET",
+    "path": "/api/v1/tasks/1/export",
+    "role": "bob",
+    "service": "ts",
+    "status": 404
+  },
+  {
+    "body_sha256": "ad1eb232a09d2dcc406319a428ec52a1fb7ca5230bbab9c7eb2674f74fd65bea",
+    "method": "GET",
+    "path": "/api/v1/artifacts/1",
+    "role": "bob",
+    "service": "ts",
+    "status": 404
+  },
+  {
+    "body_sha256": "ad1eb232a09d2dcc406319a428ec52a1fb7ca5230bbab9c7eb2674f74fd65bea",
+    "method": "GET",
+    "path": "/api/v1/artifacts/1/download",
+    "role": "bob",
+    "service": "ts",
+    "status": 404
+  },
+  {
+    "body_sha256": "85d260ad75c35e89e1a71c2049130c55ccb2baab38516fc2b2dc6a0e571bb532",
+    "method": "GET",
+    "path": "/api/v1/tasks/2",
+    "role": "bob",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "6ea04a83dc7ffa996a8fd3f56e4308496db9aee6baf920d3add0b6c5dfa0de00",
+    "method": "GET",
+    "path": "/api/v1/tasks/2/export",
+    "role": "bob",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "method": "GET",
+    "path": "/api/v1/tasks",
+    "role": "viewer",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "method": "GET",
+    "path": "/api/v1/tasks?project_id=1",
+    "role": "viewer",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "4e849a2c7a7dc73fa8a2a4ea20c40143b13038d08ed73b1a6a0b1d04d6a3530a",
+    "method": "GET",
+    "path": "/api/v1/overview",
+    "role": "viewer",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "ad1eb232a09d2dcc406319a428ec52a1fb7ca5230bbab9c7eb2674f74fd65bea",
+    "method": "GET",
+    "path": "/api/v1/tasks/1",
+    "role": "viewer",
+    "service": "ts",
+    "status": 404
+  },
+  {
+    "body_sha256": "ad1eb232a09d2dcc406319a428ec52a1fb7ca5230bbab9c7eb2674f74fd65bea",
+    "method": "GET",
+    "path": "/api/v1/tasks/1/export",
+    "role": "viewer",
+    "service": "ts",
+    "status": 404
+  },
+  {
+    "body_sha256": "ad1eb232a09d2dcc406319a428ec52a1fb7ca5230bbab9c7eb2674f74fd65bea",
+    "method": "GET",
+    "path": "/api/v1/artifacts/1",
+    "role": "viewer",
+    "service": "ts",
+    "status": 404
+  },
+  {
+    "body_sha256": "ad1eb232a09d2dcc406319a428ec52a1fb7ca5230bbab9c7eb2674f74fd65bea",
+    "method": "GET",
+    "path": "/api/v1/artifacts/1/download",
+    "role": "viewer",
+    "service": "ts",
+    "status": 404
+  },
+  {
+    "body_sha256": "ad1eb232a09d2dcc406319a428ec52a1fb7ca5230bbab9c7eb2674f74fd65bea",
+    "method": "GET",
+    "path": "/api/v1/tasks/2",
+    "role": "viewer",
+    "service": "ts",
+    "status": 404
+  },
+  {
+    "body_sha256": "ad1eb232a09d2dcc406319a428ec52a1fb7ca5230bbab9c7eb2674f74fd65bea",
+    "method": "GET",
+    "path": "/api/v1/tasks/2/export",
+    "role": "viewer",
+    "service": "ts",
+    "status": 404
+  },
+  {
+    "body_sha256": "875abc67891c8f23fff2d835aad86bb6a4640197bd8329a59ee7b44937052a33",
+    "method": "GET",
+    "path": "/api/v1/tasks/2/deliveries",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "875abc67891c8f23fff2d835aad86bb6a4640197bd8329a59ee7b44937052a33",
+    "method": "GET",
+    "path": "/api/v1/tasks/2/deliveries",
+    "role": "bob",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "ad1eb232a09d2dcc406319a428ec52a1fb7ca5230bbab9c7eb2674f74fd65bea",
+    "method": "GET",
+    "path": "/api/v1/tasks/2/deliveries",
+    "role": "alice",
+    "service": "ts",
+    "status": 404
+  },
+  {
+    "body_sha256": "ad1eb232a09d2dcc406319a428ec52a1fb7ca5230bbab9c7eb2674f74fd65bea",
+    "method": "GET",
+    "path": "/api/v1/tasks/2/deliveries",
+    "role": "viewer",
+    "service": "ts",
+    "status": 404
+  },
+  {
+    "body_sha256": "11475292770f04b6831f070ddaaaf136da2511ffa21a0a59aea0740ddf29983c",
+    "method": "POST",
+    "path": "/api/v1/deliveries/2/decision",
+    "role": "bob",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "0a8a2f5db2d8e7fa6f05d6ce3aac5b5b59ff3e975f2f67ca8b746c221ed52661",
+    "method": "GET",
+    "path": "/health",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "be756f735a19dc5fb6ee905ede6d0146f83257c956914dc58ae698fa09f518ed",
+    "method": "POST",
+    "path": "/api/v1/deliveries/2/publish",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "68803577ab57abd686fb0e59e1ce270100bb02feaf58c82e7767f191ae8ef042",
+    "method": "POST",
+    "path": "/api/v1/deliveries/2/publish",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "cbd479c4b7d13cd9de15505d060878f468064a4863a26b0adf99aafc00e2e825",
+    "method": "PATCH",
+    "path": "/api/v1/settings",
+    "role": "admin",
+    "service": "ts",
+    "status": 200
+  },
+  {
+    "body_sha256": "6e3447373e094dc649d39a60a20c3863ed8f352b38f096fa9a43311491c1db70",
+    "method": "GET",
+    "path": "/health",
+    "role": "admin",
+    "service": "python",
+    "status": 200
+  },
+  {
+    "body_sha256": "d43e7cd3a59bb4867318ac8c86fa1dbd8889fca1d3568ec26da024f1e7b08b1d",
+    "method": "GET",
+    "path": "/api/v1/connectors",
+    "role": "admin",
+    "service": "python",
+    "status": 200
+  },
+  {
+    "body_sha256": "69ffc6c43a31e998f75ca84183b550235258542dc3327d4750dd243aa13e463e",
+    "method": "GET",
+    "path": "/api/v1/tasks/2/export",
+    "role": "admin",
+    "service": "python",
+    "status": 200
+  },
+  {
+    "body_sha256": "75b970c000479770d6ffc8d701300c382cd15bf2d36d25acdebf68c9dcbb70d7",
+    "method": "GET",
+    "path": "/api/v1/tasks/2/deliveries",
+    "role": "admin",
+    "service": "python",
+    "status": 200
+  },
+  {
+    "body_sha256": "68803577ab57abd686fb0e59e1ce270100bb02feaf58c82e7767f191ae8ef042",
+    "method": "POST",
+    "path": "/api/v1/deliveries/2/publish",
+    "role": "admin",
+    "service": "python",
+    "status": 200
+  },
+  {
+    "body_sha256": "b374aca3048d6af6ff9be2eaaa76f822390a2814b21e7e9d3c61384a750c2081",
+    "method": "GET",
+    "path": "/api/v1/artifacts/1",
+    "role": "admin",
+    "service": "python",
+    "status": 200
+  }
+]

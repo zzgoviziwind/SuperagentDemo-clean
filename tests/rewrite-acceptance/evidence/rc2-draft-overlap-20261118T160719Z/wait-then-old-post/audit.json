@@ -1,0 +1,62 @@
+{
+  "drafts": [
+    {
+      "id": 2,
+      "task_id": 2,
+      "event_id": 4,
+      "approval_id": 3,
+      "content": "离线样例结果",
+      "created_at": "2026-11-18T16:07:35.842000+00:00"
+    },
+    {
+      "id": 3,
+      "task_id": 2,
+      "event_id": 4,
+      "approval_id": 4,
+      "content": "离线样例结果",
+      "created_at": "2026-11-18T16:07:35.935000+00:00"
+    }
+  ],
+  "events": [
+    {
+      "id": 8,
+      "event_type": "reply_decision_input",
+      "source": "runtime",
+      "data": "{\"attempt_id\":\"84552a95-99a9-4e9c-8901-5c081bb7bc1a\",\"revision\":1,\"control_version\":1,\"source_event_id\":4,\"guidance_hash\":\"12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126\"}"
+    },
+    {
+      "id": 10,
+      "event_type": "reply_decision",
+      "source": "runtime",
+      "data": "{\"revision\":1,\"control_version\":1,\"source_event_id\":4,\"attempt_id\":\"84552a95-99a9-4e9c-8901-5c081bb7bc1a\",\"guidance_hash\":\"12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126\",\"decision\":\"review\",\"draft_id\":2}"
+    },
+    {
+      "id": 11,
+      "event_type": "reply_draft_created",
+      "source": "runtime",
+      "data": "{\"draft_id\":2,\"source_event_id\":4}"
+    }
+  ],
+  "approvals": [
+    {
+      "id": 3,
+      "revision": 1,
+      "control_version": 1,
+      "action_hash": "713fb569265876817bfe697c2848ffae871d11b6b148a426ba2092becc9d4540"
+    },
+    {
+      "id": 4,
+      "revision": 1,
+      "control_version": 2,
+      "action_hash": "713fb569265876817bfe697c2848ffae871d11b6b148a426ba2092becc9d4540"
+    }
+  ],
+  "audit": [
+    {
+      "id": 8,
+      "actor": "bob",
+      "action": "task.acceptance",
+      "resource": "2"
+    }
+  ]
+}

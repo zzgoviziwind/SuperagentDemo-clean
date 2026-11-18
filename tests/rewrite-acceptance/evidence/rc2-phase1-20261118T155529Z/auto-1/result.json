@@ -1,0 +1,195 @@
+{
+  "crash-host": {
+    "exit_after_receipt": true,
+    "health": {
+      "implementation": "typescript",
+      "status": "ok",
+      "version": "0.2.0-dev.1"
+    },
+    "pid": 29660,
+    "port": 1384,
+    "returncode": 0
+  },
+  "delivery_visibility": {
+    "admin": {
+      "meets_visibility_rule": true,
+      "rows": 1,
+      "status": 200
+    },
+    "alice": {
+      "meets_visibility_rule": true,
+      "rows": 0,
+      "status": 404
+    },
+    "bob": {
+      "meets_visibility_rule": true,
+      "rows": 1,
+      "status": 200
+    },
+    "viewer": {
+      "meets_visibility_rule": true,
+      "rows": 0,
+      "status": 404
+    }
+  },
+  "dist_set_sha256": "2986bf738840928c4263f82cb79aef0606ccce58a42ff5d7b3d14592251c1c9c",
+  "dist_sha256": {
+    "bin/windows-job-x64.exe": "425cd705d1fb3b5e2d47aba00c50145a890a9f664861a0274f2682ac60efe1bc",
+    "field-helpers/field_media_worker.py": "bcfedcf113ee70e002cd114b6461c41284801613d31fbffdab8411deead1ecb1",
+    "field-helpers/field_ocr.py": "e94e2873cab44b40610d15fcc184ecbac87c1a3c900219cdf7a76d14e886f929",
+    "fixtures/environment.ts": "feeaf93819ceff2e44540276b98ed300338e86c88ab94fd10656e19afa8650ab",
+    "fixtures/fake-app-server.ts": "90ec8ba801a2a5b88721f6bc207a07c59914dfd9f1d8792e61544084a3c48b13",
+    "fixtures/fake-channel-sender.ts": "00b911b8090651ced496d74b7c3cd0a2e438b626c267ac59c4c1165fce3821fc",
+    "main.js": "3d1aa76d066f17ce1326b954aabcd19946e0045101078983b3645cee62a67557"
+  },
+  "entry_sha256": "3d1aa76d066f17ce1326b954aabcd19946e0045101078983b3645cee62a67557",
+  "manual_draft": false,
+  "node": "v24.22.3",
+  "repair_failure": {
+    "acceptance_criteria": "本轮差异和命令退出码",
+    "codex_thread_id": null,
+    "codex_turn_id": null,
+    "control_version": 1,
+    "created_at": "2026-11-18T15:55:58.588000+00:00",
+    "goal": "修复合成文本",
+    "id": 3,
+    "kind": "repair",
+    "last_error": "只支持独立本地 Git 仓库；共享目录请由 Python 承载 [offline-codex-fixture]",
+    "outcome_unknown": false,
+    "owner_id": "bob",
+    "project_id": 1,
+    "revision": 1,
+    "source": "web",
+    "source_ref": null,
+    "state_version": 3,
+    "status": "failed",
+    "title": "离线修复审批",
+    "updated_at": "2026-11-18T15:55:58.702000+00:00",
+    "workspace_path": null
+  },
+  "source": {
+    "commit": "7b7587d14399659d7951d3e195af863514fbf118",
+    "contract_sha256": "f5718d78f6e5b64a8c23c1b37b8100084511420bc588a5ba9aa0b7f28d84811c",
+    "files_checked": 346,
+    "fingerprint": "abf0a6922e8da03d65cd53458df256a509d824c3fbf276f58943cc800201b091",
+    "input_sha256": "7ddc38cd2088781c96d99ad63d5c264f13111636d7eaf17a8ea0b49dcc8fc03b"
+  },
+  "visibility": {
+    "admin": {
+      "counts": {
+        "completed": 1,
+        "waiting_resource": 1
+      },
+      "detail_checks": {
+        "/artifacts/1": 200,
+        "/artifacts/1/download": 200,
+        "/artifacts/2": 200,
+        "/artifacts/2/download": 200,
+        "/tasks/1": 200,
+        "/tasks/1/export": 200,
+        "/tasks/2": 200,
+        "/tasks/2/export": 200
+      },
+      "pending_approval_ids": [
+        3
+      ],
+      "task_ids": [
+        1,
+        2
+      ]
+    },
+    "alice": {
+      "counts": {
+        "waiting_resource": 1
+      },
+      "detail_checks": {
+        "/artifacts/1": 200,
+        "/artifacts/1/download": 200,
+        "/artifacts/2": 404,
+        "/artifacts/2/download": 404,
+        "/tasks/1": 200,
+        "/tasks/1/export": 200,
+        "/tasks/2": 404,
+        "/tasks/2/export": 404
+      },
+      "pending_approval_ids": [],
+      "task_ids": [
+        1
+      ]
+    },
+    "bob": {
+      "counts": {
+        "completed": 1
+      },
+      "detail_checks": {
+        "/artifacts/1": 404,
+        "/artifacts/1/download": 404,
+        "/artifacts/2": 200,
+        "/artifacts/2/download": 200,
+        "/tasks/1": 404,
+        "/tasks/1/export": 404,
+        "/tasks/2": 200,
+        "/tasks/2/export": 200
+      },
+      "pending_approval_ids": [
+        3
+      ],
+      "task_ids": [
+        2
+      ]
+    },
+    "viewer": {
+      "counts": {},
+      "detail_checks": {
+        "/artifacts/1": 404,
+        "/artifacts/1/download": 404,
+        "/artifacts/2": 404,
+        "/artifacts/2/download": 404,
+        "/tasks/1": 404,
+        "/tasks/1/export": 404,
+        "/tasks/2": 404,
+        "/tasks/2/export": 404
+      },
+      "pending_approval_ids": [],
+      "task_ids": []
+    }
+  },
+  "web_dist_sha256": {
+    "assets/index-Cwy39Lf-.js": "a668e93f3647ba739db21726cb7b995a1cfba5eec99faa8c33990bee294afca3",
+    "assets/index-nguacDrZ.css": "269ce983286ac9499f1259bc9377d5a5ca246d60501cf3d55ba75f92116e9f3b",
+    "field-timeline.example.json": "aaa0527c53832ead5cd309de07d6e9e36a48875dde39e0e76839f6cf844d7479",
+    "index.html": "47fc10b5fc19d0716a2bbf07ac9fb906c53759d27c37fd5b4cc530e5bc98d8fb"
+  },
+  "worker": {
+    "artifacts": {
+      "2": {
+        "attempt_id": "81f98c80-9bb1-41b3-9267-15aebb681813",
+        "content_sha256": "dfdae8e6e64f17cf05d71898eff737e198e1e974ace4ecf9f72416dc38b19178",
+        "kind": "summary",
+        "revision": 1
+      },
+      "3": {
+        "attempt_id": "81f98c80-9bb1-41b3-9267-15aebb681813",
+        "content_sha256": "93966e364a5b3ea0f491aae77e3f40e02f95770e6bd624d0102f488b0bd962dc",
+        "kind": "verification",
+        "revision": 1
+      }
+    },
+    "attempt_id": "81f98c80-9bb1-41b3-9267-15aebb681813",
+    "event_id": 4,
+    "proof": {
+      "evidence_source": "offline-codex-fixture",
+      "host_checked": true,
+      "kind": "reply",
+      "paths": [],
+      "project_key": "fff70963055a1f679a24756bc28638d5dd1868405919d423d8233b7bf45e52b5",
+      "thread_id": "8accf1d7-d640-44c1-956f-396d626de962",
+      "tool_less": true,
+      "turn_id": "06261688-14b2-4840-a2c8-a2e5404d2742",
+      "turn_status": "completed",
+      "workspace_kind": "fixture"
+    },
+    "status": "completed",
+    "task_id": 2
+  }
+}

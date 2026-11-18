@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\phase1-input-rc2-icefuoly\phase1.py", line 424, in <module>
+    exercise(args,root,report)
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\phase1-input-rc2-icefuoly\phase1.py", line 253, in exercise
+    call("/settings","PATCH",config)
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\phase1-input-rc2-icefuoly\phase1.py", line 248, in call
+    return net(port,endpoint(path),method,body,user,allowed)[1]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\phase1-input-rc2-icefuoly\phase1.py", line 48, in net
+    assert res.status in allowed, (method,path,res.status,data)
+           ^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('PATCH', '/api/v1/settings', 422, {'detail': '请求字段缺失、类型或取值无效'})

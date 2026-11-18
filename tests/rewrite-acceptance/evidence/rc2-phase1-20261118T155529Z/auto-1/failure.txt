@@ -1,0 +1,17 @@
+Traceback (most recent call last):
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\phase1-input-rc2-1xet2wa3\phase1.py", line 424, in <module>
+    exercise(args,root,report)
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\phase1-input-rc2-1xet2wa3\phase1.py", line 302, in exercise
+    repair_approval(call,work,report)
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\phase1-input-rc2-1xet2wa3\phase1.py", line 178, in repair_approval
+    pending, = until("waiting_approval")["approvals"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\phase1-input-rc2-1xet2wa3\phase1.py", line 177, in until
+    return wait_for(observed,50)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\phase1-input-rc2-1xet2wa3\phase1.py", line 32, in wait_for
+    result = fn()
+             ^^^^
+  File "C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\tests\rewrite-acceptance\phase1-input-rc2-1xet2wa3\phase1.py", line 175, in observed
+    raise AssertionError(("repair",detail["task"]))
+AssertionError: ('repair', {'id': 3, 'title': '离线修复审批', 'kind': 'repair', 'owner_id': 'bob', 'outcome_unknown': False, 'goal': '修复合成文本', 'project_id': 1, 'status': 'failed', 'revision': 1, 'state_version': 3, 'control_version': 1, 'source': 'web', 'source_ref': None, 'acceptance_criteria': '本轮差异和命令退出码', 'created_at': '2026-11-18T15:55:58.588000+00:00', 'updated_at': '2026-11-18T15:55:58.702000+00:00', 'last_error': '只支持独立本地 Git 仓库；共享目录请由 Python 承载 [offline-codex-fixture]', 'codex_thread_id': None, 'codex_turn_id': None, 'workspace_path': None})

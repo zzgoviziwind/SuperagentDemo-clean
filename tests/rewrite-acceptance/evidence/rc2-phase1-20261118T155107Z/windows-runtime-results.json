@@ -1,0 +1,30 @@
+[
+  {
+    "node": "v22.20.0",
+    "exit": 0,
+    "mixed": {
+      "normal": true,
+      "forced": true,
+      "owner_exit": true
+    },
+    "log": "runtime-v22.20.0.log",
+    "suite_sha256": "262841e4b6b4e9eecb13405e0fca9af1b60cb0c5b0a63d98a33ff2f3b4647158",
+    "native_exe_sha256": "425cd705d1fb3b5e2d47aba00c50145a890a9f664861a0274f2682ac60efe1bc",
+    "cleanup_error_mentions": 0,
+    "failed_tests": 0
+  },
+  {
+    "node": "v24.22.3",
+    "exit": 0,
+    "mixed": {
+      "normal": true,
+      "forced": true,
+      "owner_exit": true
+    },
+    "log": "runtime-v24.22.3.log",
+    "suite_sha256": "262841e4b6b4e9eecb13405e0fca9af1b60cb0c5b0a63d98a33ff2f3b4647158",
+    "native_exe_sha256": "425cd705d1fb3b5e2d47aba00c50145a890a9f664861a0274f2682ac60efe1bc",
+    "cleanup_error_mentions": 0,
+    "failed_tests": 0
+  }
+]

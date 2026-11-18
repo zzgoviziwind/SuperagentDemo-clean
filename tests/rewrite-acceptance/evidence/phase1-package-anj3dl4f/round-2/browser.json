@@ -1,0 +1,40 @@
+{
+  "browser": "149.0.7827.55",
+  "viewport": {
+    "width": 1440,
+    "height": 1000
+  },
+  "pageErrors": [],
+  "httpErrors": [
+    [
+      "/api/v1/tasks",
+      401
+    ],
+    [
+      "/api/v1/projects",
+      401
+    ],
+    [
+      "/api/v1/connectors",
+      401
+    ],
+    [
+      "/api/v1/settings",
+      401
+    ],
+    [
+      "/api/v1/auth/me",
+      401
+    ]
+  ],
+  "writes": [
+    [
+      "/api/v1/auth/login",
+      200
+    ],
+    [
+      "/api/v1/deliveries/2/reconcile",
+      200
+    ]
+  ]
+}

@@ -1,0 +1,63 @@
+
+ RUN  v3.2.7 C:/Users/examp/.codex/worktrees/6333/SuperAgentDemo
+
+ ✓ apps/server/src/worker/worker.test.ts (24 tests) 53852ms
+   ✓ Host uses the real fixture process and storage transactions > reply respects the scheduling gate and reaches manual acceptance with same-turn evidence  1404ms
+   ✓ Host uses the real fixture process and storage transactions > decision mode binds the persisted manifest to the acknowledged turn  775ms
+   ✓ Host uses the real fixture process and storage transactions > fixture is disabled unless selected, even when scheduling is enabled  544ms
+   ✓ Host uses the real fixture process and storage transactions > repair approval precedes a verified Git diff, independent test command and manual acceptance  4208ms
+   ✓ Host uses the real fixture process and storage transactions > analysis completes only with a restricted Host file read and an unchanged Git baseline  1951ms
+   ✓ Host uses the real fixture process and storage transactions > explicit account selection pins discovery paths used in later diagnosis  779ms
+   ✓ Host uses the real fixture process and storage transactions > approval acknowledgement lost: pending action freezes until manual current-version reconciliation  1306ms
+   ✓ Host uses the real fixture process and storage transactions > stop confirms the known fixture ended and the control caller owns the state transition  1308ms
+   ✓ Phase 2 Worker semantics > isolates two Git repos and checks repair with a real command and acceptance recheck  12182ms
+   ✓ Phase 2 Worker semantics > analysis reads the committed baseline of a dirty source repo; repair refuses that source  4662ms
+   ✓ Phase 2 Worker semantics > steers a live bound reply and resumes its thread in the same workspace on the next process  1678ms
+   ✓ Phase 2 Worker semantics > waiting approval releases a slot and approval rechecks capacity before dispatch  2785ms
+   ✓ Phase 2 Worker semantics > absolute deadline expires a bound turn while waiting for a protocol event  4466ms
+   ✓ Phase 2 Worker semantics > waiting approval still expires at the attempt deadline  6818ms
+   ✓ Phase 2 Worker semantics > an edited project configuration fences the active run and forbids completion  945ms
+   ✓ Frozen Worker reference and reply behavior > external reference directory is read through an alias and the verified attempt is local only  1890ms
+   ✓ Frozen Worker reference and reply behavior > operator selection limits legacy active-project scope and a nonadministrator receives no aliases  4061ms
+   ✓ Frozen Worker reference and reply behavior > reply Worker persists its judgment source before starting a turn  954ms
+ ✓ apps/server/src/deliveries/tests/source-image.test.ts (22 tests) 34593ms
+   ✓ 已绑定原私聊可取 PNG，来源路径和 URL 无效，重复资源只返回一次  2197ms
+   ✓ 冻结库仅含图片消息标记和原消息标识时仍可读取  1919ms
+   ✓ 假 DWS 返回 {"account":"other"} 时丢弃整批  382ms
+   ✓ 假 DWS 返回 {"anchor":"other"} 时丢弃整批  823ms
+   ✓ 假 DWS 返回 {"chat":"other"} 时丢弃整批  1871ms
+   ✓ 假 DWS 返回 {"message":"other"} 时丢弃整批  1696ms
+   ✓ 假 DWS 返回 {"sender":"other"} 时丢弃整批  1580ms
+   ✓ 假 DWS 返回 {"ledgerMessage":"other"} 时丢弃整批  1732ms
+   ✓ 假 DWS 返回 {"resource":"other"} 时丢弃整批  1616ms
+   ✓ 假 DWS 返回 {"badSignature":true} 时丢弃整批  1608ms
+   ✓ 假 DWS 返回 {"files":5} 时丢弃整批  1576ms
+   ✓ 假 DWS 返回 {"size":10485761} 时丢弃整批  1454ms
+   ✓ 假 DWS 返回 {"files":3,"size":8388608} 时丢弃整批  1616ms
+   ✓ 读取期间 receipt 改变时不返回图片  2479ms
+   ✓ 读取期间 grant 改变时不返回图片  2551ms
+   ✓ 读取期间 config 改变时不返回图片  2686ms
+   ✓ 读取期间 account 改变时不返回图片  2436ms
+   ✓ 读取期间 abort 改变时不返回图片  1597ms
+   ✓ 评估 HTTP 接收原图和审计摘要，模型端使用离线替身  2732ms
+ ✓ apps/server/src/workbench/scheduler.test.ts (8 tests) 8932ms
+   ✓ 冻结 SQLite 工作台调度 > 默认研判驱动把已暂存原图放入本轮协议，拒绝跨目录文件  671ms
+   ✓ 冻结 SQLite 工作台调度 > 从冻结库副本发起语义分派、Router 与 Watchdog，本轮证据和权限重启后仍可读  2017ms
+   ✓ 冻结 SQLite 工作台调度 > 拒绝跨项目和撤销授权，协议失联后重启不再派发，预算不足前不发起 turn/start  1118ms
+   ✓ 冻结 SQLite 工作台调度 > 开启后的后台轮询接收入站消息与巡检，只有确认 Worker 退出才完成暂停  1130ms
+   ✓ 冻结 SQLite 工作台调度 > 未分配直聊只写授权项目建议，由人工确认，空提及数组和 DWS 类型遵守 intake  1053ms
+   ✓ 冻结 SQLite 工作台调度 > 原始 thread/read 仅发送握手和读取帧，旧桥接版本仍可握手和调用  426ms
+   ✓ 冻结 SQLite 工作台调度 > 并发评估真实假协议调用和私聊证据，关闭模型分派时手动调度仍可重试确定性分派  2460ms
+ ✓ apps/server/src/workbench/workbench.test.ts (20 tests) 2584ms
+   ✓ 工作台与冻结 SQLite 表兼容 > 事件流按任务权限发出通知，按最后收到的事件 ID 恢复  2029ms
+ ✓ apps/server/src/field/field.test.ts (6 tests) 2474ms
+   ✓ Field Intake with the production SQLite schema > accepts multipart audio and video when the optional processor is ready and stops at candidate review  2062ms
+ ✓ apps/server/src/intake.test.ts (16 tests) 940ms
+ ✓ apps/server/src/server.test.ts (6 tests) 606ms
+ ✓ apps/server/src/auth.test.ts (3 tests) 171ms
+
+ Test Files  8 passed (8)
+      Tests  105 passed (105)
+   Start at  00:00:47
+   Duration  115.72s (transform 1.26s, setup 0ms, collect 5.24s, tests 104.15s, environment 2ms, prepare 938ms)
+

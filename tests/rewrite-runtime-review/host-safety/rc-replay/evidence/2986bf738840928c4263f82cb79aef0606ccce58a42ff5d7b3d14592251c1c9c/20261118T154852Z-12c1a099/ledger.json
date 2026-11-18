@@ -1,0 +1,212 @@
+{
+  "candidate": {
+    "source": "C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\deploy\\windows-ts\\.artifacts\\rc2\\packages\\SuperAgent-0_2_0-rc2-0fa9b3e-win-x64.zip",
+    "dependency_source": "package",
+    "manifest_version": "0_2_0-rc2-0fa9b3e",
+    "zip_sha256": "bf4593ef65608835c766b43349ba8fdfea5a14609472fe1cd47a7f22da48c9dc",
+    "manifest_sha256": "87ac8f3f59dd209ab53d9e8bfb1c94bb45b48c71908f3a4169dea31747d9e190",
+    "files": {
+      "bin/windows-job-x64.exe": "425cd705d1fb3b5e2d47aba00c50145a890a9f664861a0274f2682ac60efe1bc",
+      "field-helpers/field_media_worker.py": "bcfedcf113ee70e002cd114b6461c41284801613d31fbffdab8411deead1ecb1",
+      "field-helpers/field_ocr.py": "e94e2873cab44b40610d15fcc184ecbac87c1a3c900219cdf7a76d14e886f929",
+      "fixtures/environment.ts": "feeaf93819ceff2e44540276b98ed300338e86c88ab94fd10656e19afa8650ab",
+      "fixtures/fake-app-server.ts": "90ec8ba801a2a5b88721f6bc207a07c59914dfd9f1d8792e61544084a3c48b13",
+      "fixtures/fake-channel-sender.ts": "00b911b8090651ced496d74b7c3cd0a2e438b626c267ac59c4c1165fce3821fc",
+      "main.js": "3d1aa76d066f17ce1326b954aabcd19946e0045101078983b3645cee62a67557"
+    },
+    "dist_sha256": "2986bf738840928c4263f82cb79aef0606ccce58a42ff5d7b3d14592251c1c9c",
+    "main_sha256": "3d1aa76d066f17ce1326b954aabcd19946e0045101078983b3645cee62a67557",
+    "node_sha256": "86fc4785327db5f5c7558dc6156c543b433c313e813a222e088086222ab4afa6"
+  },
+  "utc": "2026-11-18T15:48:52.771037+00:00",
+  "node": "v24.22.3",
+  "python": "3.12.10",
+  "runner_files": {
+    "ledger.py": "e479e623310f7f58c8b9b398effe11c8d8f70bcd906d74288994229d730c4522",
+    "candidate.py": "054a52f5ee5cb51e523ee8cc928e8f57daa522827f1de86cad01f098df747a16",
+    "prepared.py": "f0e1b8c618a59d8b4ee09c9b439edf47760afc59284e5a3d52a3d191d3194f85",
+    "oracle.py": "299785dbcca7f7a93327a438b3db8ee6ace04ffc83f61703b8c3c424485fce2f",
+    "prepare-guard.cjs": "2d4b1d6737af7ac0cc8d686d939f736e6a4d1ec61722208a92b03bb367f43f4d"
+  },
+  "cases": {
+    "default": {
+      "pass": true,
+      "observed": {
+        "active_refused": true,
+        "real_crash": true,
+        "lease_wait_seconds": 29.19,
+        "before": [
+          "dispatching",
+          0,
+          "waiting_approval",
+          "pending"
+        ],
+        "prepare_json": {
+          "prepared": true,
+          "database": "<same>/superagent.db",
+          "backup": "<same>/rollback-backups/e2d29efe-2ea4-4225-806a-9a7660cc40fe.db",
+          "recovery": {
+            "abandoned": 0,
+            "unknown": 1,
+            "legacy_unknown": 0,
+            "approvals_unknown": 0,
+            "approvals_expired": 1,
+            "claims_expired": 0,
+            "dispatches_unknown": 1
+          },
+          "unknown_delivery_ids": [
+            "reply-1"
+          ],
+          "unknown_task_ids": [
+            1
+          ],
+          "unknown_approval_ids": [],
+          "unknown_model_run_ids": [],
+          "unknown_bridge_operation_ids": []
+        },
+        "prepare_epoch": 2,
+        "backup_before_recovery": true,
+        "prohibited_calls": 0,
+        "python": {
+          "task": "waiting_resource",
+          "unknown": true,
+          "attempt": "unknown",
+          "approval": "expired_on_restart",
+          "ledger": "unknown",
+          "token_cleared": true,
+          "counts": null,
+          "mode": "default",
+          "manual": {
+            "before": "unknown",
+            "http": 200,
+            "after": "succeeded",
+            "replay_http": 200
+          }
+        },
+        "ts_replay": "succeeded",
+        "same_file_id": "3096224744830993",
+        "reconciliation_events": 1,
+        "receipt_files": 1,
+        "receipt_sha256": "6676cf99e05fb28becd8956b242de172c7f00b56bb84e337af3d20b12a296804"
+      }
+    },
+    "stock": {
+      "pass": true,
+      "observed": {
+        "active_refused": true,
+        "real_crash": true,
+        "lease_wait_seconds": 22.9,
+        "before": [
+          "dispatching",
+          0,
+          "waiting_approval",
+          "pending"
+        ],
+        "prepare_json": {
+          "prepared": true,
+          "database": "<same>/superagent.db",
+          "backup": "<same>/rollback-backups/22d6b6fa-10af-4b55-bf07-c51c072c8868.db",
+          "recovery": {
+            "abandoned": 0,
+            "unknown": 1,
+            "legacy_unknown": 0,
+            "approvals_unknown": 0,
+            "approvals_expired": 1,
+            "claims_expired": 0,
+            "dispatches_unknown": 1
+          },
+          "unknown_delivery_ids": [
+            "reply-1"
+          ],
+          "unknown_task_ids": [
+            1
+          ],
+          "unknown_approval_ids": [],
+          "unknown_model_run_ids": [],
+          "unknown_bridge_operation_ids": []
+        },
+        "prepare_epoch": 2,
+        "backup_before_recovery": true,
+        "prohibited_calls": 0,
+        "python": {
+          "task": "waiting_resource",
+          "unknown": true,
+          "attempt": "unknown",
+          "approval": "expired_on_restart",
+          "ledger": "unknown",
+          "token_cleared": true,
+          "counts": null,
+          "mode": "stock",
+          "manual": {
+            "before": "unknown",
+            "http": 200,
+            "after": "succeeded",
+            "replay_http": 200
+          }
+        },
+        "ts_replay": "succeeded",
+        "same_file_id": "3096224744830997",
+        "reconciliation_events": 1,
+        "receipt_files": 1,
+        "receipt_sha256": "13f9c9c2c3ebabb317cce14ce21aec9590062ff38fc2654f8f8568ec7d94d6d1"
+      }
+    },
+    "direct-default": {
+      "pass": true,
+      "observed": {
+        "negative_control": true,
+        "before": [
+          "dispatching",
+          0,
+          "waiting_approval",
+          "pending"
+        ],
+        "python": {
+          "task": "waiting_resource",
+          "unknown": true,
+          "attempt": "unknown",
+          "approval": "expired_on_restart",
+          "ledger": "dispatching",
+          "token_cleared": false,
+          "counts": {
+            "abandoned": 0,
+            "unknown": 1,
+            "legacy_unknown": 0,
+            "approvals_expired": 1
+          },
+          "mode": "default",
+          "manual_reconciliation": "仅可对账结果未知的交付"
+        },
+        "ts_replay": "unknown",
+        "receipt_files": 1
+      }
+    },
+    "direct-stock": {
+      "pass": true,
+      "observed": {
+        "negative_control": true,
+        "before": [
+          "dispatching",
+          0,
+          "waiting_approval",
+          "pending"
+        ],
+        "python": {
+          "task": "waiting_resource",
+          "unknown": true,
+          "attempt": "waiting_approval",
+          "approval": "pending",
+          "ledger": "dispatching",
+          "token_cleared": false,
+          "counts": null,
+          "mode": "stock",
+          "manual_reconciliation": "仅可对账结果未知的交付"
+        },
+        "ts_replay": "unknown",
+        "receipt_files": 1
+      }
+    }
+  },
+  "dist_unchanged": true,
+  "pass": true
+}

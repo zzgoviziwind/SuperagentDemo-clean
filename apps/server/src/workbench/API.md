@@ -60,16 +60,16 @@ registerWorkbench(app, store.db, scheduler);
 
 - 投递组负责 `GET /tasks/:id/deliveries`。事件跟踪读取已保存投递记录。入站、事件重试、普通任务与上下文由总控负责，triage 由工作台负责。
 - 委派入口提交子任务和事件。子 Worker 结果回流与单事件项目研判的主动取图仍需单独集成。
-- 多消息评估从所选的同一获准钉钉私聊收取原图。渠道核验 profile、当前账号、私聊对方、原消息和资源回执。工作台按事件编号绑定本轮图片，允许 PNG、JPEG、GIF、WebP，单张至多 10 MiB，整轮至多 4 张和 20 MiB。派发前再次核验来源快照。确认图片输入的轮次才填写 `evidence_turn_id` 和依顺序排列的 `visual_inputs`。审计只存格式、字节数、SHA-256 和轮次等证据摘要，运行暂存文件在本轮结束时清理。没有图片、原图缺失、历史未核实或驱动不支持图片时返回 `incomplete`。
+- 多消息评估从所选的同一获准钉钉私聊收取原图。渠道核验 profile、当前账号、私聊对方、原消息和资源回执。工作台按事件编号绑定本轮图片，允许 PNG、JPEG、GIF、WebP，单张至多 10 MiB，整轮至多 4 张和 20 MiB。派发前再次核验来源快照。确认图片输入的轮次才填写 `evidence_turn_id` 和依顺序排列的 `visual_inputs`。审计只存格式、字节数、SHA-256 和轮次等证据摘要，运行暂存文件在本轮结束时清理。需要原图但读取失败、历史未核实，或需要传图而驱动不支持时返回 `incomplete`。
 - 本轮使用离线假协议和冻结库副本。受信本机 Codex 账号、真实 DWS、浏览器和安装器需要各自的联调证据。
 
 ### 原图驱动兼容
 
-TypeScript 运行需要共享 Codex 客户端提供 `startTurnWithImages(threadId, prompt, profile, paths)`，用已有只读线程和预算流程发送原生 `turn/start.input[].type=localImage`。未提供该能力时，带图评估产生 `model_image_input_unavailable` 证据和 `incomplete`，图片读取端口不会被调用。
+本次 Windows 包的共享 Codex 客户端已实现 `startTurnWithImages(threadId, prompt, profile, paths)`，用已有只读线程和预算流程发送原生 `turn/start.input[].type=localImage`。未提供该能力时，带图评估产生 `model_image_input_unavailable` 证据和 `incomplete`，图片读取端口不会被调用。
 
 保留冻结 Python 时，使用发布回滚流程切换控制器，或把独立 DB 副本和临时工作目录交给冻结版本并仅监听回环。并行运行时，Python 与 TypeScript 服务使用独立数据库。复放副本关闭后台分流、巡检和真实渠道监听，原图读取及 Codex 使用离线替身。冻结版本从 `.rewrite-oracle` 启动 `superagent.main:app`，由同一管理员调用 `POST /api/v1/routing/assessments` 并提交 `event_ids`。原入口重新校验来源和项目授权，用 `TriageEvidence.call('source_image', …)` 读取该次请求允许的原消息，必要时在同一线程以原生图片续跑，并在该数据库记录本轮审计。TypeScript 评估只接受其自身发出的轮次回执。
 
-兼容入口应核对本轮每个应取图事件的 `source_image.status=verified`，以及相应的 `visual_inputs` 和 `turn_id`。冻结 Python 的 `assessed` 只证明曾尝试读取所需证据。输入没有图片或原图核对失败时，对调用方仍报告 `incomplete`。
+兼容入口应核对本轮每个应取图事件的 `source_image.status=verified`，以及相应的 `visual_inputs` 和 `turn_id`。冻结 Python 的 `assessed` 只证明曾尝试读取所需证据。需要的原图核对失败时，对调用方报告 `incomplete`。
 
 ## B328 五项 409 裁决
 
