@@ -1,0 +1,12 @@
+import { useEffect, useState } from "react";
+import { request } from "./api";
+type Row = Record<string, any>;
+export function CoordinationPanel({sessionId, taskId}: {sessionId:string;version?:number;taskId?:number}) {
+ const [items,setItems]=useState<Row[]>([]), [target,setTarget]=useState(String(taskId??"")), [event,setEvent]=useState(""), [reference,setReference]=useState(""), [evidence,setEvidence]=useState(""), [error,setError]=useState(""), [busy,setBusy]=useState(false);
+ const path=`/sessions/${encodeURIComponent(sessionId)}/coordination`;
+ async function refresh(){ const r=await request<any>(path); setItems(Array.isArray(r)?r:r.items??[]); }
+ useEffect(()=>{void refresh().catch(e=>setError(e.message));},[sessionId]);
+ async function apply(id:number){setBusy(true);setError("");try{await request(`${path}/${id}/apply`,{});await refresh();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ async function submit(){setBusy(true);setError("");try {const detail=await request<any>(`/tasks/${Number(target)}`);await request(path,{target_task_id:Number(target),event_id:event?Number(event):undefined,source_reference:reference||undefined,evidence,expected_state_version:detail.task.state_version,request_key:crypto.randomUUID()});await refresh();setEvidence("");}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ return <details className="advanced-panel"><summary>申请 Router 关联其他事件</summary><p>将另一条消息作为目标事件的上下文。已有事件不会因此删除或取消；尚未捕捉的来源仅记录待获取申请。</p><label>目标事件编号<input value={target} onChange={e=>setTarget(e.target.value)} /></label><label>已捕捉事件编号<input value={event} onChange={e=>setEvent(e.target.value)} /></label><label>未捕捉来源的明确引用<input value={reference} onChange={e=>setReference(e.target.value)} placeholder="群消息引用或 Redmine 问题地址" /></label><label>关联依据<textarea value={evidence} onChange={e=>setEvidence(e.target.value)} /></label><button disabled={busy||!target||!evidence.trim()||(!event&&!reference)} onClick={()=>void submit()}>提交关联申请</button>{error&&<p role="alert">{error}</p>}{items.map(i=><article key={i.id}><p>申请 {i.id} · {i.data?.status??i.status} · {i.data?.evidence??i.content}</p><p>事件 {i.data?.request?.event_id ?? "待获取"} → 事件 {i.data?.request?.target_task_id} · 依据：{i.data?.request?.evidence}</p><small>由 Router 管理流程核验，提交申请不代表已投递。</small>{i.data?.status === "pending" && <button disabled={busy} onClick={()=>void apply(i.id)}>管理员应用关联 {i.id}</button>}</article>)}</details>;
+}

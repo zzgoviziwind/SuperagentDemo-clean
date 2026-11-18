@@ -13,6 +13,15 @@ SUPERAGENT_CODEX_EXECUTABLE=
 # SUPERAGENT_USERS_JSON=<JSON user array with user_id, role, token>
 # SUPERAGENT_SESSION_SECRET=<at least 32 random bytes>
 # SUPERAGENT_ALLOWED_ORIGINS=https://your-approved-host
+# Optional Feishu private decision reminders (disabled unless enabled explicitly).
+# SUPERAGENT_FEISHU_ENABLED=1
+# SUPERAGENT_FEISHU_MODE=card
+# SUPERAGENT_FEISHU_APP_ID=
+# SUPERAGENT_FEISHU_APP_SECRET=
+# SUPERAGENT_FEISHU_OPEN_ID=
+# SUPERAGENT_FEISHU_OWNER_ID=admin
+# Only used by link mode.
+# SUPERAGENT_FEISHU_WORKBENCH_URL=https://your-approved-host
 # HLZJ_REDMINE_API_KEY=<local secret>
 # PostgreSQL password and URL must use the same value. URL-encode reserved characters.
 POSTGRES_PASSWORD=

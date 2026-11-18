@@ -20,11 +20,7 @@ it("摘要显示可读 summary 和目标版本", () => {
   );
   expect(screen.getByText("定位到缺失索引")).toBeTruthy();
   expect(screen.getByText(/当前版本/)).toBeTruthy();
-  expect(
-    screen
-      .getByRole("link", { name: "下载完整产物 JSON" })
-      .getAttribute("href"),
-  ).toBe("/api/v1/artifacts/7/download");
+  expect(screen.queryByRole("link", { name: "下载完整产物 JSON" })).toBeNull();
 });
 
 it("改动展示 diff 与新增文件信息，base64 保留在完整下载中", () => {

@@ -19,6 +19,10 @@ test-results/
 .tmp/
 .test-tmp/
 .pytest-temp*/
+.pytest-operations*/
+.pytest-watchdog*/
+.pytest-message-response*/
+.local/
 tests/runtime/schema_tmp/
 tests/runtime/schema_normal/
 *.db

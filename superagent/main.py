@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from superagent.core.db import Session, Project, Task, Event, Artifact, Approval, dump, init_db, now
 from superagent.core.scheduler import scheduler
@@ -12,21 +12,59 @@ from superagent.core import governance as gov
 from superagent.core.connections import manager
 from superagent.api.governance import router as governance_router
 from superagent.api.connections import router as connections_router
+from superagent.api.lifecycle import router as lifecycle_router
+from superagent.api.sessions import router as sessions_router
+from superagent.core.sessions import RouterSession, RouterMessage
+from superagent.core.router_agent import router_agent
+from superagent.api.routing import router as routing_router
+from superagent.core.semantic_routing import semantic_routing_service
+from superagent.api.operations import router as operations_router, operations
+from superagent.api.conversation_providers import router as conversation_providers_router
+from superagent.api.local_agents import router as local_agents_router
+from superagent.core import feishu_decisions
+from superagent.core.feishu_cards import CardApprovals
 
 @asynccontextmanager
 async def lifespan(app):
     init_db()
-    # A previous process may have died mid-turn. Its outcome is unknown, never replay automatically.
+    # A previous process may have died mid-turn or before recording a requested stop.
+    # Neither case proves that execution has stopped; recover through reconciliation.
     with Session.begin() as s:
-        s.execute(update(Task).where(Task.status.in_(['running', 'waiting_approval'])).values(status='waiting_resource', outcome_unknown=True, last_error='服务重启，运行结果未知，请人工对账', updated_at=now(), state_version=Task.state_version + 1))
+        s.execute(update(Task).where(or_(
+            Task.status.in_(['running', 'waiting_approval']),
+            and_(Task.status == 'waiting_resource', Task.last_error == '正在停止执行'),
+        )).values(status='waiting_resource', outcome_unknown=True, last_error='服务重启，运行结果未知，请人工对账', updated_at=now(), state_version=Task.state_version + 1))
+        s.execute(update(RouterSession).where(RouterSession.status == 'running').values(status='waiting_resource', outcome_unknown=True, last_error='服务重启，Router 结果未知，请核验', updated_at=now(), state_version=RouterSession.state_version + 1))
+        for message in s.scalars(select(RouterMessage).where(RouterMessage.data['status'].as_string().in_(['queued', 'running']))):
+            message.data = {**message.data, 'status': 'unknown'}
+    # Recover daemon leases before the scheduler can create new operations.
+    await operations.start()
     await scheduler.start()
     await manager.start()
+    semantic_routing_service.sessions = Session
+    await semantic_routing_service.start()
+    feishu_config = feishu_decisions.Config.load()
+    cards = None
+    reminders = None
+    if feishu_config and feishu_config.mode == 'card':
+        cards = CardApprovals(Session, scheduler, feishu_config, _decide_worker_approval)
+        cards.start()
+    elif feishu_config:
+        reminders = asyncio.create_task(feishu_decisions.run(Session, scheduler, feishu_config))
     try:
         yield
     finally:
+        if cards:
+            await cards.close()
+        if reminders:
+            reminders.cancel()
+            await asyncio.gather(reminders, return_exceptions=True)
         try:
             await manager.stop()
         finally:
+            await operations.close()
+            await semantic_routing_service.close()
+            await router_agent.close()
             await scheduler.close()
 
 app = FastAPI(lifespan=lifespan)
@@ -34,16 +72,26 @@ app = FastAPI(lifespan=lifespan)
 @app.middleware('http')
 async def authenticate(request: Request, call_next):
     # Static assets and login must be reachable before a browser has a session.
-    if request.url.path.startswith('/api/') and request.url.path not in ('/api/v1/auth/login', '/api/v1/auth/logout'):
+    if request.url.path.startswith('/api/') and request.url.path not in ('/api/v1/auth/login', '/api/v1/auth/logout', '/api/v1/operations/daemon/poll', '/api/v1/operations/daemon/exchange'):
         try:
             request.state.principal = gov.authenticate_request(request)
         except HTTPException as exc:
             return JSONResponse({'detail': exc.detail}, status_code=exc.status_code)
     return await call_next(request)
 
+from superagent.api.project_workspace import router as project_workspace_router
+app.include_router(project_workspace_router)
+
+class RepositoryIn(BaseModel):
+    path: str
+    base_branch: str
+
 class ProjectIn(BaseModel):
     name: str
     repo_path: str
+    repositories: list[RepositoryIn] = Field(default_factory=list, max_length=20)
+    reference_access: str = 'workspace'
+    reference_dirs: list[str] = Field(default_factory=list, max_length=12)
     base_branch: str = 'main'
     test_command: str = ''
     allowed_paths: list[str] = Field(default_factory=list)
@@ -94,6 +142,23 @@ def validate_project(values):
         raise HTTPException(422, '允许修改的路径配置无效') from exc
     if not values['name'].strip() or not values['base_branch'].strip() or values['base_branch'].startswith('-'):
         raise HTTPException(422, '项目名称或分支无效')
+    from superagent.runtime.workspace import validate_repositories
+    try:
+        validate_repositories(resolved, values['repositories'])
+    except (ValueError, OSError) as exc:
+        raise HTTPException(422, str(exc)) from None
+    from superagent.runtime.readonly_tools import reference_root
+    if values['reference_access'] not in {'workspace', 'projects', 'directories'}:
+        raise HTTPException(422, 'Agent 读取范围无效')
+    if values['reference_access'] == 'directories':
+        try:
+            values['reference_dirs'] = list(dict.fromkeys(str(reference_root(p)) for p in values['reference_dirs']))
+        except (ValueError, OSError):
+            raise HTTPException(422, '资料目录须为已存在、允许读取的绝对目录，不可选择整盘或系统、账号目录') from None
+        if not values['reference_dirs']:
+            raise HTTPException(422, '请添加至少一个只读资料目录')
+    else:
+        values['reference_dirs'] = []
     values['repo_path']=str(resolved)
     return values
 
@@ -121,7 +186,7 @@ def health(): return {'status':'ok','version':'0.1.0'}
 
 @app.get('/api/v1/projects')
 def projects():
-    with Session() as s: return [dump(x) for x in s.scalars(select(Project)).all()]
+    with Session() as s: return [dump(x) for x in s.scalars(select(Project).where(Project.archived.is_(False))).all()]
 @app.post('/api/v1/projects')
 def create_project(body: ProjectIn, request: Request):
     gov.require_permission(request.state.principal, 'project.write')
@@ -141,6 +206,22 @@ def edit_project(ident: int, body: dict, request: Request):
         s.flush()
         gov.audit_action(s,request.state.principal,'project.update',p.id)
         return dump(p)
+@app.delete('/api/v1/projects/{ident}')
+def delete_project(ident: int, request: Request):
+    gov.require_permission(request.state.principal, 'project.write')
+    with Session.begin() as s:
+        p = get(s, Project, ident)
+        tasks = s.scalars(select(Task).where(Task.project_id == ident)).all()
+        if tasks:
+            p.enabled = False
+            p.archived = True
+            gov.audit_action(s, request.state.principal, 'project.archive', ident)
+            return {'archived': True, 'message': '项目已归档，历史事件和会话可继续查看'}
+        p.enabled = False
+        p.archived = True
+        gov.audit_action(s, request.state.principal, 'project.delete', ident)
+        return {'deleted': True}
+
 @app.get('/api/v1/tasks')
 def tasks(status: str | None=None, project_id: int | None=None):
     with Session() as s:
@@ -151,7 +232,7 @@ def tasks(status: str | None=None, project_id: int | None=None):
 @app.post('/api/v1/tasks')
 def create_task(body: TaskIn, request: Request):
     gov.require_permission(request.state.principal, 'task.create')
-    if body.kind not in ('repair','analysis'): raise HTTPException(422,'任务类型无效')
+    if body.kind not in ('repair','analysis','reply'): raise HTTPException(422,'任务类型无效')
     if body.source != 'web': raise HTTPException(403,'仅允许通过事件入口接收外部来源')
     if not body.title.strip() or not body.goal.strip(): raise HTTPException(422,'标题和目标不能为空')
     with Session.begin() as s:
@@ -165,6 +246,52 @@ def task_detail(ident: int):
     with Session() as s:
         t=get(s,Task,ident)
         return {'task':dump(t), **{key:[dump(x) for x in s.scalars(select(cls).where(cls.task_id==ident)).all()] for key,cls in [('events',Event),('artifacts',Artifact),('approvals',Approval)]}}
+class ProjectRebindIn(BaseModel):
+    project_id: int
+    expected_state_version: int
+    reason: str = Field(min_length=1, max_length=1000)
+
+
+@app.post('/api/v1/tasks/{ident}/project')
+async def rebind_task_project(ident: int, body: ProjectRebindIn, request: Request):
+    principal = request.state.principal
+    gov.require_permission(principal, 'project.write')
+    from .core.ingestion import TaskRoute
+    from .core.subscriptions import WorkerSubscription
+    if not body.reason.strip():
+        raise HTTPException(422, '请说明更换项目的原因')
+    async with scheduler.lock(ident):
+        with Session.begin() as s:
+            t = get(s, Task, ident)
+            check_version(t, body.expected_state_version)
+            p = get(s, Project, body.project_id)
+            if not p.enabled or p.archived:
+                raise HTTPException(409, '目标项目不可用')
+            if t.project_id == p.id:
+                return dump(t)
+            if (t.outcome_unknown or t.status not in ('paused', 'waiting_input', 'review_ready', 'failed')
+                    or ident in scheduler.active or ident in scheduler.clients or ident in scheduler.tests):
+                raise HTTPException(409, '请先停止执行并核验状态再更换项目')
+            keys = select(TaskRoute.route_key).where(TaskRoute.task_id == ident)
+            if s.scalar(select(TaskRoute.id).where(TaskRoute.project_id == p.id,
+                    TaskRoute.task_id != ident, TaskRoute.route_key.in_(keys)).limit(1)):
+                raise HTTPException(409, '目标项目已有事件与原来源冲突，不能自动迁移')
+            old_id = t.project_id
+            old_workspace = t.workspace_path
+            old_thread = t.codex_thread_id
+            advance(s, t, {'project_id': p.id, 'workspace_path': None, 'codex_thread_id': None,
+                'codex_turn_id': None, 'revision': t.revision + 1, 'control_version': t.control_version + 1,
+                'status': 'waiting_input', 'last_error': '项目已更换，旧工作区和结果保留为历史；请确认后继续'})
+            s.execute(update(TaskRoute).where(TaskRoute.task_id == ident).values(project_id=p.id))
+            s.execute(update(WorkerSubscription).where(WorkerSubscription.task_id == ident).values(enabled=False))
+            s.execute(update(Approval).where(Approval.task_id == ident, Approval.status == 'pending').values(status='expired'))
+            record(s, ident, 'project_rebound', f'所属项目已更换为「{p.name}」。原因：{body.reason.strip()}',
+                {'from_project_id': old_id, 'project_id': p.id, 'revision': t.revision, 'previous_workspace': old_workspace,
+                 'previous_thread_id': old_thread, 'actor': principal.user_id})
+            gov.audit_action(s, principal, 'task.project.update', ident, {'revision': t.revision, 'state_version': t.state_version})
+            return dump(t)
+
+
 @app.post('/api/v1/tasks/{ident}/messages')
 async def message(ident: int, body: MessageIn, request: Request):
     if not body.content.strip(): raise HTTPException(422,'内容不能为空')
@@ -186,7 +313,7 @@ async def message(ident: int, body: MessageIn, request: Request):
                 # the user adds context instead of replacing the original goal.
                 values={'status':'waiting_input','revision':t.revision+1,'control_version':t.control_version+1,'last_error':'收到新补充，请继续执行后重新验收'}
                 s.execute(update(Approval).where(Approval.task_id==ident,Approval.status=='pending').values(status='expired'))
-            advance(s,t,values); e=record(s,ident,'goal_changed' if body.change_goal else 'message',body.content); result=dump(e)
+            advance(s,t,values); e=record(s,ident,'goal_changed' if body.change_goal else 'message',body.content,{'actor': request.state.principal.user_id}); result=dump(e)
             gov.audit_action(s,request.state.principal,'task.message',ident,{'revision':t.revision,'state_version':t.state_version})
     if interrupt: asyncio.create_task(scheduler.stop_run(ident, 'change_goal'))
     elif not body.change_goal:
@@ -212,19 +339,44 @@ async def message(ident: int, body: MessageIn, request: Request):
     return result
 @app.post('/api/v1/tasks/{ident}/controls')
 async def control(ident: int, body: ControlIn, request: Request):
-    transitions={'start': {'queued':'queued'}, 'pause': {'queued':'paused','waiting_resource':'paused','waiting_input':'paused','waiting_approval':'waiting_resource','running':'waiting_resource'}, 'resume': {'paused':'queued','waiting_input':'queued'}, 'cancel': {'queued':'cancelled','paused':'cancelled','waiting_input':'cancelled','waiting_resource':'cancelled','waiting_approval':'waiting_resource','running':'waiting_resource','review_ready':'cancelled','failed':'cancelled'}, 'retry': {'failed':'queued'}}
+    from superagent.core.reply_worker import ENGINE_BLOCKED, reply_command
+    transitions={'start': {'queued':'queued'}, 'pause': {'queued':'paused','waiting_resource':'paused','waiting_input':'paused','waiting_approval':'waiting_resource','running':'waiting_resource'}, 'resume': {'paused':'queued','waiting_input':'queued','cancelled':'queued'}, 'cancel': {'queued':'cancelled','paused':'cancelled','waiting_input':'cancelled','waiting_resource':'cancelled','waiting_approval':'waiting_resource','running':'waiting_resource','review_ready':'cancelled','failed':'cancelled'}, 'retry': {'failed':'queued'}}
     stop=False
     async with scheduler.lock(ident):
         with Session.begin() as s:
             t=get(s,Task,ident); check_version(t,body.expected_state_version)
             gov.require_permission(request.state.principal, 'task.control', gov.task_owner(ident, s))
             target=transitions.get(body.action,{}).get(t.status)
+            # Acceptance confirms execution; the operator can still close the event
+            # while keeping the accepted result and unresolved source evidence.
+            if body.action == 'cancel' and t.status == 'completed':
+                target = 'cancelled'
+            recovering_engine = (body.action == 'resume' and t.kind == 'reply'
+                                 and t.status == 'waiting_resource' and t.last_error in ENGINE_BLOCKED)
+            if recovering_engine:
+                target = 'queued'
+            if body.action == 'analyze' and t.kind == 'reply' and t.status in {'paused', 'waiting_input', 'review_ready', 'completed', 'cancelled', 'failed'}:
+                target = 'queued'
+            restarting = t.status == 'cancelled' or body.action == 'analyze'
+            if (restarting or recovering_engine) and (ident in scheduler.active or ident in scheduler.clients or ident in scheduler.tests):
+                raise HTTPException(409, '执行尚未退出，请稍后继续')
             if not target: raise HTTPException(409,'当前状态不支持此操作')
             stop=t.status in ('running','waiting_approval') and body.action in ('pause','cancel')
             if t.last_error == '正在停止执行': raise HTTPException(409,'停止执行尚未确认')
             if t.outcome_unknown: raise HTTPException(409,'运行结果未知，须先人工对账')
             if t.status == 'waiting_resource' and t.last_error and ('未知' in t.last_error or '对账' in t.last_error): raise HTTPException(409,'运行结果未知，须先人工对账，暂停也不会清除此状态')
-            advance(s,t,{'status':target,'control_version':t.control_version+1,'last_error':'正在停止执行' if stop else None})
+            if recovering_engine:
+                if not gov.settings_snapshot().get('scheduler_enabled'):
+                    raise HTTPException(409, '自动执行已暂停，请先打开管理设置中的调度开关')
+                _, blocked = reply_command()
+                if blocked:
+                    raise HTTPException(409, blocked)
+            changes = {'status':target,'control_version':t.control_version+1,'last_error':'正在停止执行' if stop else None}
+            if restarting:
+                changes['revision'] = t.revision + 1
+            if body.action == 'analyze':
+                changes.update(kind='analysis', codex_thread_id=None, codex_turn_id=None)
+            advance(s,t,changes)
             s.execute(update(Approval).where(Approval.task_id==ident,Approval.status=='pending').values(status='expired'))
             record(s,ident,'control',body.action); result=dump(t)
             gov.audit_action(s,request.state.principal,'task.'+body.action,ident,{'status':t.status,'control_version':t.control_version})
@@ -254,6 +406,22 @@ def accept(ident: int, body: AcceptanceIn, request: Request):
         t=get(s,Task,ident)
         gov.require_permission(request.state.principal, 'task.accept', gov.task_owner(ident, s))
         if t.status!='review_ready' or t.revision!=body.revision: raise HTTPException(409,'版本已变化或任务尚未准备验收')
+        if body.accepted and t.kind == 'reply':
+            import json
+            evidence = s.scalars(select(Artifact).where(Artifact.task_id == ident,
+                Artifact.revision == t.revision, Artifact.kind == 'verification').order_by(Artifact.id.desc())).first()
+            summary = s.scalars(select(Artifact).where(Artifact.task_id == ident,
+                Artifact.revision == t.revision, Artifact.kind == 'summary').order_by(Artifact.id.desc())).first()
+            try:
+                proof = json.loads(evidence.content) if evidence else {}
+                if (not isinstance(proof, dict) or t.outcome_unknown or not summary or not summary.content.strip()
+                        or proof.get('kind') != 'reply' or proof.get('turn_status') != 'completed'
+                        or proof.get('thread_id') != t.codex_thread_id
+                        or proof.get('turn_id') != t.codex_turn_id
+                        or not t.codex_thread_id or not t.codex_turn_id):
+                    raise ValueError()
+            except (ValueError, TypeError):
+                raise HTTPException(409, '缺少本轮真实回复证据，无法验收') from None
         if body.accepted and t.kind == 'analysis':
             import json
             from superagent.runtime.workspace import collect_changes
@@ -287,23 +455,30 @@ def approvals():
     with Session() as s: return [dump(x) for x in s.scalars(select(Approval)).all()]
 @app.post('/api/v1/approvals/{ident}/decision')
 async def decide(ident: int, body: DecisionIn, request: Request):
-    if body.decision not in ('approve','reject'): raise HTTPException(422,'无效决定')
+    return await _decide_worker_approval(ident, body.decision, body.action_hash, request.state.principal)
+
+
+async def _decide_worker_approval(ident, decision, action_hash, principal):
+    if decision not in ('approve', 'reject'): raise HTTPException(422, '无效决定')
     with Session() as s:
         a=get(s,Approval,ident); task_id=a.task_id
     async with scheduler.lock(task_id):
         with Session.begin() as s:
             a=get(s,Approval,ident); t=get(s,Task,a.task_id)
-            gov.require_permission(request.state.principal, 'approval.decide', gov.task_owner(task_id, s))
+            owner = gov.task_owner(task_id, s)
+            gov.require_permission(principal, 'approval.decide', owner)
+            if principal.authentication == 'feishu' and (owner != principal.user_id or t.outcome_unknown):
+                raise HTTPException(409, '任务负责人已变化或执行状态需核对')
             if a.action.get('method') not in ('item/fileChange/requestApproval','item/commandExecution/requestApproval'):
                 raise HTTPException(409,'请从回复草稿处理这项外部发送审批')
-            if a.status!='pending' or a.action_hash!=body.action_hash or a.revision!=t.revision or a.control_version!=t.control_version or t.status!='waiting_approval': raise HTTPException(409,'审批已过期或动作不匹配')
-            if body.decision=='approve':
-                if t.kind=='analysis': raise HTTPException(409,'只读分析不允许批准扩大执行权限，请拒绝该请求')
+            if a.status!='pending' or a.action_hash!=action_hash or a.revision!=t.revision or a.control_version!=t.control_version or t.status!='waiting_approval': raise HTTPException(409,'审批已过期或动作不匹配')
+            if decision=='approve':
+                if t.kind in ('analysis','reply'): raise HTTPException(409,'只读分析或回复不允许批准扩大执行权限，请拒绝该请求')
                 from pathlib import Path
                 from superagent.runtime.workspace import validate_allowed_paths
                 p=get(s,Project,t.project_id)
                 try:
-                    if not p.enabled: raise ValueError('disabled')
+                    if not p.enabled or p.archived: raise ValueError('disabled')
                     validate_allowed_paths(t.workspace_path,[],p.allowed_paths)
                     if a.action['method']=='item/commandExecution/requestApproval':
                         if '.' not in p.allowed_paths: raise ValueError('command scope')
@@ -320,10 +495,10 @@ async def decide(ident: int, body: DecisionIn, request: Request):
             if not client: raise HTTPException(409,'执行会话不可用，请人工对账')
             a.status='dispatching'; request_id=a.action['request_id']
             approval_revision=a.revision; approval_control=a.control_version
-            record(s,t.id,'approval_decision',body.decision,{'approval_id':ident})
-            gov.audit_action(s,request.state.principal,'approval.decide',ident,{'approval_id':ident,'decision':body.decision,'revision':t.revision})
+            record(s,t.id,'approval_decision',decision,{'approval_id':ident})
+            gov.audit_action(s,principal,'approval.decide',ident,{'approval_id':ident,'decision':decision,'revision':t.revision,'source':'feishu' if principal.authentication == 'feishu' else 'web'})
         try:
-            await client.respond_approval(request_id,body.decision)
+            await client.respond_approval(request_id,decision)
         except Exception:
             with Session.begin() as s:
                 a=s.get(Approval,ident); t=s.get(Task,task_id); a.status='unknown'
@@ -338,9 +513,9 @@ async def decide(ident: int, body: DecisionIn, request: Request):
             stale=t.revision!=approval_revision or t.control_version!=approval_control or t.status!='waiting_approval' or a.status!='dispatching'
             if stale:
                 a.status='expired_after_dispatch'
-                record(s,task_id,'stale_approval_dispatched',body.decision,{'approval_id':ident,'revision':approval_revision})
+                record(s,task_id,'stale_approval_dispatched',decision,{'approval_id':ident,'revision':approval_revision})
             else:
-                a.status='approved' if body.decision=='approve' else 'rejected'
+                a.status='approved' if decision=='approve' else 'rejected'
                 s.flush()
                 remaining=any(x.action.get('method') in ('item/fileChange/requestApproval','item/commandExecution/requestApproval') for x in s.scalars(select(Approval).where(Approval.task_id==task_id, Approval.revision==t.revision, Approval.control_version==t.control_version, Approval.status=='pending')))
                 advance(s,t,{'status':'waiting_approval' if remaining else 'running'})
@@ -390,10 +565,20 @@ async def stream(request: Request, after: int = 0):
 
 app.include_router(governance_router)
 app.include_router(connections_router)
+app.include_router(lifecycle_router)
+app.include_router(sessions_router)
+app.include_router(routing_router)
+app.include_router(operations_router)
+app.include_router(conversation_providers_router)
+app.include_router(local_agents_router)
+from superagent.api.event_groups import router as event_groups_router
+app.include_router(event_groups_router)
 
 # Serve the built workspace only when it exists; API routes always take precedence.
 from pathlib import Path
 from fastapi.staticfiles import StaticFiles
 web_dist = Path(__file__).resolve().parent.parent / 'apps' / 'web' / 'dist'
+from superagent.api.event_rules import router as event_rules_router
+app.include_router(event_rules_router)
 if web_dist.is_dir():
     app.mount('/', StaticFiles(directory=web_dist, html=True), name='web')

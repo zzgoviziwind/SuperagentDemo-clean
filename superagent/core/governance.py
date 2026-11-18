@@ -285,7 +285,23 @@ def audit_action(session, principal, action, resource, details=None):
     _audit(session, principal.user_id, action, resource, details)
 
 
+CODEX_TASK_TYPES = frozenset({"reply", "analysis", "repair", "semantic_routing", "router", "watchdog"})
+
+
+def codex_execution_options(settings, task_type):
+    """Resolve each setting independently for the next Codex turn."""
+    override = settings.get("codex_task_profiles", {}).get(task_type, {})
+    return override.get("model") or settings.get("codex_model"), override.get("effort") or settings.get("codex_effort")
+
+
 SETTING_DEFAULTS = {
+    "dingtalk_request_access": None,
+    "dingtalk_response_policy": None,
+    "semantic_routing_enabled": False,
+    "watchdog_enabled": False,
+    "watchdog_interval_seconds": 60,
+    "router_agent_enabled": False,
+    "dingtalk_route_all_mentions": False,
     "external_delivery_enabled": False,
     "scheduler_enabled": False,
     "max_concurrent_tasks": 1,
@@ -295,6 +311,7 @@ SETTING_DEFAULTS = {
     "budget_reservation_estimate_micros": None,
     "codex_model": "gpt-6.1-sol",
     "codex_effort": "medium",
+    "codex_task_profiles": {},
     "connectors.dingtalk": {"enabled": False},
     "connectors.redmine": {"enabled": False},
 }
@@ -363,6 +380,45 @@ def _validate_setting(key, value):
     if key.startswith("connectors."):
         _validate_connector(key.split(".")[1], value)
         return
+    if key == 'dingtalk_request_access':
+        if value is None:
+            return
+        from .message_access import MessageAccess
+        try:
+            config = MessageAccess.model_validate(value)
+            if _known_user(config.owner_user_id).role not in {'admin', 'member'}:
+                raise ValueError('承接用户需要具有任务处理权限')
+            actor_ids = [person.actor_id for person in config.people]
+            if len(set(actor_ids)) != len(actor_ids) or any(actor != actor.strip() for actor in actor_ids):
+                raise ValueError('发送人标识重复或含有空白')
+            if config.on_unmatched in {'ask', 'default'} and config.default_project_id is None:
+                raise ValueError('追问或默认处理需要选择承接问答的默认项目')
+            project_ids = set(config.project_ids) | {hint.project_id for hint in config.project_hints}
+            project_ids.update(project for person in config.people for project in person.project_ids)
+            if config.default_project_id:
+                project_ids.add(config.default_project_id)
+            with db.Session() as session:
+                if any(not (project := session.get(db.Project, ident)) or project.archived or not project.enabled for ident in project_ids):
+                    raise ValueError('请选择有效的启用项目')
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from None
+        return
+    if key == 'dingtalk_response_policy':
+        from .message_policy import validate_policy
+        try:
+            validate_policy(value)
+        except (TypeError, ValueError):
+            raise HTTPException(422, '请选择私聊、群聊和回复方式，默认项目必须是有效项目') from None
+        return
+    if key == "codex_task_profiles":
+        if not isinstance(value, dict) or set(value) - CODEX_TASK_TYPES:
+            raise HTTPException(422, "Agent 任务类型设置无效")
+        for profile in value.values():
+            if not isinstance(profile, dict) or set(profile) - {"model", "effort"}:
+                raise HTTPException(422, "任务类型只能设置模型和推理强度")
+            _validate_setting("codex_model", profile.get("model"))
+            _validate_setting("codex_effort", profile.get("effort"))
+        return
     if key == "codex_model":
         if value is not None and (not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}", value)):
             raise HTTPException(422, "Codex 模型标识无效")
@@ -376,6 +432,8 @@ def _validate_setting(key, value):
         valid = type(value) is bool
     elif key == "max_concurrent_tasks":
         valid = type(value) is int and 1 <= value <= 4
+    elif key == "watchdog_interval_seconds":
+        valid = type(value) is int and 10 <= value <= 86400
     else:
         valid = value is None or (type(value) is int and 0 <= value <= 10**15)
     if not valid:
@@ -391,6 +449,9 @@ def get_setting(key, default=None):
 def settings_snapshot():
     from .connections import get_config
     values = {key: get_setting(key, default) for key, default in SETTING_DEFAULTS.items()}
+    from .message_policy import response_policy
+    with db.Session() as session:
+        values['dingtalk_response_policy'] = response_policy(session)
     for name in ("dingtalk", "redmine"):
         config = get_config("connectors." + name, {"enabled": False})
         try:
@@ -403,8 +464,12 @@ def settings_snapshot():
 
 
 def update_settings(values, actor="system"):
+    values = dict(values)
     for key, value in values.items():
         _validate_setting(key, value)
+    if values.get('dingtalk_request_access') is not None:
+        from .message_access import MessageAccess
+        values['dingtalk_request_access'] = MessageAccess.model_validate(values['dingtalk_request_access']).model_dump()
     try:
         with db.Session.begin() as session:
             values = dict(values)

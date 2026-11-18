@@ -9,13 +9,21 @@ from .common import (ConnectorError, WriteOutcomeUnknown, execute_write, preview
 from .history import DingTalkHistoryReplay, require_complete, run_read_json
 
 
+def message_attachments(content, declared=None):
+    if declared:
+        return declared
+    # A hint only. Downloads resolve the original conversation/message via
+    # the connector; this text never supplies a file path or download URL.
+    if isinstance(content, str) and re.search(r'\[图片消息\]\s*\(mediaId=[^\s)]+\)', content):
+        return [{'kind': 'image', 'source': 'dingtalk_message'}]
+    return []
+
+
 def normalize_event(raw, *, profile, self_ids=(), project_map=None):
     kind = raw.get("type", "")
-    if kind not in {"user_im_message_receive_at", "user_im_message_receive_group"}:
+    if kind not in {"user_im_message_receive_at", "user_im_message_receive_group", "user_im_message_receive_group_all", "user_im_message_receive_o2o_all"}:
         raise ConnectorError("unsupported_dws_event_type")
     actor = raw.get("sender_open_dingtalk_id")
-    if actor in self_ids:
-        return None
     conversation = raw.get("conversation_id")
     message = raw.get("message_id")
     if not actor or not conversation or not message:
@@ -36,8 +44,13 @@ def normalize_event(raw, *, profile, self_ids=(), project_map=None):
             "project_external_id": conversation, "issue_id": None,
             "content": raw.get("content", ""),
             "occurred_at": timestamp(raw.get("event_time") or raw.get("timestamp") or raw.get("create_time")),
-            "attachments": raw.get("attachments", []),
+            "attachments": message_attachments(raw.get("content"), raw.get("attachments")),
             "metadata": {"profile": profile, "message_id": message,
+                         "sender_name": raw.get("sender"),
+                         "self_authored": actor in self_ids,
+                         "at_me": kind == "user_im_message_receive_at",
+                         "dws_event_type": kind,
+                         "conversation_type": 'direct' if kind == 'user_im_message_receive_o2o_all' else 'group' if kind in {'user_im_message_receive_group', 'user_im_message_receive_group_all'} else 'unknown',
                          "event_id": raw.get("event_id"),
                          "project_id": (project_map or {}).get(conversation),
                          "quoted_message": raw.get("quoted_message"),
@@ -48,8 +61,8 @@ class DingTalkListener:
     def __init__(self, executable, emit, *, profile, self_ids, chat_id=None,
                  kind="at-me", state_store=None, project_map=None, replay=None,
                  ready_timeout=30, stop_timeout=10, process_factory=None):
-        if kind not in {"at-me", "group"} or (kind == "group") != bool(chat_id):
-            raise ValueError("Use at-me or group with one explicit chat_id")
+        if kind not in {"at-me", "group", "all-direct", "all-group"} or (kind == "group") != bool(chat_id):
+            raise ValueError("Use at-me, all-direct, all-group, or group with one explicit chat_id")
         if not profile or not self_ids:
             raise ValueError("Explicit profile and current account IDs are required")
         self.executable = [executable] if isinstance(executable, str) else list(executable)
@@ -63,6 +76,7 @@ class DingTalkListener:
         self._stream_ready = None
         self._stopping = False
         self._pending = None
+        self._ever_ready = False
         self.key = f"dingtalk:{profile}:{kind}:{chat_id or ''}"
 
     def command(self):
@@ -77,6 +91,8 @@ class DingTalkListener:
         if self._task and not self._task.done():
             return
         self._stopping = False
+        self._ever_ready = False
+        self.last_error = None
         self._ready = asyncio.get_running_loop().create_future()
         self._stream_ready = asyncio.Event()
         self._task = asyncio.create_task(self._run())
@@ -85,6 +101,7 @@ class DingTalkListener:
             done, _ = await asyncio.wait({stream_wait, self._ready}, timeout=self.ready_timeout,
                                          return_when=asyncio.FIRST_COMPLETED)
             if not done:
+                self.last_error = 'dws_ready_timeout'
                 raise TimeoutError("dws_ready_timeout")
             # Historical queries carry their own bounded timeout and may take
             # longer than waiting for the process's ready marker.
@@ -119,7 +136,7 @@ class DingTalkListener:
             # Never persist arbitrary stderr, which can contain credentials/content.
             try:
                 data = json.loads(value)
-                if isinstance(data, dict) and "error" in data:
+                if isinstance(data, dict) and isinstance(data.get("error"), dict):
                     errors.update(data["error"])
             except ValueError:
                 continue
@@ -160,6 +177,7 @@ class DingTalkListener:
             if self._pending:
                 await self._deliver(self._pending)
             self.status = "running"
+            self._ever_ready = True
             if not self._ready.done():
                 self._ready.set_result(None)
             while not self._stopping:
@@ -187,10 +205,10 @@ class DingTalkListener:
         try:
             while not self._stopping:
                 self.status = "connecting" if attempts == 0 else "reconnecting"
-                errors = await self._session(attempts > 0)
+                errors = await self._session(self._ever_ready)
                 if self._stopping:
                     break
-                if not self.replay:
+                if self._ever_ready and not self.replay:
                     raise ConnectorError("dws_disconnected_replay_required")
                 retryable = errors.get("retryable")
                 maximum = {True: 2, False: 0}.get(retryable, 1)
@@ -255,16 +273,22 @@ class DingTalkClient:
             raise WriteOutcomeUnknown("dws_write_outcome_unknown")
         return data
 
-    async def reply(self, conversation_id, message_id, content, *, authorization=None, ledger=None):
+    async def reply(self, conversation_id, message_id, content, *, authorization=None, ledger=None, recipient_id=None):
         if not conversation_id or not message_id or not content.strip():
             raise ValueError("Explicit conversation, source message and content are required")
-        plan = preview("dingtalk", "reply", {"profile": self.profile,
-                       "conversation_id": conversation_id, "message_id": message_id}, {"content": content})
+        target = {"profile": self.profile, "conversation_id": conversation_id, "message_id": message_id}
+        if recipient_id is not None:
+            if not isinstance(recipient_id, str) or not recipient_id.strip():
+                raise ValueError('Direct reply requires an explicit sender ID')
+            target['recipient_id'] = recipient_id
+        plan = preview("dingtalk", "reply", target, {"content": content})
         async def write():
             argv = self.executable + ["--profile", self.profile, "chat", "+messages-reply",
                                      "--group", conversation_id, "--message-id", message_id,
                                      "--content", content, "--idempotency-key", authorization.action_id,
                                      "--format", "json", "--yes"]
+            if recipient_id:
+                argv += ['--open-dingtalk-id', recipient_id]
             data = await self._runner(argv)
             result = data.get("data", data.get("result", data))
             delivery = result.get("deliveryStatus", "unknown")

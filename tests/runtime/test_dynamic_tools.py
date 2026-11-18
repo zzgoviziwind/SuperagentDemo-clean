@@ -48,3 +48,22 @@ class DynamicToolTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(CodexError): await client.respond_tool(1,{'success':False,'contentItems':[]})
         client.active_turns.add(('t','other')); client.readonly_threads.clear()
         with self.assertRaises(CodexError): await client.respond_tool(1,{'success':False,'contentItems':[]})
+
+    async def test_triage_thread_accepts_only_embedded_images_from_its_image_tool(self):
+        client = CodexAppServer('unused', '.')
+        client._request = AsyncMock(return_value={'thread': {'id': 'triage'}})
+        client._send = AsyncMock()
+        await client.start_thread('.', read_only=True, triage=True)
+        params = client._request.await_args.args[1]
+        self.assertEqual(params['approvalPolicy'], 'never')
+        self.assertEqual([tool['name'] for tool in params['dynamicTools']], ['chat_evidence', 'source_image'])
+        client.active_turns.add(('triage', 'turn'))
+        client.pending_tools[1] = {'threadId': 'triage', 'turnId': 'turn', 'tool': 'source_image'}
+        with self.assertRaises(ValueError):
+            await client.respond_tool(1, {'success': True, 'contentItems': [
+                {'type': 'inputImage', 'imageUrl': 'https://example.test/image.png'}]})
+        image = {'type': 'inputImage', 'imageUrl': 'data:image/png;base64,iVBORw0KGgo='}
+        await client.respond_tool(1, {'success': True, 'contentItems': [image]})
+        client.pending_tools[2] = {'threadId': 'triage', 'turnId': 'turn', 'tool': 'chat_evidence'}
+        with self.assertRaises(ValueError):
+            await client.respond_tool(2, {'success': True, 'contentItems': [image]})

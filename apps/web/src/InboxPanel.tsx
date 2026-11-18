@@ -11,9 +11,11 @@ type InboxEvent = {
 type InboxPage = { items: InboxEvent[]; has_more: boolean; next_after: number };
 const reasonLabels: Record<string, string> = {
   actor_unmapped_or_disabled: "发送人尚未绑定系统身份，或身份已停用",
+  sender_reply_disabled: "该发送人命中不回复规则",
   identity_not_mapped: "发送人尚未绑定系统身份",
   project_binding_missing_ambiguous_or_disabled:
     "项目绑定缺失、存在多个匹配，或项目已停用",
+  redmine_closed_status_notice: "Redmine 工单已关闭，这条状态通知无需处理。",
   actor_not_authorized_for_project: "发送人尚未获得该项目的请求权限",
   unsupported_event_type: "该消息类型暂不支持自动处理",
   ambiguous_or_empty_request: "请求内容为空或含义不明确，需要人工确认",
@@ -23,11 +25,11 @@ const reasonLabels: Record<string, string> = {
   invalid_reply_reference: "回复引用无效，需要核对原消息",
   reference_too_long: "消息引用超出支持长度，需要人工核对",
   reply_target_missing_or_ambiguous: "找不到回复目标，或回复目标存在多个匹配",
-  conflicting_task_references: "消息中的任务引用相互冲突",
-  conflicting_issue_reference: "消息中的问题引用与已关联任务不一致",
-  task_owned_by_another_user: "关联任务由其他用户负责，需要核对处理权限",
+  conflicting_task_references: "消息中的事件引用相互冲突",
+  conflicting_issue_reference: "消息中的问题引用与已关联事件不一致",
+  task_owned_by_another_user: "关联事件由其他用户负责，需要核对处理权限",
 };
-const reasonText = (reason?: string) =>
+export const reasonText = (reason?: string) =>
   reasonLabels[reason ?? ""] ?? "需要人工核对消息归属与授权";
 function localTime(value?: string) {
   if (!value) return "时间未提供";
@@ -81,7 +83,7 @@ export function InboxPanel({ onChange }: { onChange: () => Promise<void> }) {
       await onChange();
       setNotice(
         result.data?.routing_status === "routed"
-          ? "消息已路由，请在任务中查看。"
+          ? "消息已路由，请在事件中查看。"
           : `消息仍待确认，${reasonText(result.data?.routing_reason)}`,
       );
     } catch (e) {

@@ -11,9 +11,10 @@ export async function request<T>(
   path: string,
   body?: unknown,
   method = "POST",
+  timeoutMs = 15000,
 ): Promise<T> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 15000);
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(
       path.startsWith("/health") ? path : `/api/v1${path}`,

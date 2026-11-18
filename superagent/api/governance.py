@@ -44,13 +44,54 @@ def me(principal: gov.Principal = Depends(gov.authenticate_request)):
 @router.get("/settings")
 def settings(principal: gov.Principal = Depends(gov.authenticate_request)):
     gov.require_permission(principal, "settings.read")
-    return gov.settings_snapshot() | {"authentication_required": bool(os.getenv("SUPERAGENT_API_TOKEN") or os.getenv("SUPERAGENT_USERS_JSON"))}
+    return gov.settings_snapshot() | {"service_mode": os.getenv("SUPERAGENT_SERVICE_MODE", "service"), "authentication_required": bool(os.getenv("SUPERAGENT_API_TOKEN") or os.getenv("SUPERAGENT_USERS_JSON"))}
 
 
 @router.patch("/settings")
-def update_settings(body: dict, principal: gov.Principal = Depends(gov.authenticate_request)):
+async def update_settings(body: dict, principal: gov.Principal = Depends(gov.authenticate_request)):
     gov.require_permission(principal, "settings.write")
-    return gov.update_settings(body, actor=principal.user_id)
+    result = gov.update_settings(body, actor=principal.user_id)
+    if set(body) & {'connectors.dingtalk', 'connectors.redmine', 'dingtalk_response_policy',
+                    'dingtalk_enabled', 'redmine_enabled'}:
+        from superagent.core.connections import manager
+        await manager.reconcile()
+        for name in ('dingtalk', 'redmine'):
+            if body.get('connectors.' + name, {}).get('enabled') is True:
+                await manager.start(name)
+    return result
+
+
+@router.get("/codex-prompts")
+def codex_prompts(principal: gov.Principal = Depends(gov.authenticate_request)):
+    gov.require_permission(principal, "settings.write")
+    from superagent.core import reply_worker, router_agent, semantic_routing, watchdog
+    from superagent.core.scheduler import build_worker_prompt
+
+    def worker(kind):
+        return build_worker_prompt({
+            "kind": kind,
+            "goal": "【任务目标】", "criteria": "【验收标准】",
+            "test_command": "【项目验证命令】", "project_name": "【项目名称】",
+            "workspace": "【工作区路径】", "references": {"编号": "【参考目录】"},
+            "recent_work": "【同项目近期会话】", "previous_summary": "【上轮摘要】",
+            "repositories": "【工作区仓库】", "event_context": "【事件资料】",
+            "reply_source_id": True, "reply_context": "【来源会话】",
+        }, "【附件资料】")
+
+    return {
+        "semantic_routing": [
+            {"title": "事件分流指令", "text": semantic_routing.INSTRUCTIONS},
+            {"title": "项目归属与关联研判指令", "text": semantic_routing.TRIAGE_INSTRUCTIONS},
+        ],
+        "router": [{"title": "项目讨论指令", "text": router_agent.INSTRUCTIONS}],
+        "reply": [
+            {"title": "普通回复指令", "text": reply_worker.INSTRUCTIONS},
+            {"title": "渠道回复判断规则", "text": reply_worker.DECISION_FORMAT},
+        ],
+        "analysis": [{"title": "只读分析任务模板（含可选段落）", "text": worker("analysis")}],
+        "repair": [{"title": "代码修复任务模板（含可选段落）", "text": worker("repair")}],
+        "watchdog": [{"title": "独立巡检指令", "text": watchdog.INSTRUCTIONS}],
+    }
 
 
 class IdentityIn(BaseModel):

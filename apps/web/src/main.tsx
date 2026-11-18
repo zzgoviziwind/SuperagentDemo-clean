@@ -1,17 +1,36 @@
+import { ProjectRebind } from "./ProjectRebind";
+import { InlineAgentCheck } from "./InlineAgentCheck";
+import { SettingsDrawer } from "./SettingsDrawer";
+import { Modal } from "./Modal";
+import { MessageRecords } from './MessageRecords';
+import { ConversationContent } from './ConversationContent';
+import { ProjectWorkspaceFields } from './ProjectWorkspaceFields';
+import { GroupedEvents } from "./GroupedEvents";
+import { EventGroupDiagnostics } from "./EventGroups";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ApiError,
-  controlLabel,
   request,
   statusNames,
   isDeliveryApproval,
 } from "./api";
 import { GovernancePanel } from "./GovernancePanel";
-import { DeliveriesPanel } from "./DeliveriesPanel";
-import { InboxPanel } from "./InboxPanel";
-import { ArtifactView } from "./ArtifactView";
+import { DeliveriesPanel, emptyReplyEdit, type ReplyEdit } from "./DeliveriesPanel";
+import { ArchitecturePanel, SubscriptionsPanel } from "./ArchitecturePanel";
+import { SessionWorkbench } from "./SessionWorkbench";
+import { RoutingPanel } from "./RoutingPanel";
+import { OperationsPanel } from "./OperationsPanel";
+import { HandoffPanel } from "./HandoffPanel";
+import { EventRulesPanel } from "./EventRulesPanel";
+import { replyNeedsEngine } from "./EventNextStep";
+import type { EventScope } from "./eventState";
 import "./style.css";
+import "./workbench-theme.css";
+import "./ide-shell.css";
+import "./darcula.css";
+import { WorkbenchIcon } from "./WorkbenchIcon";
+import { ContentPaletteSelect } from "./ContentPaletteSelect";
 
 type Row = Record<string, any>;
 type Task = Row & {
@@ -24,6 +43,8 @@ type Task = Row & {
   state_version: number;
 };
 type Detail = { task: Task; events: Row[]; artifacts: Row[]; approvals: Row[] };
+const workspacePaths = ["/tasks", "/projects", "/connectors", "/health", "/settings", "/auth/me"] as const;
+type WorkspacePath = typeof workspacePaths[number];
 const pretty = (value: unknown) =>
   typeof value === "string" ? value : JSON.stringify(value, null, 2);
 const date = (value?: string) =>
@@ -34,10 +55,13 @@ const lines = (value: string) =>
     .map((item) => item.trim())
     .filter(Boolean);
 const emptyProject = {
+  repositories: [] as {path: string; base_branch: string}[],
   name: "",
   repo_path: "",
   base_branch: "main",
   test_command: "",
+  reference_access: "workspace",
+  reference_dirs: "",
   allowed_paths: "",
   dingtalk_chat_ids: "",
   redmine_project_ids: "",
@@ -45,11 +69,15 @@ const emptyProject = {
 };
 
 export function App() {
-  const [page, setPage] = useState("工作台");
+  const [sessionId, setSessionId] = useState("");
+  const [configTarget, setConfigTarget] = useState("");
+  const [focusedGroup, setFocusedGroup] = useState<string>();
+  const [eventScope, setEventScope] = useState<EventScope>({ status:"", project:"" });
+  const [eventHomeVersion, resetEventHome] = useState(0);
+  const [page, setPage] = useState("事件中心");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Row[]>([]);
   const [connectors, setConnectors] = useState<Row[]>([]);
-  const [overview, setOverview] = useState<Row>({});
   const [settings, setSettings] = useState<Row>({});
   const [health, setHealth] = useState<Row>({});
   const [user, setUser] = useState<Row | null>(null);
@@ -60,17 +88,14 @@ export function App() {
   const canWrite = !!user && ["admin", "member"].includes(user.role);
   const [detail, setDetail] = useState<Detail | null>(null);
   const selected = useRef<string | null>(null);
+  const inFlight = useRef(new Map<string, Promise<unknown>>());
+  const [workspaceErrors, setWorkspaceErrors] = useState<Partial<Record<WorkspacePath, string>>>({});
+  const [taskError, setTaskError] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState("");
-  const [filter, setFilter] = useState({
-    status: "",
-    project: "",
-    source: "",
-    search: "",
-  });
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState({
     title: "",
@@ -80,643 +105,477 @@ export function App() {
     kind: "repair",
   });
   const [project, setProject] = useState(emptyProject);
+  const [projectEditorOpen, setProjectEditorOpen] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [pathMode, setPathMode] = useState("");
+  const [pathMode, setPathMode] = useState("none");
   const [reconcileEvidence, setReconcileEvidence] = useState("");
-  const [reconcileOutcome, setReconcileOutcome] = useState("stopped");
+  const [reconcileOutcome, setReconcileOutcome] = useState("");
+  const [replySnapshot, setReplySnapshot] = useState<{ taskId: string; drafts: Record<string, any>[] | null }>();
+  const [replyEdits, setReplyEdits] = useState<Record<string, ReplyEdit>>({});
+  const [ending, setEnding] = useState<{ id: string; version: number } | null>(null);
   const [message, setMessage] = useState("");
   const [changeGoal, setChangeGoal] = useState(false);
   const [review, setReview] = useState("");
-  const [tab, setTab] = useState("事件");
-  const [requested, setRequested] = useState<Record<string, string>>({});
+  const [controlError, setControlError] = useState("");
 
-  const refresh = useCallback(async () => {
-    const results = await Promise.allSettled([
-      request<Task[]>("/tasks"),
-      request<Row[]>("/projects"),
-      request<Row[]>("/connectors"),
-      request<Row>("/overview"),
-      request<Row>("/health"),
-      request<Row>("/settings"),
-      request<Row>("/auth/me"),
-    ]);
-    const setters = [
-      setTasks,
-      setProjects,
-      setConnectors,
-      setOverview,
-      setHealth,
-      setSettings,
-      (data: Row) => {
-        setUser(data);
-        setLoginOpen(false);
-      },
-    ] as ((data: any) => void)[];
-    const failures: string[] = [];
+  const clearEvent = useCallback(() => {
+    selected.current = null;
+    setFocusedGroup(undefined);
+    setDetail(null);
+    setTaskError("");
+    setEnding(null);
+  }, []);
+
+  const expireSession = useCallback(() => {
+    clearEvent();
+    setReplyEdits({});
+    setUser(null);
+    setLoginOpen(true);
+    setTasks([]);
+    setProjects([]);
+  }, [clearEvent]);
+
+  const read = useCallback(async <T,>(path: string, afterWrite = false): Promise<T> => {
+    const previous = inFlight.current.get(path);
+    if (previous && afterWrite) await previous.catch(() => {});
+    let pending = inFlight.current.get(path);
+    if (!pending) {
+      pending = request<T>(path).finally(() => inFlight.current.delete(path));
+      inFlight.current.set(path, pending);
+    }
+    return pending as Promise<T>;
+  }, []);
+
+  const refreshWorkspace = useCallback(async (paths: readonly WorkspacePath[], afterWrite = false) => {
+    const results = await Promise.allSettled(paths.map(path => read<any>(path, afterWrite)));
+    const errors: Partial<Record<WorkspacePath, string>> = {};
+    let expired = false;
     results.forEach((result, index) => {
-      if (result.status === "fulfilled") setters[index](result.value);
-      else {
-        failures.push(result.reason.message);
-        if (result.reason instanceof ApiError && result.reason.status === 401) {
-          setUser(null);
-          setLoginOpen(true);
-          setTasks([]);
-          setProjects([]);
-          setDetail(null);
-        }
+      const path = paths[index];
+      if (result.status === "rejected") {
+        errors[path] = (result.reason as Error).message;
+        expired ||= result.reason instanceof ApiError && result.reason.status === 401;
+        return;
+      }
+      errors[path] = "";
+      switch (path) {
+        case "/tasks": setTasks(result.value); break;
+        case "/projects": setProjects(result.value); break;
+        case "/connectors": setConnectors(result.value); break;
+        case "/health": setHealth(result.value); break;
+        case "/settings": setSettings(result.value); break;
+        case "/auth/me": setUser(result.value); setLoginOpen(false); break;
       }
     });
-    if (selected.current) {
-      const id = selected.current;
-      try {
-        const next = await request<Detail>(`/tasks/${encodeURIComponent(id)}`);
-        if (selected.current === id) setDetail(next);
-      } catch (e) {
-        failures.push((e as Error).message);
-      }
-    }
-    setError([...new Set(failures)].join(" "));
+    if (expired) expireSession();
+    setWorkspaceErrors(previous => ({ ...previous, ...errors }));
     setLoading(false);
     setLastRefresh(new Date().toLocaleTimeString("zh-CN"));
-  }, []);
-  useEffect(() => {
-    void refresh();
-    const timer = window.setInterval(() => {
-      if (!document.hidden) void refresh();
-    }, 5000);
-    return () => window.clearInterval(timer);
-  }, [refresh]);
+  }, [expireSession, read]);
 
-  async function mutate(operation: () => Promise<unknown>, success: string) {
+  const refreshTask = useCallback(async (id: string, afterWrite = false) => {
+    if (selected.current !== id) return;
+    try {
+      const next = await read<Detail>(`/tasks/${encodeURIComponent(id)}`, afterWrite);
+      if (selected.current === id) {
+        setDetail(previous => previous && String(previous.task.id) === id &&
+          previous.task.state_version > next.task.state_version ? previous : next);
+        setTaskError("");
+      }
+    } catch (e) {
+      if (selected.current !== id) return;
+      if (e instanceof ApiError && e.status === 401) expireSession();
+      setTaskError((e as Error).message);
+    }
+  }, [expireSession, read]);
+
+  const refresh = useCallback(async () => {
+    await Promise.all([
+      refreshWorkspace(workspacePaths, true),
+      selected.current ? refreshTask(selected.current, true) : undefined,
+    ]);
+  }, [refreshTask, refreshWorkspace]);
+
+  useEffect(() => {
+    void refreshWorkspace(workspacePaths);
+  }, [refreshWorkspace]);
+
+  useEffect(() => {
+    if (!user || busy || (page !== "运行状态" && page !== "事件中心")) return;
+    let polling = false;
+    async function poll() {
+      if (document.hidden || polling) return;
+      polling = true;
+      try {
+        if (page === "运行状态") await refreshWorkspace(["/health", "/connectors"]);
+        else if (selected.current) await refreshTask(selected.current);
+      } finally {
+        polling = false;
+      }
+    }
+    const onVisible = () => { if (!document.hidden) void poll(); };
+    const timer = window.setInterval(() => {
+      void poll();
+    }, 5000);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [Boolean(user), busy, page, refreshTask, refreshWorkspace]);
+
+  async function mutate(operation: () => Promise<unknown>, success?: string) {
     setBusy(true);
     setError("");
     setNotice("");
     try {
       await operation();
-      setNotice(success);
+      if (success) setNotice(success);
       await refresh();
       return true;
     } catch (e) {
       setError((e as Error).message);
-      if (e instanceof ApiError && e.status === 401) {
-        setUser(null);
-        setLoginOpen(true);
-      }
+      if (e instanceof ApiError && e.status === 401) expireSession();
       if (e instanceof ApiError && e.status === 409)
-        await refresh().then(() => setError(e.message));
+        await refresh();
       return false;
     } finally {
       setBusy(false);
     }
   }
-  async function openTask(id: string) {
-    selected.current = id;
-    setDetail(null);
-    setPage("任务");
-    setError("");
-    setMessage("");
-    setReview("");
-    setReconcileEvidence("");
-    try {
-      const next = await request<Detail>(`/tasks/${encodeURIComponent(id)}`);
-      if (selected.current === id) setDetail(next);
-    } catch (e) {
-      setError((e as Error).message);
+  const openTask = useCallback(async (value: string) => {
+    const id = String(value);
+    if (selected.current !== id) {
+      setControlError("");
+      setDetail(null);
+      setTaskError("");
+      setError("");
+      setMessage("");
+      setChangeGoal(false);
+      setReview("");
+      setReconcileEvidence("");
+      setReconcileOutcome("");
+      setEnding(null);
     }
+    setFocusedGroup(id);
+    selected.current = id;
+    setPage("事件中心");
+    await refreshTask(id);
+  }, [refreshTask]);
+  const signedIn = Boolean(user);
+  useEffect(() => {
+    if (!signedIn) return;
+    const params = new URLSearchParams(window.location.search);
+    const target = params.get("task") ?? "";
+    const approval = params.get("approval") ?? "";
+    if (/^[1-9]\d{0,15}$/.test(target) && /^[1-9]\d{0,15}$/.test(approval)) {
+      void openTask(target);
+    }
+  }, [signedIn, openTask]);
+  const linkedApproval = useRef("");
+  function focusLinkedApproval(target: HTMLElement | null, taskId: string, approval: string) {
+    if (!target || linkedApproval.current === approval) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("task") !== taskId || params.get("approval") !== approval) return;
+    // Let the event panel finish its normal heading focus before focusing the decision.
+    queueMicrotask(() => {
+      if (!target.isConnected || linkedApproval.current === approval) return;
+      linkedApproval.current = approval;
+      target.focus();
+      target.scrollIntoView?.({ block: "center" });
+    });
   }
   function navigate(next: string) {
-    selected.current = null;
-    setDetail(null);
-    setPage(next);
+    const [destination, target = ""] = next.split("#");
+    const nextPage = ["任务", "事件"].includes(destination) ? "事件中心" : destination === "会话工作台" ? "Worker 工作台" : destination;
+    if (page !== nextPage) clearEvent();
+    setConfigTarget(target);
+    setPage(nextPage);
   }
   async function control(action: string) {
-    if (!detail) return;
+    if (!detail || busy || detail.task.outcome_unknown || detail.task.last_error === "正在停止执行") return;
     const task = detail.task;
+    setControlError("");
     await mutate(
       async () => {
-        await request(`/tasks/${encodeURIComponent(task.id)}/controls`, {
-          action,
-          expected_state_version: task.state_version,
-        });
-        setRequested((old) => {
-          const next = { ...old };
-          delete next[task.id];
-          if (["pause", "cancel"].includes(action)) next[task.id] = action;
-          return next;
-        });
+        try {
+          const next = await request<Task>(`/tasks/${encodeURIComponent(task.id)}/controls`, {
+            action,
+            expected_state_version: task.state_version,
+          });
+          if (selected.current !== String(task.id)) return;
+          if (String(next?.id) === String(task.id) && next.state_version >= task.state_version) {
+            setDetail(current => current && String(current.task.id) === String(task.id) &&
+              current.task.state_version <= next.state_version ? { ...current, task: next } : current);
+          }
+          const message = next?.last_error === "正在停止执行" ? "停止请求已接收，执行端确认后更新状态。"
+            : next?.status === "cancelled" ? "事件已结束，处理记录和原消息已保留。"
+            : next?.status === "paused" ? "事件已暂停。"
+            : action === "analyze" && next?.status === "queued" ? "已转为只读分析并进入队列。"
+            : action === "resume" && next?.status === "queued" ? "已恢复处理并进入队列。"
+            : "控制请求已接收。";
+          setNotice(message);
+          if (action === "cancel") setEnding(null);
+        } catch (e) {
+          if (selected.current === String(task.id)) {
+            setControlError((e as Error).message);
+            if (action === "cancel") setEnding(null);
+          }
+          throw e;
+        }
       },
-      ["pause", "cancel"].includes(action)
-        ? "停止请求已接收，执行端确认后更新状态。"
-        : "控制请求已接收。",
-    );
-  }
-  function taskStatus(task: Task) {
-    if (task.outcome_unknown) return "执行结果未知 · 待对账";
-    return requested[task.id] &&
-      !["paused", "cancelled", "completed", "failed"].includes(task.status)
-      ? "已请求停止 · 等待执行端确认"
-      : controlLabel(task);
-  }
-  function taskRows(items: Task[]) {
-    return items.length ? (
-      <div className="task-list">
-        {items.map((task) => (
-          <button
-            className="task-row"
-            key={task.id}
-            onClick={() => void openTask(task.id)}
-          >
-            <span>
-              <strong>{task.title}</strong>
-              <small>
-                {projects.find((p) => p.id === task.project_id)?.name ??
-                  task.project_id}{" "}
-                · {task.source ?? "web"} · {date(task.updated_at)}
-              </small>
-              {task.last_error && (
-                <small className="danger">{task.last_error}</small>
-              )}
-            </span>
-            <span className={`badge ${task.status}`}>{taskStatus(task)}</span>
-            <span aria-hidden>↗</span>
-          </button>
-        ))}
-      </div>
-    ) : (
-      <p className="empty">暂无任务</p>
     );
   }
   const task = detail?.task;
+  const controlBlocked = !!task?.outcome_unknown || task?.last_error === "正在停止执行";
+  const readError = [...new Set([...Object.values(workspaceErrors), taskError].filter(Boolean))].join(" ");
   const canTaskWrite =
     isAdmin ||
     (user?.role === "member" &&
       !!task?.owner_id &&
       String(task.owner_id) === user.user_id);
-  const filtered = tasks.filter(
-    (t) =>
-      (!filter.status || t.status === filter.status) &&
-      (!filter.project || String(t.project_id) === filter.project) &&
-      (!filter.source || t.source === filter.source) &&
-      `${t.title} ${t.goal}`
-        .toLowerCase()
-        .includes(filter.search.toLowerCase()),
-  );
-  const attention = tasks.filter(
-    (t) =>
-      t.outcome_unknown ||
-      ["waiting_input", "waiting_approval", "review_ready", "failed"].includes(
-        t.status,
-      ),
-  );
 
-  return (
-    <div className="shell">
-      <aside inert={creating}>
-        <a
-          className="brand"
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("工作台");
-          }}
+  const eventSupplement = task && canTaskWrite && !["completed", "cancelled"].includes(task.status) ? (
+    <details className="advanced-panel">
+      <summary>补充给 Agent</summary>
+      <p className="muted">补充会保存到本事件和执行会话。若任务正在等待人工处理，保存后请回到顶部点击「恢复」。</p>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (
+            await mutate(
+              () =>
+                request(
+                  `/tasks/${encodeURIComponent(task.id)}/messages`,
+                  {
+                    content: message,
+                    change_goal: changeGoal,
+                    expected_state_version: task.state_version,
+                  },
+                ),
+              changeGoal
+                ? "新方向已提交，请核对目标版本与执行状态。"
+                : "补充要求已接收。",
+            )
+          )
+            setMessage("");
+        }}
+      >
+        <label>
+          要求内容
+          <textarea
+            required
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={3}
+          />
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={changeGoal}
+            onChange={(e) => setChangeGoal(e.target.checked)}
+          />
+          调整处理目标
+        </label>
+        {changeGoal && (
+          <p className="muted">
+            提交后更新目标版本，旧方案审批需重新核对。
+          </p>
+        )}
+        <button
+          className="primary"
+          disabled={
+            busy || ["completed", "cancelled"].includes(task.status)
+          }
         >
-          <span className="logo">S</span>SuperAgent
-        </a>
-        <p className="workspace-label">研发协作空间</p>
-        <nav aria-label="主导航">
-          {["工作台", "任务", "项目设置", "运行状态"].map((item, index) => (
-            <button
-              key={item}
-              aria-current={page === item ? "page" : undefined}
-              onClick={() => navigate(item)}
-            >
-              <span aria-hidden>{["◫", "☷", "◇", "◉"][index]}</span>
-              {item}
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <span className={`dot ${health.status ? "online" : ""}`} />
-          {health.status ? "控制服务已连接" : "等待连接服务"}
-          <small>Web · 钉钉 · Redmine</small>
+          添加补充
+        </button>
+      </form>
+    </details>
+  ) : null;
+
+  const endEventAction = task && canTaskWrite && task.status !== "cancelled" ? <>
+    <button type="button" className="danger" disabled={busy || controlBlocked}
+      onClick={() => setEnding({ id: String(task.id), version: task.state_version })}>结束事件</button>
+    {ending?.id === String(task.id) && (
+      <Modal className="action-confirm-dialog" labelledBy="end-event-title" busy={busy} onClose={() => setEnding(null)}>
+        <h2 id="end-event-title">结束此事件？</h2>
+        <p>事件「{task.title}」将移到「已结束」。原消息和处理记录会保留，未发送的旧审批将失效。</p>
+        {(ending.version !== task.state_version || controlBlocked) && <p role="status">事件状态已变化，请返回核对后再操作。</p>}
+        <div className="actions wrap">
+          <button type="button" data-dialog-autofocus disabled={busy} onClick={() => setEnding(null)}>返回</button>
+          <button type="button" className="danger" disabled={busy || controlBlocked || ending.version !== task.state_version}
+            onClick={() => void control("cancel")}>确认结束事件</button>
         </div>
-      </aside>
-      <main inert={creating}>
-        <header>
-          <div>
-            <p className="eyebrow">
-              SUPERAGENT / {page === "任务" && task ? "任务详情" : page}
-            </p>
-            <h1>{task?.title ?? page}</h1>
-          </div>
-          <div className="actions">
-            {user ? (
-              <>
-                <span className="muted">
-                  {user.name ?? user.username ?? user.user_id ?? user.role}
-                </span>
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void mutate(async () => {
-                      await request("/auth/logout", {});
-                      setUser(null);
-                      setTasks([]);
-                      setProjects([]);
-                      setOverview({});
-                      setDetail(null);
-                      selected.current = null;
-                      setToken("");
-                    }, "已退出当前会话。")
-                  }
-                >
-                  登出
-                </button>
-              </>
-            ) : (
-              <button onClick={() => setLoginOpen(true)}>登录</button>
-            )}
-            <button onClick={() => void refresh()} disabled={busy}>
-              刷新
-            </button>
-            {canWrite && (
-              <button className="primary" onClick={() => setCreating(true)}>
-                ＋ 新建任务
-              </button>
-            )}
-          </div>
-        </header>
-        {loginOpen && !user && (
-          <section>
-            <h2>登录工作空间</h2>
+      </Modal>
+    )}
+  </> : null;
+  const canAnalyzeReply = canTaskWrite && task?.kind === "reply" &&
+    ["paused", "waiting_input", "review_ready", "completed", "cancelled", "failed"].includes(task.status);
+  const canHandoff = canTaskWrite && task && !["cancelled", "completed"].includes(task.status);
+  const eventControls = task && detail && (task.outcome_unknown || task.last_error === "正在停止执行" || canHandoff || canAnalyzeReply || task.status === "cancelled") ? (
+    <div className="event-controls" key={task.id}>
+      <h3>{task.status === "cancelled" ? "恢复选项" : "事件处理"}</h3>
+      {task.status === "cancelled" && <p className="muted">关闭时间：{date([...detail.events].reverse().find((e: Row) => (e.event_type === "control" || e.event_type === "stopped") && e.content === "cancel")?.created_at ?? task.updated_at)}</p>}
+      {replyNeedsEngine(task) && canTaskWrite && <div className="actions wrap engine-recovery">
+        {isAdmin && <InlineAgentCheck key={task.id} />}
+        <button className="primary" disabled={busy || controlBlocked} onClick={()=>void control("resume")}>重新执行回复</button>
+      </div>}
+
+      {task.last_error === "正在停止执行" && <p role="status">已请求停止 · 等待执行端确认</p>}
+      {task.outcome_unknown && (
+        <div className="alert error">
+          <h3>执行结果未知</h3>
+          <p>
+            请核对执行进程、工作目录和外部动作后提交证据。确认停止后进入已暂停，可手动恢复；放弃后进入已取消。
+          </p>
+          {canTaskWrite && (
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                await mutate(async () => {
-                  const current = await request<Row>("/auth/login", { token });
-                  setUser(current);
-                  setToken("");
-                  setLoginOpen(false);
-                }, "已登录工作空间。");
+                if (busy || !reconcileOutcome || !reconcileEvidence.trim()) return;
+                if (
+                  await mutate(
+                    () =>
+                      request(
+                        `/tasks/${encodeURIComponent(task.id)}/reconcile`,
+                        {
+                          outcome: reconcileOutcome,
+                          evidence: reconcileEvidence,
+                          expected_state_version: task.state_version,
+                        },
+                      ),
+                    "Worker 执行结果已核验。",
+                  )
+                )
+                  if (selected.current === String(task.id)) {
+                    setReconcileEvidence("");
+                    setReconcileOutcome("");
+                  }
               }}
             >
               <label>
-                访问令牌
-                <input
-                  type="password"
-                  autoComplete="off"
+                执行对账结果
+                <select
                   required
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
+                  value={reconcileOutcome}
+                  onChange={(e) => setReconcileOutcome(e.target.value)}
+                >
+                  <option value="">请选择实际核验结论</option>
+                  <option value="stopped">确认执行已停止</option>
+                  <option value="abandoned">确认结束此事件</option>
+                </select>
+              </label>
+              <label>
+                执行核验证据
+                <textarea
+                  required
+                  value={reconcileEvidence}
+                  onChange={(e) => setReconcileEvidence(e.target.value)}
                 />
               </label>
-              <button className="primary" disabled={busy}>
-                登录
+              {reconcileOutcome && <p className="muted">{reconcileOutcome === "stopped" ? "提交后任务将进入已暂停，可手动恢复。" : "提交后任务将结束，原消息与处理记录会保留。"}</p>}
+              <button disabled={busy || !reconcileOutcome || !reconcileEvidence.trim()}>
+                提交执行对账
               </button>
             </form>
-          </section>
-        )}
-        {error && (
-          <div role="alert" className="alert error">
-            {error}
-            <button onClick={() => void refresh()}>重新连接 / 刷新</button>
-          </div>
-        )}
-        {notice && (
-          <div role="status" className="alert success">
-            {notice}
-          </div>
-        )}
-        {loading && <p role="status">正在读取工作空间…</p>}
-        {page === "工作台" && (
+          )}
+        </div>
+      )}
+      <div className="actions wrap task-control-actions" hidden={!canTaskWrite}>
+        {canAnalyzeReply && <button className="primary" disabled={busy || controlBlocked} onClick={() => void control("analyze")}>改为只读分析</button>}
+        {(task.status === "waiting_input"
+          ? [["resume", "恢复"], ["pause", "暂停"]]
+          : task.status === "queued"
+          ? [["start", "启动"]]
+          : ["paused", "cancelled"].includes(task.status)
+            ? [["resume", task.status === "cancelled" ? "恢复原任务" : "恢复"]]
+            : task.status === "failed"
+              ? [["retry", "重试"]]
+              : [
+                    "running",
+                    "waiting_approval",
+                    "waiting_resource",
+                  ].includes(task.status)
+                ? [["pause", "暂停"]]
+                : []
+        ).map(([action, label]) => (
+          <button
+            key={action}
+            disabled={busy || controlBlocked}
+            onClick={() => void control(action)}
+          >
+            {label}
+          </button>
+        ))}
+        {isAdmin && !controlBlocked && ["paused", "waiting_input", "review_ready", "failed"].includes(task.status) &&
+        <ProjectRebind task={task} projects={projects as {id:number; name:string; enabled:boolean}[]} busy={busy}
+          onRebind={(projectId, reason) => mutate(() => request(`/tasks/${task.id}/project`, {
+            project_id: projectId, reason, expected_state_version: task.state_version,
+          }), "所属项目已更换，确认后可在新工作区继续。")} />}
+        {canHandoff && <HandoffPanel taskId={task.id} blocked={busy || controlBlocked} />}
+      </div>
+      {(canAnalyzeReply || canHandoff || task.status === "cancelled" && canTaskWrite) && <p className="muted control-hints">
+        {task.status === "cancelled" && "恢复原任务会按原目标和类型重新排队。"}
+        {canAnalyzeReply && "只读分析的结论仅保存在事件里。"}
+        {canHandoff && "人工接管会暂停自动执行并生成接管材料。"}
+      </p>}
+    </div>
+  ) : null;
+
+  const hasReferenceReads = detail?.events.some(e => e.event_type === "analysis_reference_scope");
+  const activeApprovals = detail?.approvals.filter(a =>
+    a.status === "pending" && a.revision === task?.revision && a.control_version === task?.control_version
+    && task?.status === "waiting_approval" && !task.outcome_unknown && !isDeliveryApproval(a)
+  ) ?? [];
+  const reviewLink = new URLSearchParams(window.location.search);
+  const reviewLinkId = reviewLink.get("task") === String(task?.id) ? reviewLink.get("approval") : null;
+  const eventReply = task && detail ? (
+    <section className="event-reply-section"><h3>渠道回复</h3>
+    {hasReferenceReads && <p className="muted">此事件使用了跨目录资料，结果仅在工作台内查看。</p>}
+      <DeliveriesPanel
+        key={task.id}
+        taskId={String(task.id)}
+        events={detail.events}
+        approvals={detail.approvals}
+        artifacts={detail.artifacts}
+        revision={task.revision}
+        taskStatus={task.status}
+        outcomeUnknown={!!task.outcome_unknown}
+        edit={replyEdits[task.id] ?? emptyReplyEdit}
+        updateEdit={(update) => setReplyEdits(current => {
+          const previous = current[task.id] ?? emptyReplyEdit;
+          const next = update(previous);
+          if (next === previous) return current;
+          if (next.content || next.eventId) return { ...current, [task.id]: next };
+          const remaining = { ...current };
+          delete remaining[task.id];
+          return remaining;
+        })}
+        controlVersion={task.control_version}
+        canWrite={canTaskWrite && !hasReferenceReads}
+        onSnapshot={setReplySnapshot}
+        onChange={refresh}
+      />
+    </section>
+  ) : null;
+  const eventOperations = task && detail ? (
           <>
-            <div className="intro">
-              <h2>让每项工作持续向前</h2>
-              <p>集中查看进展、证据和需要你决定的事项。</p>
-            </div>
-            <div className="metrics">
-              {[
-                ["需要你处理", attention.length],
-                [
-                  "正在执行",
-                  overview.counts?.running ??
-                    tasks.filter((t) => t.status === "running").length,
-                ],
-                [
-                  "待验收",
-                  overview.counts?.review_ready ??
-                    tasks.filter((t) => t.status === "review_ready").length,
-                ],
-                ["项目", projects.length],
-              ].map(([label, count]) => (
-                <div className="metric" key={label}>
-                  <span>{label}</span>
-                  <strong>{count}</strong>
-                </div>
-              ))}
-            </div>
-            <section>
-              <h2>
-                需要你处理 <span className="count">{attention.length}</span>
-              </h2>
-              {taskRows(attention)}
-            </section>
-            {isAdmin && <InboxPanel onChange={refresh} />}
-            <section>
-              <h2>正在推进</h2>
-              {taskRows(
-                tasks.filter(
-                  (t) =>
-                    !t.outcome_unknown &&
-                    ["queued", "running", "waiting_resource"].includes(
-                      t.status,
-                    ),
-                ),
-              )}
-            </section>
-            <section>
-              <h2>最近交付</h2>
-              {taskRows(
-                tasks
-                  .filter((t) =>
-                    ["review_ready", "completed"].includes(t.status),
-                  )
-                  .slice(0, 8),
-              )}
-            </section>
-          </>
-        )}
-        {page === "任务" && !selected.current && (
-          <>
-            <div className="filters">
-              <label>
-                搜索
-                <input
-                  value={filter.search}
-                  onChange={(e) =>
-                    setFilter({ ...filter, search: e.target.value })
-                  }
-                  placeholder="任务标题或目标"
-                />
-              </label>
-              <label>
-                状态
-                <select
-                  value={filter.status}
-                  onChange={(e) =>
-                    setFilter({ ...filter, status: e.target.value })
-                  }
-                >
-                  <option value="">全部状态</option>
-                  {Object.entries(statusNames).map(([key, value]) => (
-                    <option key={key} value={key}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                项目
-                <select
-                  value={filter.project}
-                  onChange={(e) =>
-                    setFilter({ ...filter, project: e.target.value })
-                  }
-                >
-                  <option value="">全部项目</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                来源
-                <select
-                  value={filter.source}
-                  onChange={(e) =>
-                    setFilter({ ...filter, source: e.target.value })
-                  }
-                >
-                  <option value="">全部来源</option>
-                  {[...new Set(tasks.map((t) => t.source).filter(Boolean))].map(
-                    (s) => (
-                      <option key={s}>{s}</option>
-                    ),
-                  )}
-                </select>
-              </label>
-            </div>
-            <section>{taskRows(filtered)}</section>
-          </>
-        )}
-        {page === "任务" && selected.current && !task && (
-          <p role="status">任务详情尚未载入，请刷新重试。</p>
-        )}
-        {task && detail && (
-          <>
-            <button className="back" onClick={() => navigate("任务")}>
-              ← 返回任务列表
-            </button>
-            <section>
-              <div className="section-heading">
-                <h2>当前目标</h2>
-                <span className={`badge ${task.status}`}>
-                  {taskStatus(task)}
-                </span>
-              </div>
-              <p className="goal">{task.goal}</p>
-              <a
-                className="download-link"
-                href={`/api/v1/tasks/${encodeURIComponent(task.id)}/export`}
-                download
-              >
-                导出任务完整快照 JSON
-              </a>
-              <dl>
-                <dt>任务类型</dt>
-                <dd>{task.kind === "analysis" ? "分析问题" : "修复代码"}</dd>
-                <dt>验收标准</dt>
-                <dd>{pretty(task.acceptance_criteria) || "尚未填写"}</dd>
-                <dt>版本</dt>
-                <dd>
-                  目标 {task.revision} · 状态 {task.state_version} · 控制{" "}
-                  {task.control_version ?? "—"}
-                </dd>
-                <dt>来源</dt>
-                <dd>
-                  {task.source} {pretty(task.source_ref)}
-                </dd>
-                <dt>工作目录</dt>
-                <dd>{task.workspace_path || "尚未建立"}</dd>
-                <dt>最近更新</dt>
-                <dd>{date(task.updated_at)}</dd>
-              </dl>
-              {task.last_error && (
-                <p className="alert error">{task.last_error}</p>
-              )}
-              {task.outcome_unknown && (
-                <div className="alert error">
-                  <h3>执行结果未知</h3>
-                  <p>
-                    请核对执行进程、工作目录和外部动作后提交证据。确认停止后进入已暂停，可手动恢复；放弃后进入已取消。
-                  </p>
-                  {canTaskWrite && (
-                    <form
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        if (
-                          await mutate(
-                            () =>
-                              request(
-                                `/tasks/${encodeURIComponent(task.id)}/reconcile`,
-                                {
-                                  outcome: reconcileOutcome,
-                                  evidence: reconcileEvidence,
-                                  expected_state_version: task.state_version,
-                                },
-                              ),
-                            "任务执行结果已对账。",
-                          )
-                        )
-                          setReconcileEvidence("");
-                      }}
-                    >
-                      <label>
-                        执行对账结果
-                        <select
-                          value={reconcileOutcome}
-                          onChange={(e) => setReconcileOutcome(e.target.value)}
-                        >
-                          <option value="stopped">确认执行已停止</option>
-                          <option value="abandoned">确认放弃此任务</option>
-                        </select>
-                      </label>
-                      <label>
-                        执行核验证据
-                        <textarea
-                          required
-                          value={reconcileEvidence}
-                          onChange={(e) => setReconcileEvidence(e.target.value)}
-                        />
-                      </label>
-                      <button disabled={busy || !reconcileEvidence.trim()}>
-                        提交执行对账
-                      </button>
-                    </form>
-                  )}
-                </div>
-              )}
-              <div className="actions wrap" hidden={!canTaskWrite}>
-                {(task.status === "queued"
-                  ? [["start", "启动"]]
-                  : ["paused", "waiting_input"].includes(task.status)
-                    ? [["resume", "恢复"]]
-                    : task.status === "failed"
-                      ? [["retry", "重试"]]
-                      : [
-                            "running",
-                            "waiting_input",
-                            "waiting_approval",
-                            "waiting_resource",
-                          ].includes(task.status)
-                        ? [["pause", "暂停"]]
-                        : []
-                ).map(([action, label]) => (
-                  <button
-                    key={action}
-                    disabled={busy || !!task.outcome_unknown}
-                    onClick={() => void control(action)}
-                  >
-                    {label}
-                  </button>
-                ))}
-                {!["completed", "cancelled"].includes(task.status) && (
-                  <button
-                    className="danger"
-                    disabled={busy}
-                    onClick={() => void control("cancel")}
-                  >
-                    取消任务
-                  </button>
-                )}
-              </div>
-            </section>
             <div className="detail-grid">
-              <section>
-                <div className="tabs" aria-label="任务记录">
-                  {["事件", "证据与差异", "审批", "原渠道回复"].map((name) => (
-                    <button
-                      key={name}
-                      aria-pressed={tab === name}
-                      onClick={() => setTab(name)}
-                    >
-                      {name}
-                    </button>
-                  ))}
-                </div>
-                {tab === "原渠道回复" && (
-                  <DeliveriesPanel
-                    key={task.id}
-                    taskId={task.id}
-                    events={detail.events}
-                    approvals={detail.approvals}
-                    artifacts={detail.artifacts}
-                    revision={task.revision}
-                    canWrite={canTaskWrite}
-                    onChange={refresh}
-                  />
-                )}
-                {tab === "事件" &&
-                  (detail.events.length ? (
-                    <ol className="timeline">
-                      {detail.events.map((event, i) => (
-                        <li key={event.id ?? i}>
-                          <small>
-                            {date(event.created_at ?? event.occurred_at)} ·{" "}
-                            {event.type ?? event.event_type ?? event.kind}
-                          </small>
-                          <pre>
-                            {pretty(event.content ?? event.payload ?? event)}
-                          </pre>
-                        </li>
-                      ))}
-                    </ol>
-                  ) : (
-                    <p className="empty">暂无事件</p>
-                  ))}
-                {tab === "证据与差异" && (
-                  <>
-                    {detail.artifacts.length ? (
-                      detail.artifacts.map((a, i) => (
-                        <ArtifactView
-                          key={a.id ?? i}
-                          artifact={a}
-                          revision={task.revision}
-                        />
-                      ))
-                    ) : (
-                      <p className="empty">暂无产物，尚无可审阅的验证证据。</p>
-                    )}
-                  </>
-                )}
-                {tab === "审批" &&
-                  (detail.approvals.length ? (
-                    detail.approvals.map((a) => (
-                      <article key={a.id} className="artifact">
+              <section aria-label="执行审批">
+                {
+                  (activeApprovals.length ? (
+                    activeApprovals.map((a) => (
+                      <article key={a.id} data-execution-approval ref={node => focusLinkedApproval(node, String(task.id), String(a.id))} tabIndex={-1} className="artifact">
                         <strong>
                           {a.title ?? a.action_type ?? "动作审批"}
                         </strong>
-                        <pre>{pretty(a.action ?? a.payload ?? a)}</pre>
+                        <p>{isDeliveryApproval(a) ? "发送环节：批准后仍需确认发送，请先核对回复内容与收件渠道。" : "执行环节：请核对本次操作的用途与范围，再决定是否允许继续。"}</p><details><summary>查看操作范围与技术详情</summary><pre>{pretty(a.action ?? a.payload ?? a)}</pre></details>
                         <p>
                           状态 {a.status} · 版本 {a.revision ?? "—"}
                         </p>
-                        {isDeliveryApproval(a) && (
-                          <button onClick={() => setTab("原渠道回复")}>
-                            查看回复草稿与发送审批
-                          </button>
-                        )}
+
                         {a.status === "pending" &&
                           canTaskWrite &&
                           !isDeliveryApproval(a) && (
@@ -765,65 +624,11 @@ export function App() {
                   ) : (
                     <p className="empty">暂无审批</p>
                   ))}
+                {reviewLinkId && !activeApprovals.some(a => String(a.id) === reviewLinkId) &&
+                  <p role="status">此链接对应的审批已处理或失效，请查看任务当前状态。</p>}
               </section>
               <div>
-                <section hidden={!canTaskWrite}>
-                  <h2>补充要求</h2>
-                  <form
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      if (
-                        await mutate(
-                          () =>
-                            request(
-                              `/tasks/${encodeURIComponent(task.id)}/messages`,
-                              {
-                                content: message,
-                                change_goal: changeGoal,
-                                expected_state_version: task.state_version,
-                              },
-                            ),
-                          changeGoal
-                            ? "新方向已提交，请核对目标版本与执行状态。"
-                            : "补充要求已接收。",
-                        )
-                      )
-                        setMessage("");
-                    }}
-                  >
-                    <label>
-                      要求内容
-                      <textarea
-                        required
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                        rows={5}
-                      />
-                    </label>
-                    <label className="check">
-                      <input
-                        type="checkbox"
-                        checked={changeGoal}
-                        onChange={(e) => setChangeGoal(e.target.checked)}
-                      />
-                      改变任务方向
-                    </label>
-                    {changeGoal && (
-                      <p className="muted">
-                        提交后更新目标版本，旧方案审批需重新核对。
-                      </p>
-                    )}
-                    <button
-                      className="primary"
-                      disabled={
-                        busy || ["completed", "cancelled"].includes(task.status)
-                      }
-                    >
-                      提交要求
-                    </button>
-                  </form>
-                </section>
-                <section hidden={!canTaskWrite}>
+                <section hidden={!canTaskWrite || task.status !== "review_ready" || task.kind === "reply"}>
                   <h2>交付验收</h2>
                   <label>
                     验收意见 / 返工原因
@@ -880,24 +685,159 @@ export function App() {
                 </section>
               </div>
             </div>
+            <EventGroupDiagnostics id={String(task.id)} onOpen={openTask} />
           </>
+        ) : null;
+
+  return (
+    <div className="shell ide-shell">
+      <header className="ide-toolbar">
+        <a
+          className="brand"
+          aria-label="SuperAgent"
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            clearEvent();
+            resetEventHome(version => version + 1);
+            navigate("事件中心");
+          }}
+        >
+          <span className="logo" aria-hidden="true">S</span>
+          <span className="brand-copy">SuperAgent</span>
+        </a>
+        <span className="ide-workspace-name">研发协作空间</span>
+        <ContentPaletteSelect />
+        {canWrite && <button className="primary ide-create" aria-haspopup="dialog" onClick={event => {
+          event.currentTarget.focus({ preventScroll: true });
+          setError("");
+          setCreating(true);
+        }}>＋ 提出事件</button>}
+          <details className="ide-account"><summary>{user ? (user.name ?? user.username ?? user.user_id ?? user.role) : "账号与登录"}</summary><div className="account-actions">
+            {user ? (
+              <>
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void mutate(async () => {
+                      await request("/auth/logout", {});
+                      setUser(null);
+                      setReplyEdits({});
+                      setTasks([]);
+                      setProjects([]);
+                      setDetail(null);
+                      clearEvent();
+                      setToken("");
+                    }, "已退出当前会话。")
+                  }
+                >
+                  登出
+                </button>
+              </>
+            ) : (
+              <button onClick={() => setLoginOpen(true)}>登录</button>
+            )}
+          </div></details>
+      </header>
+      <aside className="ide-rail">
+        <nav aria-label="主导航">
+          {[
+            { title: "工作空间", items: [["事件中心", "事件"], ["Worker 工作台", "Worker"]] },
+            { title: "配置与连接", items: [["项目设置", "项目"], ...(isAdmin ? [["事件规则", "规则"], ["管理设置", "设置"]] : []), ["运行状态", "状态"]] },
+          ].map(group => <div className="ide-tool-group" role="group" aria-label={group.title} key={group.title}>
+            {group.items.map(([item, label]) => <button type="button" key={item} title={item} aria-label={item}
+              aria-current={page === item ? "page" : undefined} onClick={() => navigate(item)}>
+              <WorkbenchIcon name={item} /><span aria-hidden="true">{label}</span>
+            </button>)}
+          </div>)}
+          {isAdmin && <details className="ide-tools-more">
+            <summary title="更多工具" aria-label="更多工具" data-current={["消息记录", "订阅关系", "分派复核"].includes(page)}>
+              <WorkbenchIcon name="更多工具" /><span aria-hidden="true">更多</span>
+            </summary>
+            <div className="ide-more-items">
+              {["消息记录", "订阅关系", "分派复核"].map(item => <button type="button" key={item}
+                aria-current={page === item ? "page" : undefined} onClick={event => {
+                  const menu = event.currentTarget.closest("details");
+                  if (menu) {
+                    menu.open = false;
+                    menu.querySelector("summary")?.focus();
+                  }
+                  navigate(item);
+                }}><WorkbenchIcon name={item} />{item}</button>)}
+            </div>
+          </details>}
+        </nav>
+      </aside>
+      <main className={page === "事件中心" ? "workspace-page event-center-page" : page === "Worker 工作台" ? "workspace-page worker-page" : page === "消息记录" ? "workspace-page" : "content-page"}>
+        <header className="workbench-page-heading">
+          <h1><WorkbenchIcon name={page} />{page}</h1>
+        </header>
+        {loginOpen && !user && (
+          <section>
+            <h2>登录工作空间</h2>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                await mutate(async () => {
+                  const current = await request<Row>("/auth/login", { token });
+                  setUser(current);
+                  setToken("");
+                  setLoginOpen(false);
+                }, "已登录工作空间。");
+              }}
+            >
+              <label>
+                访问令牌
+                <input
+                  type="password"
+                  autoComplete="off"
+                  required
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                />
+              </label>
+              <button className="primary" disabled={busy}>
+                登录
+              </button>
+            </form>
+          </section>
         )}
+        {!creating && error && (
+          <div role="alert" className="alert error">{error}</div>
+        )}
+        {readError && (
+          <div role="alert" className="alert error">
+            {readError}
+            <button onClick={() => void refresh()}>重新连接 / 刷新</button>
+          </div>
+        )}
+        {notice && (
+          <div role="status" className="alert success">
+            {notice}
+          </div>
+        )}
+        {loading && <p role="status">正在读取工作空间…</p>}
+
+        {page === "消息记录" && isAdmin && <MessageRecords onOpenEvent={id => void openTask(id)} />}
         {page === "项目设置" && (
-          <div className="detail-grid">
+          <div className="project-settings">
             <section>
               <h2>已绑定项目</h2>
               {projects.length ? (
                 projects.map((p) => (
                   <button
-                    className="project-row"
+                    className={`project-row${String(projectId) === String(p.id) ? " selected" : ""}`}
+                    aria-pressed={String(projectId) === String(p.id)}
                     key={p.id}
                     onClick={() => {
+                      setProjectEditorOpen(true);
                       setProjectId(p.id);
-                      setPathMode(p.allowed_paths?.length ? "paths" : "none");
+                      setPathMode(p.allowed_paths?.includes(".") ? "all" : p.allowed_paths?.length ? "paths" : "none");
                       setProject({
                         ...emptyProject,
                         ...p,
                         allowed_paths: (p.allowed_paths ?? []).join("\n"),
+                        reference_dirs: (p.reference_dirs ?? []).join("\n"),
                         dingtalk_chat_ids: (p.dingtalk_chat_ids ?? []).join(
                           "\n",
                         ),
@@ -908,7 +848,7 @@ export function App() {
                     }}
                   >
                     <strong>{p.name}</strong>
-                    <small>{p.repo_path}</small>
+                    <small>{p.repo_path}{String(settings.dingtalk_request_access?.default_project_id) === String(p.id) ? " · 默认工作区" : ""}</small>
                     <span>
                       {p.base_branch} · {p.enabled ? "已启用" : "已停用"}
                     </span>
@@ -920,23 +860,25 @@ export function App() {
               <button
                 hidden={!isAdmin}
                 onClick={() => {
+                  setProjectEditorOpen(true);
                   setProjectId(null);
-                  setPathMode("");
+                  setPathMode("none");
                   setProject(emptyProject);
                 }}
               >
                 ＋ 添加项目
               </button>
             </section>
-            <section hidden={!isAdmin}>
-              <h2>{projectId ? "编辑项目" : "绑定项目"}</h2>
+            {isAdmin && projectEditorOpen && <SettingsDrawer title={projectId ? `编辑项目 · ${project.name}` : "绑定项目"} onClose={() => setProjectEditorOpen(false)}>
+              {error && <p role="alert" className="danger">{error}</p>}
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
                   const body = {
-                    ...project,
+                    ...Object.fromEntries(Object.keys(emptyProject).map(key => [key, project[key as keyof typeof project]])),
                     allowed_paths:
-                      pathMode === "none" ? [] : lines(project.allowed_paths),
+                      pathMode === "all" ? ["."] : pathMode === "paths" ? lines(project.allowed_paths) : [],
+                    reference_dirs: project.reference_access === "directories" ? lines(project.reference_dirs) : [],
                     dingtalk_chat_ids: lines(project.dingtalk_chat_ids),
                     redmine_project_ids: lines(project.redmine_project_ids),
                   };
@@ -953,12 +895,14 @@ export function App() {
                       "项目配置已保存。",
                     )
                   ) {
+                    setProjectEditorOpen(false);
                     setProjectId(null);
                     setProject(emptyProject);
-                    setPathMode("");
+                    setPathMode("none");
                   }
                 }}
               >
+                <ProjectWorkspaceFields key={projectId ?? "new"} path={project.repo_path} repositories={project.repositories} onChange={(repo_path, repositories) => setProject(current => ({...current, repo_path, repositories}))} />
                 <label>
                   改动验收范围
                   <select
@@ -966,26 +910,39 @@ export function App() {
                     value={pathMode}
                     onChange={(e) => setPathMode(e.target.value)}
                   >
-                    <option value="">明确选择允许范围</option>
-                    <option value="none">不允许任何修改（空路径列表）</option>
+                    <option value="none">只读，不接受改动</option>
+                    <option value="all">允许项目工作区内的改动</option>
                     <option value="paths">允许指定仓库相对路径</option>
                   </select>
                 </label>
                 <p className="muted">
-                  允许路径用于结果验收与审批范围校验。填写 .
-                  表示整个仓库。此配置不提供操作系统级子路径隔离。
+                  只读分析可直接使用默认值。只有选择「指定仓库相对路径」时，才需要填写例如 hlzj/src。
                 </p>
+                <label>
+                  Agent 读取范围
+                  <select value={project.reference_access} onChange={e => setProject(current => ({...current, reference_access: e.target.value}))}>
+                    <option value="workspace">仅当前事件的工作区</option>
+                    <option value="projects">当前工作区 + 所有已启用项目（只读）</option>
+                    <option value="directories">当前工作区 + 指定资料目录（只读）</option>
+                  </select>
+                </label>
+                {project.reference_access === "directories" && <label>额外资料目录（每行一个绝对路径）
+                  <textarea required value={project.reference_dirs} onChange={e => setProject(current => ({...current, reference_dirs: e.target.value}))} />
+                </label>}
+                {project.reference_access !== "workspace" && <p className="muted">
+                  供管理员负责的只读分析使用。跨目录结果保留在本事件，不向原消息渠道发送。
+                </p>}
                 {Object.entries({
                   name: "项目名称",
-                  repo_path: "仓库绝对目录",
+                  repo_path: "项目根目录",
                   base_branch: "基线分支",
-                  test_command: "验证命令（管理员配置）",
+                  test_command: "验证命令（可选，仅修复任务使用）",
                   allowed_paths: "改动验收允许路径（每行一项）",
-                  dingtalk_chat_ids: "钉钉群 ID（每行一项）",
-                  redmine_project_ids: "Redmine 项目 ID（每行一项）",
+                  dingtalk_chat_ids: "绑定钉钉群（可选，每行一个群 ID）",
+                  redmine_project_ids: "绑定 Redmine 项目（可选，每行一个项目 ID）",
                 })
                   .filter(
-                    ([key]) => key !== "allowed_paths" || pathMode === "paths",
+                    ([key]) => (key !== "allowed_paths" || pathMode === "paths") && (key !== "base_branch" || !project.repositories.length),
                   )
                   .map(([key, label]) => (
                     <label key={key}>
@@ -1000,6 +957,7 @@ export function App() {
                         />
                       ) : (
                         <input
+                          list={key === "base_branch" ? "project-branches" : undefined}
                           required={[
                             "name",
                             "repo_path",
@@ -1023,15 +981,78 @@ export function App() {
                   />
                   启用项目
                 </label>
+                <div className="settings-drawer-footer">
                 <button className="primary" disabled={busy}>
                   保存项目
                 </button>
+                {projectId && <button type="button" disabled={busy} onClick={async () => {
+                  if (await mutate(() => request(`/projects/${projectId}`, {}, "DELETE"), "项目已移除，有历史记录的项目已归档。")) { setProjectEditorOpen(false); setProjectId(null); setProject(emptyProject); }
+                }}>删除项目</button>}
+                </div>
               </form>
-            </section>
+            </SettingsDrawer>}
           </div>
         )}
+        {page === "事件规则" && isAdmin && <EventRulesPanel projects={projects as {id: number; name: string}[]} />}
+        {page === "管理设置" && isAdmin && (
+          <GovernancePanel
+            target={configTarget}
+            onNavigate={navigate}
+            settings={settings}
+            projects={projects}
+            onChange={refresh}
+          />
+        )}
+        {page === "Worker 工作台" && user && (
+          <SessionWorkbench
+            initialSessionId={sessionId}
+            onSelectSession={setSessionId}
+            projects={projects}
+            canWrite={canWrite}
+            onOpenTask={(id) => void openTask(id)}
+          />
+        )}
+        {page === "订阅关系" && isAdmin && (
+          <SubscriptionsPanel
+            projects={projects}
+            onOpenTask={(id) => void openTask(id)}
+          />
+        )}
+        {page === "事件中心" && user && (
+            <GroupedEvents key={eventHomeVersion} taskDetail={detail} initialGroupId={focusedGroup} operations={eventOperations} reply={eventReply} replySnapshot={replySnapshot} operationsId={task ? String(task.id) : undefined}
+              initialScope={eventScope} onScopeChange={setEventScope} projects={projects} canManage={isAdmin}
+              overview={<ArchitecturePanel onNavigate={navigate} isAdmin={isAdmin} eventStatus={eventScope.status} />}
+              endAction={endEventAction} controls={<>
+                {controlError && <p role="alert" className="alert error">{controlError}</p>}
+                {eventControls}
+              </>} supplement={eventSupplement}
+              onSelectGroup={id => { if (id) void openTask(id); else clearEvent(); }}
+              onRefreshTask={id => refreshTask(id, true)}
+              onOpenSession={(id) => {
+                setSessionId(id);
+                navigate("Worker 工作台");
+              }}
+              onOpenTask={(id) => void openTask(id)}
+              onManage={() => navigate("管理设置")}
+            />
+        )}
+        {page === "分派复核" && isAdmin && <section><h2>分派管理与人工复核</h2>
+            {isAdmin && <RoutingPanel
+              onOpenSession={(id) => {
+                setSessionId(id);
+                navigate("Worker 工作台");
+              }}
+            />}
+</section>}
         {page === "运行状态" && (
           <>
+            {isAdmin && (
+              <OperationsPanel
+                projects={projects}
+                tasks={tasks}
+                onOpenTask={(id) => void openTask(id)}
+              />
+            )}
             <section>
               <h2>控制服务</h2>
               <dl>
@@ -1054,19 +1075,59 @@ export function App() {
                   {connectors.map((c) => (
                     <article className="connector" key={c.id}>
                       <h3>{c.name}</h3>
-                      <span className="badge">{c.status}</span>
+                      <span className="badge">
+                        {(
+                          {
+                            running: "运行中",
+                            degraded: "部分连接异常",
+                            policy_off: "响应已关闭",
+                            disabled: "已停用",
+                            stopped: "已停止",
+                            failed: "连接失败",
+                          } as Row
+                        )[c.status] ?? c.status}
+                      </span>
                       <p>
                         {c.configured ? "已配置" : "待配置"} ·{" "}
                         {c.enabled ? "已启用" : "未启用"}
                       </p>
                       <small>最后联系 {date(c.last_seen)}</small>
-                      {c.last_error && <p className="danger">{c.last_error}</p>}
+                      {c.warnings?.map((warning: string) => <p key={warning}>{warning}</p>)}
+                      {c.scopes?.map((scope: Row, index: number) => (
+                        <p key={index}>
+                          {(
+                            {
+                              "all-direct": "私聊",
+                              "all-group": "群聊",
+                              "at-me": "群内 @本人",
+                              group: "指定群",
+                            } as Row
+                          )[scope.kind] ?? scope.kind}{" "}
+                          ·{" "}
+                          {(
+                            {
+                              running: "接收中",
+                              failed: "连接失败",
+                              stopped: "已停止",
+                              starting: "正在连接",
+                            } as Row
+                          )[scope.status] ?? scope.status}
+                          {scope.last_error && (
+                            <span className="danger">
+                              {" "}
+                              · {scope.last_error}
+                            </span>
+                          )}
+                        </p>
+                      ))}
+                      {c.last_error && <p className="danger">{c.last_error}</p>}{!c.configured && <div className="alert"><p>待配置 · {(c.missing_configuration ?? []).join('、') || '请填写连接账号和接收范围'}</p><button onClick={() => navigate('管理设置')}>填写连接配置</button></div>}
                       {isAdmin && (
                         <div className="actions wrap">
                           {[
                             "running",
                             "ready",
                             "connected",
+                            "degraded",
                             "starting",
                           ].includes(c.status) ? (
                             <button
@@ -1157,55 +1218,32 @@ export function App() {
                 <p className="empty">暂无连接状态，请核对服务配置。</p>
               )}
             </section>
-            <section>
-              <h2>服务配置（脱敏）</h2>
+            <details className="advanced-panel">
+              <summary>高级服务诊断</summary>
               <pre>{pretty(settings)}</pre>
               <p className="muted">凭据在服务环境或本机凭据管理中配置。</p>
-            </section>
-            {isAdmin && (
-              <GovernancePanel
-                settings={settings}
-                projects={projects}
-                onChange={refresh}
-              />
-            )}
+            </details>
           </>
         )}
-        <footer>
-          SuperAgent · 持续研发协作 <span>最近读取 {lastRefresh || "—"}</span>
-        </footer>
+
       </main>
+      <footer className="ide-status">
+        <span><span className={`dot ${health.status ? "online" : ""}`} aria-hidden="true" />{health.status ? "控制服务已连接" : "等待连接服务"}</span>
+        {settings.service_mode === "preview" && <span className="ide-preview">独立预览 · 自动执行已关闭</span>}
+        <span className="ide-channels">Web · 钉钉 · Redmine</span>
+      </footer>
       {creating && (
-        <div className="modal-backdrop">
-          <section
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="create-title"
-            onKeyDown={(e) => {
-              if (e.key === "Escape" && !busy) setCreating(false);
-              if (e.key === "Tab") {
-                const focusable = e.currentTarget.querySelectorAll<HTMLElement>(
-                  "button:not(:disabled), input, textarea, select",
-                );
-                const first = focusable[0];
-                const last = focusable[focusable.length - 1];
-                if (e.shiftKey && document.activeElement === first) {
-                  e.preventDefault();
-                  last?.focus();
-                } else if (!e.shiftKey && document.activeElement === last) {
-                  e.preventDefault();
-                  first?.focus();
-                }
-              }
-            }}
-          >
+        <Modal className="event-create-dialog" labelledBy="create-title" busy={busy} onClose={() => {
+          setError("");
+          setCreating(false);
+        }}>
             <div className="section-heading">
-              <h2 id="create-title">新建任务</h2>
+              <h2 id="create-title">提出事件</h2>
               <button
-                aria-label="关闭新建任务"
+                type="button"
+                aria-label="关闭提出事件"
                 disabled={busy}
-                onClick={() => setCreating(false)}
+                onClick={() => { setError(""); setCreating(false); }}
               >
                 关闭
               </button>
@@ -1213,8 +1251,8 @@ export function App() {
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                if (
-                  await mutate(async () => {
+                if (busy) return;
+                await mutate(async () => {
                     const created = await request<Task>("/tasks", {
                       ...draft,
                       source: "web",
@@ -1228,15 +1266,13 @@ export function App() {
                       kind: "repair",
                     });
                     await openTask(created.id);
-                  }, "任务已创建，请核对目标后启动。")
-                )
-                  setCreating(false);
+                  }, "事件已登记，进入事件处理。");
               }}
             >
               <label>
                 项目
                 <select
-                  autoFocus
+                  data-dialog-autofocus
                   required
                   value={draft.project_id}
                   onChange={(e) =>
@@ -1254,17 +1290,18 @@ export function App() {
                 </select>
               </label>
               <label>
-                任务类型
+                处理方式
                 <select
                   value={draft.kind}
                   onChange={(e) => setDraft({ ...draft, kind: e.target.value })}
                 >
+                  <option value="reply">回复消息</option>
                   <option value="repair">修复代码</option>
                   <option value="analysis">分析问题</option>
                 </select>
               </label>
               <label>
-                任务标题
+                问题标题
                 <input
                   required
                   value={draft.title}
@@ -1293,20 +1330,19 @@ export function App() {
                   placeholder="预期交付、验证范围与完成条件"
                 />
               </label>
-              {error && (
-                <p role="alert" className="danger">
+              <div role="alert">
+                {error && <p className="danger">
                   {error}
-                </p>
-              )}
+                </p>}
+              </div>
               <button
                 className="primary"
                 disabled={busy || !projects.some((p) => p.enabled)}
               >
-                {busy ? "正在提交…" : "创建任务"}
+                {busy ? "正在提交…" : "登记事件"}
               </button>
             </form>
-          </section>
-        </div>
+        </Modal>
       )}
     </div>
   );

@@ -15,7 +15,25 @@ from .db import Artifact, Base, Event, Project, Session, Task, now
 from .ingestion import EventAttachmentJob, ingest_event
 
 
+def _fanout_receipts(receipt, factory):
+    """Resolve only committed delivery records, never target IDs from external content."""
+    if not receipt.get('data', {}).get('target_task_ids') or receipt.get('_target_dispatch'):
+        return None
+    from .subscriptions import EventTarget
+    from .db import dump
+    with factory() as session:
+        rows = session.scalars(select(Event).join(EventTarget, EventTarget.message_event_id == Event.id)
+                               .where(EventTarget.event_id == receipt['id'])).all()
+        return [{**dump(row), '_target_dispatch': True} for row in rows]
+
+
 def schedule_attachments(receipt, *, session_factory=None, settings=None, redmine_factory=None, owner=None):
+    if not receipt.get('duplicate'):
+        targets = _fanout_receipts(receipt, session_factory or Session)
+        if targets is not None:
+            jobs = [schedule_attachments(target, session_factory=session_factory, settings=settings,
+                    redmine_factory=redmine_factory, owner=owner) for target in targets]
+            return asyncio.gather(*(job for job in jobs if job is not None)) if any(jobs) else None
     if receipt.get("duplicate") or receipt.get("data", {}).get("attachments_status") != "pending":
         return
     owner = owner or manager
@@ -103,7 +121,7 @@ async def prepare_attachments(event_id, *, session_factory=None, settings=None, 
         with factory.begin() as session:
             job = session.get(EventAttachmentJob, event_id)
             event = session.get(Event, event_id)
-            task = session.get(Task, task_id)
+            task = session.scalar(select(Task).where(Task.id == task_id).with_for_update())
             if job.status != "processing":
                 return
             job.status, job.results = ("failed" if failure else "completed"), results
@@ -116,14 +134,29 @@ async def prepare_attachments(event_id, *, session_factory=None, settings=None, 
                     context = "来源附件已下载并完成大小、格式及路径校验。\n" + "\n".join(item["local_path"] for item in results)
                     session.add(Event(task_id=task_id, source="runtime", event_type="message", content=context,
                                       data={"source_event_id": event_id, "attachments": results}))
-            session.execute(update(Task).where(Task.id == task_id, Task.revision == revision,
-                            Task.control_version == control_version, Task.status == "waiting_resource",
-                            Task.last_error == "正在准备来源附件").values(status="waiting_input" if failure else "queued",
-                            last_error=failure, state_version=Task.state_version + 1, updated_at=now()))
+            # A manually registered event can carry several source images. Do
+            # not start the Worker until every attachment job in this version settles.
+            session.flush()
+            siblings = session.scalars(select(EventAttachmentJob.status).where(
+                EventAttachmentJob.task_id == task_id, EventAttachmentJob.revision == revision,
+                EventAttachmentJob.control_version == control_version)).all()
+            if not failure and 'failed' in siblings:
+                failure = "部分来源附件获取失败，请在消息详情中重试"
+            if not any(status in {'pending', 'processing'} for status in siblings):
+                session.execute(update(Task).where(Task.id == task_id, Task.revision == revision,
+                                Task.control_version == control_version, Task.status == "waiting_resource",
+                                Task.last_error == "正在准备来源附件").values(status="waiting_input" if failure else "queued",
+                                last_error=failure, state_version=Task.state_version + 1, updated_at=now()))
 
 
 def schedule_interruption(receipt, *, scheduler=None, session_factory=None, owner=None):
     """Dispatch after the durable receipt, without delaying connector acknowledgement."""
+    if not receipt.get('duplicate'):
+        targets = _fanout_receipts(receipt, session_factory or Session)
+        if targets is not None:
+            jobs = [schedule_interruption(target, scheduler=scheduler, session_factory=session_factory,
+                    owner=owner) for target in targets]
+            return asyncio.gather(*(job for job in jobs if job is not None)) if any(jobs) else None
     if receipt.get("duplicate") or not receipt.get("data", {}).get("requires_interrupt"):
         return
     owner = owner or manager
@@ -220,9 +253,11 @@ def validate_configuration(name, config):
     if name == "dingtalk":
         if "self_ids" in config and (not isinstance(config["self_ids"], list) or any(not isinstance(x, str) or not x for x in config["self_ids"])):
             raise ValueError("self_ids 必须是账号标识列表")
-        if "kind" in config and config["kind"] not in {"at-me", "group"}:
+        if "kind" in config and config["kind"] not in {"at-me", "group", "all-direct"}:
             raise ValueError("监听范围无效")
         if "history" in config:
+            if config.get('kind') == 'all-direct':
+                raise ValueError('私聊实时监听暂不支持历史恢复，请关闭历史恢复后连接')
             history = config["history"]
             keys = {"chat_ids", "initial_since", "history_timezone", "sender_map", "page_limit", "timeout"}
             if not isinstance(history, dict) or set(history) - keys:
@@ -269,6 +304,114 @@ def history_timezone(value):
         raise ValueError("历史时区不可用，请配置 UTC 或明确偏移如 +08:00") from None
 
 
+def dingtalk_scopes(config, policy):
+    """Only an explicitly saved policy expands the legacy subscription."""
+    if policy is None:
+        return [{'kind': config.get('kind', 'at-me'), 'chat_id': config.get('chat_id')}]
+    from .message_policy import validate_policy
+    policy = validate_policy(policy)
+    scopes = []
+    if policy['direct_messages'] == 'reply':
+        scopes.append({'kind': 'all-direct', 'chat_id': None})
+    if policy['group_messages'] == 'mentions':
+        scopes.append({'kind': 'at-me', 'chat_id': None})
+    elif policy['group_messages'] == 'requests':
+        if policy.get('group_scope') == 'selected':
+            scopes.extend({'kind': 'group', 'chat_id': chat} for chat in policy['group_chat_ids'])
+        elif policy.get('group_scope') == 'all':
+            scopes.append({'kind': 'all-group', 'chat_id': None})
+        else:
+            scopes.append({'kind': 'group', 'chat_id': config['chat_id']} if config.get('kind') == 'group'
+                          else {'kind': 'all-group', 'chat_id': None})
+    return scopes
+
+
+def listener_failure(listener):
+    messages = {
+        'dws_ready_timeout': '钉钉连接就绪超时，请检查网络后重试',
+        'dws_disconnected_replay_required': '钉钉连接已断开，需要核验断线期间消息后重新连接',
+        'dws_reconnect_budget_exhausted': '钉钉连接重试次数已用尽或订阅处于保护状态，请稍后重试',
+        'dws_delivery_or_process_failure': '钉钉进程启动或消息入库失败，请检查本机程序与服务状态',
+    }
+    return messages.get(getattr(listener, 'last_error', None), '该监听范围启动失败，请核验连接后重试')
+
+
+class CombinedDingTalkListener:
+    """Own each selected stream and expose partial failures independently."""
+    def __init__(self, listeners):
+        self.listeners = listeners
+        self.errors = {}
+        self.stop_errors = set()
+        self._stopped = False
+
+    def scopes(self):
+        rows = []
+        for scope, listener in self.listeners:
+            status = 'stop_failed' if listener in self.stop_errors else getattr(listener, 'status', 'stopped')
+            error = self.errors.get(listener) or getattr(listener, 'last_error', None)
+            if error and status == 'stopped' and not self._stopped:
+                status = 'failed'
+            rows.append({**scope, 'status': status, 'last_error': error,
+                         'last_seen': getattr(listener, 'last_seen', None),
+                         'history_recovery': getattr(listener, 'replay', None) is not None,
+                         'history_chat_ids': list(getattr(getattr(listener, 'replay', None), 'chat_ids', ()))})
+        return rows
+
+    @property
+    def status(self):
+        states = [row['status'] for row in self.scopes()]
+        if not states:
+            return 'policy_off'
+        if all(state == 'running' for state in states):
+            return 'running'
+        if 'stop_failed' in states:
+            return 'stop_failed'
+        if 'running' in states:
+            return 'degraded'
+        if all(state == 'stopped' for state in states):
+            return 'stopped'
+        return 'failed'
+
+    @property
+    def last_error(self):
+        failures = [row for row in self.scopes() if row['last_error']]
+        return '部分监听范围不可用，请查看各范围状态' if failures else None
+
+    @property
+    def last_seen(self):
+        return max((row['last_seen'] for row in self.scopes() if row['last_seen']), default=None)
+
+    def health(self):
+        return {'status': self.status, 'scopes': self.scopes(), 'last_error': self.last_error,
+                'last_seen': self.last_seen}
+
+    async def start(self):
+        if self.stop_errors:
+            raise RuntimeError('部分旧监听尚未停止，请先完成停止核验')
+        self._stopped = False
+        for _, listener in self.listeners:
+            if getattr(listener, 'status', None) == 'running':
+                continue
+            try:
+                listener.last_error = None
+                await listener.start()
+                self.errors.pop(listener, None)
+            except asyncio.CancelledError:
+                await self.stop()
+                raise
+            except Exception:
+                self.errors[listener] = listener_failure(listener)
+
+    async def stop(self):
+        results = await asyncio.gather(*(listener.stop() for _, listener in self.listeners), return_exceptions=True)
+        self.stop_errors = {listener for (_, listener), result in zip(self.listeners, results)
+                            if isinstance(result, BaseException) or getattr(listener, 'status', None) == 'stop_failed'}
+        if self.stop_errors:
+            raise RuntimeError('部分钉钉监听进程尚未停止，请核验后重试')
+        self.errors.clear()
+        self._stopped = True
+
+
 class ConnectionManager:
     """One application instance owns the listeners. No import-time processes."""
 
@@ -281,8 +424,10 @@ class ConnectionManager:
         self.redmine_factory = redmine_factory
         self.listener_factory = listener_factory
         self.instances = {}
+        self._config_versions = {}
         self.tasks = {}
         self.errors = {}
+        self.warnings = {}
         self.seen = {}
         self.lock = asyncio.Lock()
         self.stopping = False
@@ -319,12 +464,26 @@ class ConnectionManager:
             self.errors[name] = "连接器配置无效"
             return {}
 
+    def missing_configuration(self, name):
+        config = self.config(name)
+        fields = ({'base_url': 'Redmine 服务地址', 'project_ids': 'Redmine 接收项目范围', 'user_id': 'Redmine 当前账号'}
+                  if name == 'redmine' else {'profile': 'DWS 组织 Profile', 'self_ids': '自身账号 ID', 'executable': 'DWS 程序'})
+        missing = [label for key, label in fields.items() if not config.get(key)]
+        if name == 'redmine' and not os.getenv(config.get('api_key_env', 'HLZJ_REDMINE_API_KEY')):
+            missing.append('API Key 环境变量')
+        return missing
+
     def configured(self, name):
         config = self.config(name)
         if name == "redmine":
             return bool(config.get("base_url") and config.get("project_ids") and config.get("user_id")
                         and os.getenv(config.get("api_key_env", "HLZJ_REDMINE_API_KEY")))
         return bool(config.get("profile") and config.get("self_ids") and config.get("executable"))
+
+    def _fingerprint(self, name):
+        return json.dumps({'config': self.config(name),
+                           'policy': self.settings('dingtalk_response_policy', None) if name == 'dingtalk' else None},
+                          sort_keys=True, ensure_ascii=False)
 
     def statuses(self):
         rows = []
@@ -342,9 +501,17 @@ class ConnectionManager:
                 status = "waiting_recovery"
             if not enabled and not instance:
                 status = "disabled"
-            rows.append(dict(id=name, name=name, configured=self.configured(name), enabled=enabled,
+            rows.append(dict(id=name, name=name, configured=self.configured(name), missing_configuration=self.missing_configuration(name), enabled=enabled,
+                             warnings=self.warnings.get(name, []),
                              status=status, last_error=self.errors.get(name) or (self.errors.get("shutdown") if closing and not closing.done() else None) or getattr(instance, "last_error", None),
                              last_seen=self.seen.get(name) or getattr(instance, "last_seen", None)))
+            if name == 'dingtalk':
+                rows[-1]['scopes'] = instance.scopes() if isinstance(instance, CombinedDingTalkListener) else ([{
+                    'kind': getattr(instance, 'kind', self.config(name).get('kind', 'at-me')),
+                    'chat_id': getattr(instance, 'chat_id', self.config(name).get('chat_id')),
+                    'status': status, 'last_error': rows[-1]['last_error'],
+                    'last_seen': rows[-1]['last_seen'], 'history_recovery': bool(getattr(instance, 'replay', None)),
+                }] if instance else [])
         return rows
 
     async def start(self, name=None):
@@ -375,15 +542,27 @@ class ConnectionManager:
                         raise ValueError("请先明确启用连接器配置")
                     continue
                 if not self.configured(connector):
-                    self.errors[connector] = "连接器配置不完整"
+                    self.errors[connector] = "请补齐连接配置：" + "、".join(self.missing_configuration(connector))
                     continue
                 if connector in self.instances:
-                    continue
+                    if self._config_versions.get(connector) != self._fingerprint(connector):
+                        await self._stop_connector(connector)
+                    else:
+                        if isinstance(self.instances[connector], CombinedDingTalkListener):
+                            await self.instances[connector].start()
+                            continue
+                        if getattr(self.instances[connector], 'status', None) == 'running' or (
+                                connector in self.tasks and not self.tasks[connector].done()):
+                            continue
+                        await self._stop_connector(connector)
                 self.errors.pop(connector, None)
                 try:
                     await self._start_one(connector)
-                except Exception:
-                    self.errors[connector] = "连接器启动失败，请检查配置与服务状态"
+                except Exception as error:
+                    failed_instance = self.instances.get(connector)
+                    self.errors[connector] = (str(error) if isinstance(error, HistoryBindingError)
+                                              else listener_failure(failed_instance) if connector == 'dingtalk' and failed_instance
+                                              else "连接器启动失败，请检查配置与服务状态")
                     instance = self.instances.pop(connector, None)
                     if instance:
                         await (instance.stop() if connector == "dingtalk" else instance.close())
@@ -391,27 +570,44 @@ class ConnectionManager:
 
     async def _start_one(self, name):
         config = self.config(name)
+        policy = self.settings('dingtalk_response_policy', None) if name == 'dingtalk' else None
+        version = json.dumps({'config': config, 'policy': policy}, sort_keys=True, ensure_ascii=False)
         if name == "dingtalk":
             from superagent.connectors.dingtalk import DingTalkHistoryReplay, DingTalkListener
             factory = self.listener_factory or DingTalkListener
-            replay = None
+            scopes = dingtalk_scopes(config, policy)
+            listeners = []
             history = config.get("history")
-            if history:
+            self.warnings.pop(name, None)
+            if history and any(scope['kind'] != 'all-direct' for scope in scopes):
                 with self.sessions() as session:
                     bindings = [p.dingtalk_chat_ids for p in session.scalars(select(Project).where(Project.enabled.is_(True)))]
-                if any(sum(chat in chats for chats in bindings) != 1 for chat in history["chat_ids"]):
-                    raise ValueError("历史查询会话必须具有唯一启用项目绑定")
-                replay = DingTalkHistoryReplay(config["executable"], profile=config["profile"],
-                         chat_ids=history["chat_ids"], initial_since=history["initial_since"],
-                         history_timezone=history_timezone(history["history_timezone"]), kind=config.get("kind", "at-me"),
+                # Archived project history must not prevent unrelated live scopes starting.
+                active_chats = [chat for chat in history['chat_ids'] if any(chat in chats for chats in bindings)]
+                if len(active_chats) != len(history['chat_ids']):
+                    self.warnings[name] = ['已跳过停用或未绑定项目的历史补收，实时监听按当前范围连接']
+                if any(sum(chat in chats for chats in bindings) > 1 for chat in active_chats):
+                    raise HistoryBindingError('历史补收会话绑定了多个启用项目，请修正项目群绑定后重试')
+                history = {**history, 'chat_ids': active_chats}
+            for scope in scopes:
+                replay = None
+                history_chats = history['chat_ids'] if history else []
+                if scope['kind'] == 'group':
+                    history_chats = [chat for chat in history_chats if chat == scope['chat_id']]
+                if history_chats and scope['kind'] != 'all-direct':
+                    replay = DingTalkHistoryReplay(config["executable"], profile=config["profile"],
+                         chat_ids=history_chats, initial_since=history["initial_since"],
+                         history_timezone=history_timezone(history["history_timezone"]), kind='at-me' if scope['kind'] == 'at-me' else 'group',
                          sender_map=history.get("sender_map"), page_limit=history.get("page_limit", 40), timeout=history.get("timeout", 120))
-            listener = factory(config["executable"], self.emit, profile=config["profile"],
-                               self_ids=config["self_ids"], kind=config.get("kind", "at-me"),
-                               chat_id=config.get("chat_id"), state_store=self.store, replay=replay)
-            if replay and not self.store.get(listener.key):
-                self.store.set(listener.key, replay.initial_since)
-            self.instances[name] = listener
-            await listener.start()
+                listener = factory(config["executable"], self.emit, profile=config["profile"],
+                                   self_ids=config["self_ids"], kind=scope['kind'], chat_id=scope['chat_id'],
+                                   state_store=self.store if replay else None, replay=replay)
+                if replay and not self.store.get(listener.key):
+                    self.store.set(listener.key, replay.initial_since)
+                listeners.append((scope, listener))
+            instance = CombinedDingTalkListener(listeners) if policy is not None else listeners[0][1]
+            self.instances[name] = instance
+            await instance.start()
         else:
             from superagent.connectors.redmine import RedmineClient, RedminePoller
             client = (self.redmine_factory or RedmineClient)(config["base_url"], os.environ[config.get("api_key_env", "HLZJ_REDMINE_API_KEY")])
@@ -421,6 +617,27 @@ class ConnectionManager:
                                    load_snapshot=self.store.load_snapshot)
             self._stop_events[name] = asyncio.Event()
             self.tasks[name] = asyncio.create_task(self._poll(poller, max(1, float(config.get("poll_seconds", 30)))))
+        self._config_versions[name] = version
+
+    async def reconcile(self):
+        """Reconfigure already-owned streams only, never implicitly enable a channel."""
+        async with self.lock:
+            if self.stopping or any(not task.done() for task in self._closing.values()):
+                return self.statuses()
+            for name in list(self.instances):
+                if self._config_versions.get(name) == self._fingerprint(name):
+                    continue
+                try:
+                    await self._stop_connector(name)
+                except Exception:
+                    self.errors[name] = '旧监听尚未停止，已保留原实例，请核验后重新连接'
+                    continue
+                if self.config(name).get('enabled') is True and self.configured(name):
+                    try:
+                        await self._start_one(name)
+                    except Exception:
+                        self.errors[name] = '连接器重新配置失败，请检查监听范围后重试'
+        return self.statuses()
 
     async def _poll(self, poller, seconds):
         stop = self._stop_events["redmine"]
@@ -450,7 +667,9 @@ class ConnectionManager:
             await (instance.stop() if name == "dingtalk" else instance.close())
         self.tasks.pop(name, None)
         self.instances.pop(name, None)
+        self._config_versions.pop(name, None)
         self.errors.pop(name, None)
+        self.warnings.pop(name, None)
 
     async def stop(self, name=None):
         async with self.lock:
@@ -483,6 +702,10 @@ class ConnectionManager:
                 self.errors.pop("shutdown", None)
                 self._closing = {key: task for key, task in self._closing.items() if not task.done()}
         return self.statuses()
+
+
+class HistoryBindingError(ValueError):
+    """Configuration diagnosis safe to display without external process output."""
 
 
 manager = ConnectionManager()

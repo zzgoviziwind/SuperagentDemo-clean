@@ -298,6 +298,9 @@ class RedminePoller:
                     "assigned_to_id": semantics["assigned_to_id"],
                     "redmine_endpoint": self.client.base_url,
                     "external_user_id": self.user_id}
+        status = issue.get("status")
+        if isinstance(status, dict) and type(status.get("is_closed")) is bool:
+            metadata["issue_is_closed"] = status["is_closed"]
         definite, uncertain = self._mentions(semantics["description"])
         if assigned or previously_assigned or definite or uncertain:
             yield {**base, "external_id": f"{self.client.base_url}:issue:{issue_id}:{timestamp(issue['updated_on'])}",
@@ -310,7 +313,7 @@ class RedminePoller:
             occurred = timestamp(journal["created_on"])
             # Redmine can edit old journal notes without exposing an edit timestamp.
             # Revisit visible journals and let the durable event key deduplicate them.
-            notes = journal.get("notes", "")
+            notes = journal.get("notes") or ""
             definite, uncertain = self._mentions(notes)
             changes = journal.get("details", [])
             assignment = any(item.get("name") == "assigned_to_id" and
@@ -321,7 +324,7 @@ class RedminePoller:
             added_ids = {str(item.get("name")) for item in changes if item.get("property") == "attachment"}
             revision = digest({"notes": notes, "details": changes})
             yield {**base, "external_id": f"{self.client.base_url}:issue:{issue_id}:journal:{journal['id']}:{revision}",
-                   "event_type": "issue.comment" if notes else "issue.changed",
+                   "event_type": "issue.comment" if notes.strip() else "issue.changed",
                    "actor_id": str(journal.get("user", {}).get("id", "")),
                    "content": notes, "occurred_at": occurred,
                    "attachments": [item for item in base["attachments"] if str(item["id"]) in added_ids],

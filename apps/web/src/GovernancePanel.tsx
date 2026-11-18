@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { request } from "./api";
+import { ConversationProvidersPanel } from "./ConversationProvidersPanel";
+import { SetupPanel } from "./SetupPanel";
+import { CodexProfilesPanel } from "./CodexProfilesPanel";
 import { BudgetReconciliation } from "./BudgetReconciliation";
 
 type Row = Record<string, any>;
@@ -18,7 +21,7 @@ const emptyIdentity = {
 };
 const numberValue = (text: string) => (text === "" ? null : Number(text));
 
-export function GovernancePanel({
+export function AdvancedGovernancePanel({
   settings,
   projects,
   onChange,
@@ -33,11 +36,14 @@ export function GovernancePanel({
   const [audit, setAudit] = useState<Row[]>([]);
   const [identity, setIdentity] = useState(emptyIdentity);
   const [policy, setPolicy] = useState<Row>({
+    dingtalk_route_all_mentions: settings.dingtalk_route_all_mentions ?? false,
     scheduler_enabled: settings.scheduler_enabled ?? false,
+    router_agent_enabled: settings.router_agent_enabled ?? false,
+    watchdog_enabled: settings.watchdog_enabled ?? false,
+    watchdog_interval_seconds: settings.watchdog_interval_seconds ?? 60,
+    semantic_routing_enabled: settings.semantic_routing_enabled ?? false,
     external_delivery_enabled: settings.external_delivery_enabled ?? false,
     max_concurrent_tasks: settings.max_concurrent_tasks ?? 1,
-    codex_model: settings.codex_model ?? "",
-    codex_effort: settings.codex_effort ?? "medium",
     budget_hard_limit_micros: settings.budget_hard_limit_micros ?? null,
     budget_reservation_estimate_micros:
       settings.budget_reservation_estimate_micros ?? null,
@@ -111,18 +117,26 @@ export function GovernancePanel({
   return (
     <section>
       <h2>管理设置</h2>
+      <p className="muted">
+        接收消息 → 核对身份与项目 → 分派与执行 →
+        审批交付。按工作环节配置，保存后对后续处理生效。
+      </p>
       <div className="tabs">
-        {["运行策略", "身份与项目授权", "连接器配置", "预算与审计"].map(
-          (item) => (
-            <button
-              key={item}
-              aria-pressed={tab === item}
-              onClick={() => setTab(item)}
-            >
-              {item}
-            </button>
-          ),
-        )}
+        {[
+          "运行策略",
+          "身份与项目授权",
+          "连接器配置",
+          "外部客户端连接",
+          "预算与审计",
+        ].map((item) => (
+          <button
+            key={item}
+            aria-pressed={tab === item}
+            onClick={() => setTab(item)}
+          >
+            {item}
+          </button>
+        ))}
       </div>
       {error && (
         <p className="alert error" role="alert">
@@ -134,104 +148,181 @@ export function GovernancePanel({
           {notice}
         </p>
       )}
+      {tab === "外部客户端连接" && <ConversationProvidersPanel />}
       {tab === "运行策略" && (
         <form
           onSubmit={(e) => {
             e.preventDefault();
             void act(
-              () =>
-                request(
-                  "/settings",
-                  { ...policy, codex_model: policy.codex_model || null },
-                  "PATCH",
-                ),
+              () => request("/settings", policy, "PATCH"),
               "运行策略已保存。",
             );
           }}
         >
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={policy.scheduler_enabled}
-              onChange={(e) =>
-                setPolicy({ ...policy, scheduler_enabled: e.target.checked })
-              }
-            />
-            启用任务调度
-          </label>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={policy.external_delivery_enabled}
-              onChange={(e) =>
-                setPolicy({
-                  ...policy,
-                  external_delivery_enabled: e.target.checked,
-                })
-              }
-            />
-            允许已审批的外部回复发送
-          </label>
-          <label>
-            最大并发任务
-            <input
-              type="number"
-              min={1}
-              max={4}
-              required
-              value={policy.max_concurrent_tasks}
-              onChange={(e) =>
-                setPolicy({
-                  ...policy,
-                  max_concurrent_tasks: Number(e.target.value),
-                })
-              }
-            />
-          </label>
-          <label>
-            Codex 模型
-            <input
-              value={policy.codex_model}
-              onChange={(e) =>
-                setPolicy({ ...policy, codex_model: e.target.value })
-              }
-            />
-          </label>
-          <label>
-            推理强度
-            <select
-              value={policy.codex_effort}
-              onChange={(e) =>
-                setPolicy({ ...policy, codex_effort: e.target.value })
-              }
-            >
-              {["low", "medium", "high", "xhigh", "max", "ultra"].map(
-                (value) => (
-                  <option key={value}>{value}</option>
-                ),
-              )}
-            </select>
-          </label>
-          {[
-            "budget_hard_limit_micros",
-            "budget_reservation_estimate_micros",
-          ].map((key, i) => (
-            <label key={key}>
-              {i
-                ? "单次预算预留估算（微单位，可留空）"
-                : "全局预算上限（微单位，可留空）"}
+          <fieldset className="settings-group">
+            <legend>执行与项目讨论</legend>
+            <p className="muted">
+              事件调度推进 Worker 工作，项目讨论代理提供 Router 会话中的建议。
+            </p>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={policy.scheduler_enabled}
+                onChange={(e) =>
+                  setPolicy({ ...policy, scheduler_enabled: e.target.checked })
+                }
+              />
+              启用事件调度
+            </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={policy.router_agent_enabled}
+                onChange={(e) =>
+                  setPolicy({
+                    ...policy,
+                    router_agent_enabled: e.target.checked,
+                  })
+                }
+              />
+              启用项目讨论代理
+            </label>
+            <p className="muted">
+              开启后，Router 人工发言将交给 Codex
+              讨论。项目建议保存在会话中，事件分派的模型判定与人工纠正在事件中心查看。
+            </p>
+          </fieldset>
+          <fieldset className="settings-group">
+            <legend>语义筛选与分派</legend>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={policy.semantic_routing_enabled}
+                onChange={(e) =>
+                  setPolicy({
+                    ...policy,
+                    semantic_routing_enabled: e.target.checked,
+                  })
+                }
+              />
+              启用语义路由
+            </label>
+            <p className="muted">
+              合法事件进入语义队列，模型决定筛选和事件分派。处理结果可在事件中心和分派记录中核对。
+            </p>
+          </fieldset>
+          <fieldset className="settings-group">
+            <legend>回复原渠道</legend>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={policy.external_delivery_enabled}
+                onChange={(e) =>
+                  setPolicy({
+                    ...policy,
+                    external_delivery_enabled: e.target.checked,
+                  })
+                }
+              />
+              启用渠道发送
+            </label>
+            <p className="muted">
+              根据交付方式发送回复，支持自动回复和逐条审核。
+            </p>
+          </fieldset>
+          <fieldset className="settings-group">
+            <legend>钉钉请求识别</legend>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={policy.dingtalk_route_all_mentions}
+                onChange={(e) =>
+                  setPolicy({
+                    ...policy,
+                    dingtalk_route_all_mentions: e.target.checked,
+                  })
+                }
+              />
+              所有 @我的钉钉消息都进入处理
+            </label>
+            <p className="muted">
+              开启后，@我的消息无需命中请求关键词。未明确要求修改的消息进入只读分析。关闭时按关键词或问句识别。
+            </p>
+          </fieldset>
+          <fieldset className="settings-group">
+            <legend>智能守护巡检</legend>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={policy.watchdog_enabled}
+                onChange={(e) =>
+                  setPolicy({ ...policy, watchdog_enabled: e.target.checked })
+                }
+              />
+              启用智能守护
+            </label>
+            <details>
+              <summary>巡检周期</summary>
+              <label>
+                巡检间隔（秒）
+                <input
+                  type="number"
+                  min={10}
+                  max={86400}
+                  required
+                  value={policy.watchdog_interval_seconds}
+                  onChange={(e) =>
+                    setPolicy({
+                      ...policy,
+                      watchdog_interval_seconds: Number(e.target.value),
+                    })
+                  }
+                />
+              </label>
+            </details>
+          </fieldset>
+          <details className="advanced-panel">
+            <summary>高级执行设置 · 并发与预算</summary>
+            <p className="muted">
+              预算和并发策略全局生效。
+            </p>
+            <label>
+              最大并发事件
               <input
                 type="number"
-                min={0}
-                max={10 ** 15}
-                step={1}
-                value={policy[key] ?? ""}
+                min={1}
+                max={4}
+                required
+                value={policy.max_concurrent_tasks}
                 onChange={(e) =>
-                  setPolicy({ ...policy, [key]: numberValue(e.target.value) })
+                  setPolicy({
+                    ...policy,
+                    max_concurrent_tasks: Number(e.target.value),
+                  })
                 }
               />
             </label>
-          ))}
+            {[
+              "budget_hard_limit_micros",
+              "budget_reservation_estimate_micros",
+            ].map((key, i) => (
+              <label key={key}>
+                {i
+                  ? "单次预算预留估算（微单位，可留空）"
+                  : "全局预算上限（微单位，可留空）"}
+                <input
+                  type="number"
+                  min={0}
+                  max={10 ** 15}
+                  step={1}
+                  value={policy[key] ?? ""}
+                  onChange={(e) =>
+                    setPolicy({ ...policy, [key]: numberValue(e.target.value) })
+                  }
+                />
+              </label>
+            ))}
+          </details>
           <button className="primary" disabled={busy}>
             保存运行策略
           </button>
@@ -421,7 +512,7 @@ export function GovernancePanel({
                 { ["connectors." + name]: config },
                 "PATCH",
               );
-            }, "连接器配置已保存。请在连接状态中明确启动并核对实际状态。");
+            }, "连接器配置已保存，启用的连接器已发起连接，请核对运行状态。");
           }}
         >
           <label>
@@ -452,6 +543,9 @@ export function GovernancePanel({
               <option value="redmine">Redmine</option>
             </select>
           </label>
+          <p className="muted">
+            消息接入负责持续接收来源变化。项目绑定决定消息归属，身份授权决定谁可以发起工作。
+          </p>
           <label className="check">
             <input
               type="checkbox"
@@ -460,12 +554,19 @@ export function GovernancePanel({
                 setConnector({ ...connector, enabled: e.target.checked })
               }
             />
-            允许启用此连接器
+            保存时连接此连接器
           </label>
           {name === "dingtalk" ? (
             <>
-              {connectorField("executable", "DWS 可执行文件或 JSON 参数数组")}
-              {connectorField("profile", "DWS 组织 Profile")}
+              <details className="advanced-panel">
+                <summary>高级接入设置 · 本地程序与组织</summary>
+                {connectorField("executable", "DWS 可执行文件或 JSON 参数数组")}
+                {connectorField("profile", "DWS 组织 Profile")}
+                <p className="muted">
+                  指定本机 DWS
+                  程序与组织身份，启动接收时使用。可执行参数数组供已有定制启动方式使用。
+                </p>
+              </details>
               <label>
                 自身账号 ID（每行一项）
                 <textarea
@@ -487,6 +588,7 @@ export function GovernancePanel({
                     setConnector({ ...connector, kind: e.target.value })
                   }
                 >
+                  <option value="all-direct">全部私聊</option>
                   <option value="at-me">@本人</option>
                   <option value="group">指定群</option>
                 </select>
@@ -630,5 +732,60 @@ export function GovernancePanel({
         </>
       )}
     </section>
+  );
+}
+
+export function GovernancePanel({
+  settings,
+  projects,
+  onChange,
+  onNavigate,
+  target = "",
+}: {
+  target?: string;
+  settings: Row;
+  projects: Row[];
+  onChange: () => Promise<void>;
+  onNavigate?: (page: string) => void;
+}) {
+  const [modelsOpen, setModelsOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(target === "运行策略");
+  useEffect(() => {
+    if (target === "运行策略") setAdvancedOpen(true);
+    const timer = window.setTimeout(() => document.getElementById(`config-${target}`)?.scrollIntoView?.({block: "start"}), 100);
+    return () => window.clearTimeout(timer);
+  }, [target]);
+  return (
+    <>
+      <details className="codex-profiles" onToggle={(event) => setModelsOpen(event.currentTarget.open)}>
+        <summary>模型与推理强度</summary>
+        {modelsOpen && (
+          settings.codex_task_profiles === undefined
+            ? <p className="muted">暂未读取到模型设置，请刷新页面后重试。</p>
+            : <CodexProfilesPanel settings={settings} onChange={onChange} />
+        )}
+      </details>
+      <SetupPanel
+        settings={settings}
+        projects={projects}
+        onChange={onChange}
+        onNavigate={onNavigate}
+      />
+      <details
+        id="config-运行策略"
+        open={advancedOpen}
+        className="setup-advanced"
+        onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}
+      >
+        <summary>高级设置 · 权限与外部连接</summary>
+        {advancedOpen && (
+          <AdvancedGovernancePanel
+            settings={settings}
+            projects={projects}
+            onChange={onChange}
+          />
+        )}
+      </details>
+    </>
   );
 }

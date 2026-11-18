@@ -38,11 +38,24 @@ export function ArtifactView({
     if (artifact.kind === "changes") {
       if (!data)
         return (
-          <p className="danger">改动产物无法解析，请下载完整 JSON 核对。</p>
+          <p className="danger">改动记录无法解析，请查看执行会话核对。</p>
         );
+      const baseSha: unknown = data.base_sha;
+      const repositoryBases = baseSha && typeof baseSha === "object" && !Array.isArray(baseSha)
+        ? Object.entries(baseSha).filter((entry): entry is [string, string] => typeof entry[1] === "string" && !!entry[1])
+        : [];
       return (
         <>
-          <p>基线提交 {data.base_sha ?? "未提供"}</p>
+          {repositoryBases.length ? (
+            <>
+              <p>各仓库基线提交</p>
+              <ul>{repositoryBases.map(([path, sha]) => (
+                <li key={path}>{path}：<code className="break-word">{sha}</code></li>
+              ))}</ul>
+            </>
+          ) : (
+            <p>基线提交 {typeof baseSha === "string" && baseSha ? baseSha : "未提供"}</p>
+          )}
           <h4>改动统计</h4>
           <pre>{text(data.stat) || "无已跟踪文件统计"}</pre>
           <h4>代码差异</h4>
@@ -106,13 +119,7 @@ export function ArtifactView({
           : ""}
       </small>
       {content()}
-      <a
-        className="download-link"
-        href={`/api/v1/artifacts/${encodeURIComponent(artifact.id)}/download`}
-        download
-      >
-        下载完整产物 JSON
-      </a>
+
     </article>
   );
 }

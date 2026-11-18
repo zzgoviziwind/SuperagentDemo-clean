@@ -24,6 +24,62 @@ def store(tmp_path, monkeypatch):
     engine.dispose()
 
 
+def test_mention_routing_setting_persists_and_requires_boolean(store):
+    assert g.settings_snapshot()["dingtalk_route_all_mentions"] is False
+    g.update_settings({"dingtalk_route_all_mentions": True})
+    assert g.settings_snapshot()["dingtalk_route_all_mentions"] is True
+    with pytest.raises(HTTPException):
+        g.update_settings({"dingtalk_route_all_mentions": "true"})
+
+
+def test_codex_task_profiles_persist_and_inherit_each_field(store, monkeypatch):
+    monkeypatch.setenv("SUPERAGENT_API_TOKEN", "test-admin")
+    app = FastAPI()
+    app.include_router(router)
+    headers = {"Authorization": "Bearer test-admin"}
+    path = "/api/v1/settings"
+    profiles = {"analysis": {"effort": "high"}, "repair": {"model": "repair-model"}}
+    with TestClient(app) as client:
+        assert client.patch(path, headers=headers, json={
+            "codex_model": "global-model", "codex_effort": "low", "codex_task_profiles": profiles,
+        }).status_code == 200
+        saved = client.get(path, headers=headers).json()
+        assert saved["codex_task_profiles"] == profiles
+        assert g.codex_execution_options(saved, "analysis") == ("global-model", "high")
+        assert g.codex_execution_options(saved, "repair") == ("repair-model", "low")
+        assert g.codex_execution_options(saved, "reply") == ("global-model", "low")
+
+        for invalid in ([], {"unknown": {}}, {"analysis": None}, {"analysis": {"extra": True}},
+                        {"repair": {"model": "invalid model"}}, {"reply": {"effort": "auto"}}):
+            assert client.patch(path, headers=headers, json={
+                "codex_task_profiles": invalid, "codex_model": "do-not-save",
+            }).status_code == 422
+        assert client.get(path, headers=headers).json()["codex_task_profiles"] == profiles
+        response = client.patch(path, headers=headers, json={"codex_task_profiles": {}})
+        assert response.status_code == 200
+        assert g.codex_execution_options(response.json(), "repair") == ("global-model", "low")
+
+
+def test_codex_prompt_preview_requires_admin_and_uses_runtime_rules(store, monkeypatch):
+    from superagent.core import semantic_routing, watchdog
+
+    monkeypatch.setenv("SUPERAGENT_API_TOKEN", "test-admin")
+    app = FastAPI()
+    app.include_router(router)
+    with TestClient(app) as client:
+        path = "/api/v1/codex-prompts"
+        assert client.get(path).status_code == 401
+        response = client.get(path, headers={"Authorization": "Bearer test-admin"})
+    assert response.status_code == 200
+    prompts = response.json()
+    assert [row["text"] for row in prompts["semantic_routing"]] == [
+        semantic_routing.INSTRUCTIONS, semantic_routing.TRIAGE_INSTRUCTIONS,
+    ]
+    assert prompts["watchdog"][0]["text"] == watchdog.INSTRUCTIONS
+    assert "本任务仅允许只读分析" in prompts["analysis"][0]["text"]
+    assert "【项目验证命令】" in prompts["repair"][0]["text"]
+
+
 def request(host="localhost:8765", origin=None, client="127.0.0.1", token=None):
     headers = [(b"host", host.encode())]
     if origin:
@@ -341,7 +397,7 @@ def test_dingtalk_history_configuration_via_settings_matches_manager(store, monk
         assert snapshot["connectors.dingtalk"] == config
         assert snapshot["codex_effort"] == "medium"
         assert "codex_reasoning_effort" not in snapshot
-        assert set(snapshot) == set(g.SETTING_DEFAULTS) | {"authentication_required"}
+        assert set(snapshot) == set(g.SETTING_DEFAULTS) | {"authentication_required", "service_mode"}
         manager = ConnectionManager(session_factory=db.Session)
         assert manager.config("dingtalk") == config
         assert manager.configured("dingtalk")

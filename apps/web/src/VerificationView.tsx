@@ -3,6 +3,35 @@ const text = (value: unknown) =>
   typeof value === "string" ? value : JSON.stringify(value, null, 2);
 
 export function VerificationView({ data }: { data: Row }) {
+  if (data.kind === "reply")
+    return (
+      <>
+        <p
+          className={
+            data.turn_status === "completed" ? "alert success" : "alert"
+          }
+        >
+          {data.turn_status === "completed"
+            ? "回复生成已完成，发送状态见回复记录"
+            : "回复轮次待核验"}
+        </p>
+        <dl>
+          <dt>回复草稿</dt>
+          <dd>{data.draft_created ? "已生成" : "当前未关联渠道草稿"}</dd>
+          <dt>执行模式</dt>
+          <dd>{data.tool_less ? "受限回复模式" : "见完整执行记录"}</dd>
+          <dt>线程</dt>
+          <dd className="break-word">{data.thread_id}</dd>
+          <dt>轮次</dt>
+          <dd>{data.turn_id}</dd>
+        </dl>
+        <details>
+          <summary>完整回复核验证据</summary>
+          <pre>{text(data)}</pre>
+        </details>
+      </>
+    );
+
   const assessment = data.assessment;
   const analysis = assessment?.task_kind === "analysis";
   const readEvidence =

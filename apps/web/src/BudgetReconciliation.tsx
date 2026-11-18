@@ -96,7 +96,7 @@ export function BudgetReconciliation({
               预留 #{item.id} · 账户 {item.account_id}
             </strong>
             <p>
-              任务 {item.task_id ?? "—"} · 估算 {item.estimate_micros} 微单位
+              事件 {item.task_id ?? "—"} · 估算 {item.estimate_micros} 微单位
             </p>
             <p>{item.estimate_basis}</p>
             <label>

@@ -1,0 +1,129 @@
+:root[data-content-palette="darcula"] {
+  color-scheme: dark;
+  --canvas: #252526;
+  --surface: #2b2b2c;
+  --ink: #e1e2e5;
+  --muted: #adb3bd;
+  --line: #47484c;
+  --accent: #385c91;
+  --accent-deep: #284b7e;
+  --accent-surface: #344560;
+  --accent-line: #698bc0;
+  --focus: #8cb7ff;
+  --link: #a6c7ff;
+  --subtle: #333437;
+  --tool-window: #303033;
+  --tab-rail: #36373b;
+  --field: #25262a;
+  --field-line: #666970;
+  --error-bg: #442f32;
+  --error-ink: #ffc0b8;
+  --success-bg: #293d34;
+  --success-ink: #abdabd;
+}
+
+:root[data-content-palette="darcula"] main a,
+:root[data-content-palette="darcula"] .grouped-event-workbench .redmine-issue-link,
+:root[data-content-palette="darcula"] .workbench-page-heading svg,
+:root[data-content-palette="darcula"] .project-row.selected strong,
+:root[data-content-palette="darcula"] .grouped-event-workbench .event-status-filters button[aria-pressed=true],
+:root[data-content-palette="darcula"] .shell main .grouped-event-workbench button.event-scope-toggle[data-filtered=true] {
+  color: var(--link);
+}
+:root[data-content-palette="darcula"] .workbench-page-heading h1 { border-bottom-color: var(--focus); }
+:root[data-content-palette="darcula"] :is(main, dialog, .event-operation-drawer)
+  :is(input:not([type=checkbox], [type=radio], .group-switch), select, textarea) {
+  background: var(--field);
+  border-color: var(--field-line);
+  color: var(--ink);
+}
+:root[data-content-palette="darcula"] :is(input, textarea)::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+:root[data-content-palette="darcula"] :is(main, dialog) :is(label, legend) { color: var(--muted); }
+:root[data-content-palette="darcula"] .shell.ide-shell .ide-palette select { max-width: 126px; }
+:root[data-content-palette="darcula"] button.primary { color: #fff; }
+:root[data-content-palette="darcula"] button.danger { color: var(--error-ink) !important; }
+:root[data-content-palette="darcula"] :is(dialog, .event-operation-drawer) button:not(.primary) {
+  background: var(--subtle);
+  border-color: var(--field-line);
+  color: var(--ink);
+}
+:root[data-content-palette="darcula"] :is(dialog, .event-operation-drawer) button:not(.primary):hover:not(:disabled) {
+  background: var(--accent-surface);
+  border-color: var(--accent-line);
+}
+:root[data-content-palette="darcula"] .count {
+  background: var(--tab-rail);
+  color: var(--ink);
+}
+:root[data-content-palette="darcula"] .settings-summary dl > div { border-color: var(--line); }
+
+/* Older panels which have their own light surfaces. */
+:root[data-content-palette="darcula"] :is(.shell main, dialog) :is(
+  .setup-step, .configured-group-grid > .configured-group, .connector, .advanced-panel,
+  .conversation-context, .event-original, .artifact-content, .thread-reference,
+  .event-operation-drawer > .back, .relation-nav, .topology-panel .topology-node, .artifact details,
+  .architecture-node, .trace-map, .metric, .flow-node, .next-step-card, .modal-content,
+  pre, .settings-drawer-footer
+) {
+  background: var(--subtle);
+  border-color: var(--line);
+  color: var(--ink);
+}
+:root[data-content-palette="darcula"] :is(.shell main, dialog) :is(
+  .group-disabled, .configured-groups:disabled
+) { background: var(--field) !important; }
+:root[data-content-palette="darcula"] :is(.shell main, dialog) :is(
+  .conversation-message.role-user, .codex-transcript .execution-record:has(.conversation-input),
+  .topology-panel .topology-node[aria-pressed=true], .architecture-node[aria-pressed=true],
+  .trace-message-list button[aria-pressed=true], .tabs button[aria-pressed=true],
+  .agent-choice[aria-pressed=true], .group-avatar
+) {
+  background: var(--accent-surface);
+  border-color: var(--accent-line);
+  color: var(--ink);
+}
+:root[data-content-palette="darcula"] :is(.shell main, dialog) :is(
+  .settings-summary dt, .settings-access > summary small, .settings-expand-hint,
+  .group-name-button small, .connection-scope-details > summary, .setup-value,
+  .agent-choice small, .topology-node small, .topology-node span, .empty, .advanced-panel > summary,
+  .session-choice small, .session-choice span, .conversation-context p, .conversation-context small,
+  .conversation-message time
+) { color: var(--muted); }
+:root[data-content-palette="darcula"] :is(.event-index, .event-detail, .session-index, .conversation) {
+  scrollbar-color: #696b73 transparent;
+}
+:root[data-content-palette="darcula"] :is(.settings-drawer, .event-create-dialog)::backdrop { background: #0009; }
+
+:root[data-content-palette="darcula"] .badge:not([data-state]) {
+  background: var(--subtle);
+  color: var(--muted);
+}
+:root[data-content-palette="darcula"] :is(.alert.error, .badge.failed, .trace-node.blocked, .flow-node.step-blocked) {
+  background: var(--error-bg);
+  border-color: #87595a;
+  color: var(--error-ink);
+}
+:root[data-content-palette="darcula"] :is(.alert.success, .badge.completed, .trace-node.done, .flow-node.step-passed) {
+  background: var(--success-bg);
+  border-color: #51745f;
+  color: var(--success-ink);
+}
+:root[data-content-palette="darcula"] :is(.alert:not(.error, .success), .relation-nav button, .trace-node.current) {
+  background: var(--accent-surface);
+  border-color: var(--accent-line);
+  color: var(--ink);
+}
+
+:root[data-content-palette="darcula"] [data-state=triage] { --event-bg:#453a26; --event-ink:#f4d699; --event-color:#e2bb74; --event-border:#79613a; }
+:root[data-content-palette="darcula"] [data-state=active] { --event-bg:#2d3f58; --event-ink:#b9d5ff; --event-color:#98b9ed; --event-border:#536d93; }
+:root[data-content-palette="darcula"] [data-state=review] { --event-bg:#40344e; --event-ink:#e5cbff; --event-color:#c6a6e8; --event-border:#755d8d; }
+:root[data-content-palette="darcula"] [data-state=attention] { --event-bg:#482e31; --event-ink:#ffbcb6; --event-color:#f2a9a2; --event-border:#8a5558; }
+:root[data-content-palette="darcula"] [data-state=completed] { --event-bg:#293e34; --event-ink:#b9e7cb; --event-color:#98cba9; --event-border:#50705d; }
+:root[data-content-palette="darcula"] [data-state=closed] { --event-bg:#393d43; --event-ink:#d9dfe9; --event-color:#aab6c7; --event-border:#5e6978; }
+
+@media (max-width: 420px) {
+  :root[data-content-palette="darcula"] .ide-toolbar .brand-copy { display: none; }
+}

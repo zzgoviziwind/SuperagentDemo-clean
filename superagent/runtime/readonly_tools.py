@@ -81,6 +81,44 @@ def _append(output, item):
     return True
 
 
+def reference_root(value):
+    path = Path(value)
+    if not path.is_absolute() or path.drive.startswith(('\\', '//')) or path == Path(path.anchor):
+        raise AccessDenied('需要明确的本机资料目录')
+    if any(_sensitive(part) for part in path.parts[1:]):
+        raise AccessDenied('不允许读取敏感目录')
+    resolved = _resolve(Path(path.anchor), '/'.join(path.parts[1:]))
+    protected = [Path.home(), Path.home() / 'AppData', Path(os.environ.get('SystemRoot') or str(Path(path.anchor) / 'Windows'))]
+    for standard in ('ProgramData', 'Program Files', 'Program Files (x86)'):
+        protected.append(Path(path.anchor) / standard)
+    if any(resolved == p or resolved in p.parents or (p != Path.home() and p in resolved.parents) for p in protected):
+        raise AccessDenied('不允许使用账号根目录或系统目录')
+    configured = os.getenv('SUPERAGENT_ALLOWED_REPO_ROOTS', '')
+    if configured and not any(resolved.is_relative_to(Path(p).resolve()) for p in configured.split(os.pathsep) if p.strip()):
+        raise AccessDenied('超出管理员目录范围')
+    if not resolved.is_dir():
+        raise AccessDenied('资料目录不存在')
+    return resolved
+
+
+def run_scoped_tool(workspace, references, name, arguments):
+    if not isinstance(arguments, dict):
+        raise ValueError('工具参数无效')
+    rel = arguments.get('path', '.')
+    if isinstance(rel, str) and rel.startswith('@refs/'):
+        _, _, tail = rel.partition('/')
+        key, _, suffix = tail.partition('/')
+        if key not in references:
+            raise AccessDenied('资料目录未授权')
+        result, files = run_tool(reference_root(references[key]), name, {**arguments, 'path': suffix or '.'})
+        # Keep citations unambiguous when two project files have the same path.
+        for entry in result.get('files', []) + result.get('matches', []):
+            entry['path'] = '@refs/' + key + '/' + entry['path']
+        result['reference'] = '@refs/' + key
+        return result, files
+    return run_tool(workspace, name, arguments)
+
+
 def run_tool(workspace, name, arguments):
     """Return JSON-compatible output and file count; no shell or network access."""
     started=time.monotonic()

@@ -40,7 +40,8 @@ def message(ident="message-1", content="请修复 #42 的问题"):
 
 
 def config(key, default=None):
-    return {"connectors.dingtalk": {"enabled": True, "profile": "test", "executable": "fake-dws", "self_ids": ["self"]},
+    return {'dingtalk_response_policy': {'direct_messages': 'reply', 'group_messages': 'requests', 'delivery': 'approved_send', 'default_project_id': None},
+            "connectors.dingtalk": {"enabled": True, "profile": "test", "executable": "fake-dws", "self_ids": ["self"]},
             "connectors.redmine": {"enabled": True, "base_url": "http://fake-redmine", "user_id": "5", "project_ids": [7]},
             "external_delivery_enabled": True}.get(key, default)
 
@@ -90,6 +91,45 @@ def test_untrusted_or_ambiguous_event_is_durable_pending(sessions, change, reaso
     with sessions() as session:
         assert not session.scalars(select(Task)).all()
         assert len(session.scalars(select(Event)).all()) == 1
+
+
+@pytest.mark.parametrize("content", [
+    "@侯曾曾 德阳的依据出问题了，现在德阳的依据是怎么出的",
+    "为什么依据没有显示？",
+    "当前依据生成规则是什么",
+    "现在是否支持这个配置",
+])
+def test_business_question_routes_to_analysis(sessions, content):
+    receipt = receive(sessions, message(content=content))
+    assert receipt["data"]["routing_status"] == "routed"
+    with sessions() as session:
+        task = session.get(Task, receipt["task_id"])
+        assert task.kind == "analysis"
+        assert task.goal == content
+
+
+def test_question_with_explicit_repair_keeps_repair_kind(sessions):
+    receipt = receive(sessions, message(content="为什么依据没有显示？请修复这个问题"))
+    with sessions() as session:
+        assert session.get(Task, receipt["task_id"]).kind == "repair"
+
+
+@pytest.mark.parametrize("enabled,at_me,routed", [
+    (False, True, False), (True, True, True), (True, False, False),
+])
+def test_configurable_all_mentions(sessions, enabled, at_me, routed):
+    from superagent.core.governance import Setting
+    from superagent.core.ingestion import retry_routing
+    event = message(content="德阳的依据出问题了")
+    event["metadata"]["at_me"] = at_me
+    receipt = receive(sessions, event)
+    with sessions.begin() as session:
+        session.add(Setting(key="dingtalk_route_all_mentions", value=enabled))
+    result = retry_routing(receipt["id"], session_factory=sessions, actor_resolver=actor)
+    assert (result["task_id"] is not None) == routed
+    if routed:
+        with sessions() as session:
+            assert session.get(Task, result["task_id"]).kind == "analysis"
 
 
 def test_ambiguous_binding_and_terminal_followup(sessions):
@@ -188,7 +228,7 @@ def test_manager_defaults_disabled_and_explicit_start_stop(sessions, monkeypatch
         assert manager.statuses()[0]["status"] == "running"
         await manager.start("dingtalk")
         await manager.stop()
-        assert calls == ["start", "stop"]
+        assert calls == ["start", "start", "stop", "stop"]
         PersistentStateStore(sessions).set("checkpoint", "2026-11-13")
         PersistentStateStore(sessions).set("checkpoint", "2026-11-12")
         assert PersistentStateStore(sessions).get("checkpoint") == "2026-11-13"
@@ -299,7 +339,7 @@ def test_concurrent_duplicate_receipts_and_crashed_send_claim(sessions):
         receipt = receipts[0]
         draft = create_draft(receipt["task_id"], receipt["id"], "结果", session_factory=sessions, settings=config)
         decide_draft(draft["id"], "approve", draft["approval"]["action_hash"], session_factory=sessions)
-        ledger = PersistentActionLedger(sessions)
+        ledger = PersistentActionLedger(sessions, config)
         action_id = "reply-" + str(draft["approval_id"])
         assert await ledger.claim(action_id, draft["approval"]["action_hash"])
         # Process died after its durable claim, before a response could be saved.
@@ -675,8 +715,8 @@ def test_redmine_stop_retains_inflight_http_worker_until_it_finishes(sessions, m
     asyncio.run(scenario())
 
 
-def quoted_message(ident, target, content="请继续检查边界", *, conversation="chat", profile="test"):
-    return normalize_event({"type": "user_im_message_receive_at", "sender_open_dingtalk_id": "trusted",
+def quoted_message(ident, target, content="请继续检查边界", *, conversation="chat", profile="test", sender="trusted"):
+    return normalize_event({"type": "user_im_message_receive_at", "sender_open_dingtalk_id": sender,
                             "conversation_id": conversation, "message_id": ident, "content": content,
                             "event_time": "2026-11-13T01:00:00Z",
                             "quoted_message": {"message_id": target, "conversation_id": conversation}},
@@ -690,6 +730,27 @@ def test_ticket_and_plain_message_reply_alias_chain(sessions, content):
     third = receive(sessions, quoted_message("followup-again", "followup"))
     assert first["task_id"] == second["task_id"] == third["task_id"]
     assert receive(sessions, quoted_message("followup-again", "followup"))["duplicate"]
+    with sessions() as session:
+        assert len(session.scalars(select(Task)).all()) == 1
+
+
+def test_quote_of_own_account_context_only_routes_within_original_chat_and_account(sessions):
+    original = receive(sessions, message("original", "请检查账号同步"))
+    own = receive(sessions, quoted_message("own", "original", "哪个字段对不上？", sender="self"))
+    assert own["task_id"] == original["task_id"]
+    assert own["data"]["routing_status"] == "self_context"
+
+    with sessions.begin() as session:
+        session.get(Project, 1).dingtalk_chat_ids = ["chat", "other-chat"]
+    for event in (quoted_message("cross-chat", "own", conversation="other-chat"),
+                  quoted_message("cross-account", "own", profile="other-account")):
+        other = receive(sessions, event)
+        assert other["task_id"] is None
+        assert other["data"]["routing_reason"] == "reply_target_missing_or_ambiguous"
+
+    reply = receive(sessions, quoted_message("answer", "own", "请核对手动创建的账号字段"))
+    assert reply["task_id"] == original["task_id"]
+    assert reply["data"]["routing_status"] == "routed"
     with sessions() as session:
         assert len(session.scalars(select(Task)).all()) == 1
 

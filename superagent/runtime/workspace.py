@@ -32,7 +32,7 @@ def _git(path, *args, limit=8 * 1024 * 1024):
     return output.decode('utf-8', errors='strict')
 
 
-def prepare_workspace(repo_path, base_branch, task_id, workspaces_root):
+def prepare_workspace(repo_path, base_branch, task_id, workspaces_root, *, committed_analysis=False):
     repo = Path(repo_path).resolve(strict=True)
     root = Path(workspaces_root).resolve(strict=True)
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,63}', str(task_id)):
@@ -41,7 +41,7 @@ def prepare_workspace(repo_path, base_branch, task_id, workspaces_root):
         raise ValueError('workspace root and repository must be separate')
     if Path(_git(repo, 'rev-parse', '--show-toplevel').strip()).resolve() != repo:
         raise ValueError('repository path must be its root')
-    if _git(repo, 'status', '--porcelain', '--untracked-files=all'):
+    if not committed_analysis and _git(repo, 'status', '--porcelain', '--untracked-files=all'):
         raise ValueError('source repository has uncommitted changes')
     if not base_branch or base_branch.startswith('-'):
         raise ValueError('invalid base branch')
@@ -55,6 +55,53 @@ def prepare_workspace(repo_path, base_branch, task_id, workspaces_root):
     return {'path': str(target), 'base_sha': sha, 'branch': branch}
 
 
+def validate_repositories(root, repositories):
+    root = Path(root).resolve(strict=True)
+    names = set()
+    for entry in repositories:
+        parts = _relative_parts(entry['path'])
+        _no_links(root, parts)
+        name = '/'.join(parts)
+        if any(name == other or name.startswith(other + '/') or other.startswith(name + '/') for other in names):
+            raise ValueError('仓库目录不能重复或互相包含')
+        names.add(name)
+        repo = root.joinpath(*parts).resolve(strict=True)
+        try:
+            top = Path(_git(repo, 'rev-parse', '--show-toplevel').strip()).resolve()
+        except subprocess.CalledProcessError:
+            raise ValueError('子项目不是可读取的 Git 仓库：' + name) from None
+        if top != repo:
+            raise ValueError('子项目必须选择 Git 仓库根目录')
+        branch = entry['base_branch']
+        if not branch or branch.startswith('-'):
+            raise ValueError('仓库基线分支无效')
+        try:
+            _git(repo, 'rev-parse', '--verify', f'refs/heads/{branch}^{{commit}}')
+        except subprocess.CalledProcessError:
+            raise ValueError('仓库基线分支不存在：' + name + ' / ' + branch) from None
+
+
+def prepare_project_workspace(repo_path, base_branch, task_id, workspaces_root, repositories, *, committed_analysis=False):
+    if not repositories:
+        return prepare_workspace(repo_path, base_branch, task_id, workspaces_root, committed_analysis=committed_analysis)
+    validate_repositories(repo_path, repositories)
+    root = Path(workspaces_root).resolve(strict=True)
+    target = root / str(task_id)
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,63}', str(task_id)):
+        raise ValueError('invalid task id')
+    target.mkdir()
+    baselines = {}
+    # Keep each completed clone if a later repository fails, for diagnosis.
+    for entry in repositories:
+        source = Path(repo_path) / entry['path']
+        destination = target / entry['path']
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        prepared = prepare_workspace(source, entry['base_branch'], destination.name, destination.parent,
+                                     committed_analysis=committed_analysis)
+        baselines[entry['path']] = prepared['base_sha']
+    return {'path': str(target), 'base_sha': baselines, 'branch': 'superagent/' + str(task_id)}
+
+
 def _safe_name(name):
     parts = Path(name).parts
     forbidden = {'.git', '.env', '.aws', '.ssh', '.codex', '.agents'}
@@ -66,6 +113,13 @@ def _safe_name(name):
 
 def collect_changes(path, base_sha=None, max_file_bytes=1024 * 1024, max_total_bytes=8 * 1024 * 1024):
     repo = Path(path).resolve(strict=True)
+    if isinstance(base_sha, dict):
+        collected = {name: collect_changes(repo / name, sha, max_file_bytes, max_total_bytes // len(base_sha)) for name, sha in base_sha.items()}
+        return {'base_sha': base_sha, 'repositories': collected,
+                'diff': '\n'.join(name + '\n' + data['diff'] for name, data in collected.items() if data['diff']),
+                'stat': '\n'.join(name + '\n' + data['stat'] for name, data in collected.items() if data['stat']),
+                'status': '\n'.join(name + '\n' + data['status'] for name, data in collected.items() if data['status']),
+                'untracked_artifacts': [{**item, 'path': name + '/' + item['path']} for name, data in collected.items() for item in data['untracked_artifacts']]}
     if Path(_git(repo, 'rev-parse', '--show-toplevel').strip()).resolve() != repo:
         raise ValueError('path must be repository root')
     if base_sha is None:
@@ -189,4 +243,18 @@ def changed_paths(workspace_path, base_sha):
 
 
 def validate_workspace_changes(workspace_path, base_sha, allowed_paths):
+    if isinstance(base_sha, dict):
+        root = Path(workspace_path).resolve(strict=True)
+        paths = []
+        configured = [tuple(name.split('/')) for name in base_sha]
+        for item in root.rglob('*'):
+            relative = item.relative_to(root).parts
+            if any(relative[:len(parts)] == parts for parts in configured):
+                continue
+            if item.is_file() or item.is_symlink() or item.is_junction():
+                raise ValueError('配置仓库之外出现文件或链接')
+        for name, sha in base_sha.items():
+            _no_links(root, _relative_parts(name))
+            paths.extend(name + '/' + path for path in changed_paths(root / name, sha))
+        return validate_allowed_paths(root, paths, allowed_paths)
     return validate_allowed_paths(workspace_path, changed_paths(workspace_path, base_sha), allowed_paths)

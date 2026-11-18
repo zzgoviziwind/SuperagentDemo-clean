@@ -14,12 +14,16 @@ class Project(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
     repo_path: Mapped[str] = mapped_column(Text)
+    repositories: Mapped[list] = mapped_column(JSON, default=list)
+    reference_access: Mapped[str] = mapped_column(String(16), default='workspace', server_default='workspace')
+    reference_dirs: Mapped[list] = mapped_column(JSON, default=list, server_default='[]')
     base_branch: Mapped[str] = mapped_column(String(200), default='main')
     test_command: Mapped[str] = mapped_column(Text, default='')
     allowed_paths: Mapped[list] = mapped_column(JSON, default=list)
     dingtalk_chat_ids: Mapped[list] = mapped_column(JSON, default=list)
     redmine_project_ids: Mapped[list] = mapped_column(JSON, default=list)
     enabled: Mapped[bool] = mapped_column(default=True)
+    archived: Mapped[bool] = mapped_column(default=False, server_default='false')
     created_at: Mapped[str] = mapped_column(String(40), default=now)
 
 class Task(Base):
@@ -85,6 +89,16 @@ def init_db():
     from sqlalchemy import inspect, text
     Base.metadata.create_all(engine)
     # Non-destructive compatibility upgrade for databases created by the initial prototype.
+    project_columns = {c['name'] for c in inspect(engine).get_columns('projects')}
+    with engine.begin() as conn:
+        if 'archived' not in project_columns:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN archived BOOLEAN NOT NULL DEFAULT false"))
+        if 'reference_access' not in project_columns:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN reference_access VARCHAR(16) NOT NULL DEFAULT 'workspace'"))
+        if 'reference_dirs' not in project_columns:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN reference_dirs JSON NOT NULL DEFAULT '[]'"))
+        if 'repositories' not in project_columns:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN repositories JSON NOT NULL DEFAULT '[]'"))
     columns = {c['name'] for c in inspect(engine).get_columns('tasks')}
     with engine.begin() as conn:
         if 'kind' not in columns:

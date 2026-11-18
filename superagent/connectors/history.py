@@ -1,7 +1,7 @@
 """Bounded DWS read commands and history replay, with fail-closed completeness."""
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import json
 
 from .common import ConnectorError, timestamp, utc_now
@@ -108,3 +108,49 @@ class DingTalkHistoryReplay:
 
     async def __call__(self, checkpoint):
         return await self.read_range(checkpoint or self.initial_since, self.clock())
+
+async def read_own_direct_messages(executable, *, profile, peer, conversation, anchor_id,
+                                   since, self_ids, history_timezone, sender_map=None,
+                                   runner=run_read_json, include_peer=False):
+    """Read the anchored private transcript, limited to the configured two participants."""
+    start = datetime.fromisoformat(since)
+    end = datetime.now(timezone.utc)
+    if start.tzinfo is None or start >= end or end - start > timedelta(days=7):
+        raise ConnectorError("dws_context_time_scope_invalid")
+    argv = ([executable] if isinstance(executable, str) else list(executable)) + [
+        "--profile", profile, "chat", "+chat-messages", "--open-dingtalk-id", peer,
+        "--start", timestamp(start.replace(microsecond=0)), "--end", timestamp(end),
+        "--order", "asc", "--page-all", "--page-limit", "5", "--no-reactions", "--format", "json",
+    ]
+    data = require_complete(await runner(argv, timeout=30))
+    messages = data["messages"]
+    allowed_senders = {*self_ids, peer}
+    if (not all(isinstance(row, dict) and row.get("conversationId", conversation) == conversation for row in messages)
+            or data.get("conversationId", conversation) != conversation
+            or not any(row.get("messageId") == anchor_id and
+                       ((sender_map or {}).get(str(row.get("senderId")), str(row.get("senderId"))) == peer
+                        if include_peer else
+                        (sender_map or {}).get(str(row.get("senderId")), str(row.get("senderId"))) not in self_ids)
+                       for row in messages)):
+        raise ConnectorError("dws_context_scope_not_confirmed")
+    result = []
+    for row in messages:
+        sender = str(row.get("senderId"))
+        sender = (sender_map or {}).get(sender, sender)
+        if (sender not in (allowed_senders if include_peer else self_ids)
+                or not isinstance(row.get("text"), str) or not row["text"].strip()):
+            continue
+        raw_time = row.get("createTime")
+        if isinstance(raw_time, str):
+            raw_time = datetime.fromisoformat(raw_time)
+            if raw_time.tzinfo is None:
+                raw_time = raw_time.replace(tzinfo=history_timezone)
+        occurred = timestamp(raw_time)
+        if not row.get("messageId") or not timestamp(start.replace(microsecond=0)) <= occurred < timestamp(end):
+            raise ConnectorError("dws_context_message_invalid")
+        result.append({
+            "type": "user_im_message_receive_o2o_all", "conversation_id": conversation,
+            "message_id": row["messageId"], "sender_open_dingtalk_id": sender,
+            "sender": row.get("senderName"), "create_time": occurred, "content": row["text"],
+        })
+    return result

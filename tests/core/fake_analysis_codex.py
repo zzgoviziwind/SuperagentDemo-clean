@@ -25,6 +25,11 @@ for line in sys.stdin:
             payload=json.loads(result.get('contentItems',[{}])[0].get('text','{}'))
             has_evidence=any(x.get('text')=='baseline' and x.get('line')==1 for x in payload.get('lines',[]))
             summary={'status':'completed' if result.get('success') and has_evidence else 'blocked','summary':'README.md 第 1 行：baseline'}
+            if '[channel-reply]' in prompt and 'channel_reply' in prompt and 'current_time' in prompt:
+                summary['channel_reply'] = {'decision': 'send', 'reason': 'There is an unanswered question.',
+                                            'reply': '已核实 README 第 1 行为 baseline。'}
+            if '[collaborate]' in prompt and not resumed:
+                summary['collaboration_requests'] = [{'goal': 'Read README.md and return line evidence'}]
             print(json.dumps({'method':'item/completed','params':{'threadId':'analysis-thread','turnId':'analysis-turn','item':{'type':'agentMessage','text':json.dumps(summary)}}}),flush=True)
             print(json.dumps({'method':'turn/completed','params':{'threadId':'analysis-thread','turn':{'id':'analysis-turn','status':'completed'}}}),flush=True)
         continue
@@ -43,6 +48,9 @@ for line in sys.stdin:
         result={'thread':{'id':'analysis-thread'}}
     elif method=='turn/start':
         prompt='\n'.join(x.get('text','') for x in params.get('input',[]))
+        if '[model-override]' in prompt and (params.get('model'), params.get('effort')) != ('analysis-model', 'high'):
+            print(json.dumps({'id':message['id'],'error':{'message':'analysis override missing from turn/start'}}),flush=True)
+            continue
         if '项目配置的验证命令：' in prompt:
             print(json.dumps({'id':message['id'],'error':{'message':'analysis must not execute project tests'}}),flush=True)
             continue

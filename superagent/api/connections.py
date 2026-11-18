@@ -1,6 +1,6 @@
 """Administrative connector, receipt and delivery endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -58,6 +58,59 @@ def connectors():
     return manager.statuses()
 
 
+@router.get('/connectors/dingtalk/groups', dependencies=[Depends(require_admin)])
+async def find_dingtalk_groups(q: str = '', cursor: str = Query(default='', max_length=2000)):
+    from superagent.connectors.history import run_read_json
+    from superagent.connectors.common import ConnectorError
+    if not q.strip() or len(q) > 100:
+        raise HTTPException(422, '请输入群名称，最多 100 字')
+    config = manager.config('dingtalk')
+    if not config.get('profile') or not config.get('executable'):
+        raise HTTPException(409, '请先配置钉钉组织和本地程序')
+    command = config['executable']
+    argv = [command] if isinstance(command, str) else list(command)
+    args = argv + ['--profile', config['profile'], 'chat', '+chat-search',
+                   '--query', q.strip(), '--limit', '20', '--format', 'json']
+    if cursor:
+        args += ['--cursor', cursor]
+    try:
+        result = await run_read_json(args, timeout=25)
+    except (ConnectorError, TimeoutError):
+        raise HTTPException(503, '钉钉群名称查询暂不可用，请检查网络后重试。已配置群可填写名称备注。') from None
+    data = result.get('data', result.get('result', result))
+    if not isinstance(data, dict) or not isinstance(data.get('chats'), list):
+        raise HTTPException(502, '钉钉群搜索结果格式无法识别')
+    items = [{'id': row['openConversationId'], 'name': row.get('name') or '群名称未提供'}
+             for row in data['chats'] if isinstance(row, dict) and isinstance(row.get('openConversationId'), str)]
+    next_cursor = data.get('nextCursor')
+    return {'items': items, 'complete': data.get('complete') is True and data.get('hasMore') is False,
+            'has_more': data.get('hasMore'), 'stop_reason': data.get('stopReason'),
+            'next_cursor': str(next_cursor) if next_cursor is not None else None}
+
+
+@router.get('/connectors/dingtalk/group', dependencies=[Depends(require_admin)])
+async def dingtalk_group(chat_id: str = Query(min_length=1, max_length=2000)):
+    from superagent.connectors.history import run_read_json
+    from superagent.connectors.common import ConnectorError
+    config = manager.config('dingtalk')
+    if not config.get('profile') or not config.get('executable'):
+        raise HTTPException(409, '请先配置钉钉组织和本地程序')
+    command = config['executable']
+    argv = [command] if isinstance(command, str) else list(command)
+    try:
+        result = await run_read_json(argv + ['--profile', config['profile'], 'chat', '+conversation-info',
+                                           '--group', chat_id, '--format', 'json'], timeout=25)
+    except (ConnectorError, TimeoutError):
+        raise HTTPException(503, '钉钉群原名暂不可用，请稍后重试') from None
+    data = result.get('data', result.get('result', result))
+    info = data.get('conversationInfo') if isinstance(data, dict) else None
+    if (not isinstance(info, dict) or info.get('openConversationId') != chat_id
+            or info.get('singleChat') is not False or not isinstance(info.get('title'), str)
+            or not info['title'].strip()):
+        raise HTTPException(502, '钉钉群资料未返回有效的群原名')
+    return {'id': chat_id, 'name': info['title'].strip()}
+
+
 @router.post("/connectors/{name}/{action}", dependencies=[Depends(require_admin)])
 async def control_connector(name: str, action: str):
     if name not in {"dingtalk", "redmine"} or action not in {"start", "stop"}:
@@ -80,9 +133,9 @@ async def receive_event(body: dict):
 
 
 @router.get("/events", dependencies=[Depends(require_admin)])
-def inbox(routing_status: str = "pending_confirmation", after: int = 0, limit: int = 50):
+def inbox(routing_status: str = "pending_confirmation", after: int = 0, limit: int = 50, source: str = "", q: str = ""):
     try:
-        return list_inbox(routing_status=routing_status, after=after, limit=limit)
+        return list_inbox(routing_status=routing_status, after=after, limit=limit, source=source, q=q)
     except ValueError as error:
         raise HTTPException(422, str(error)) from None
 

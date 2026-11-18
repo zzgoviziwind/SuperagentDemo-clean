@@ -1,5 +1,6 @@
 """Async newline-delimited Codex app-server transport."""
 import asyncio
+import base64
 import json
 import os
 import signal
@@ -23,6 +24,15 @@ def _readonly_tools():
                        {'path': path, 'query': {'type': 'string'}}, ['path', 'query'])]
 
 
+def _triage_tools():
+    return [
+        {'type': 'function', 'name': 'chat_evidence', 'description': '补查已授权的同一钉钉私聊近期历史。',
+         'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
+        {'type': 'function', 'name': 'source_image', 'description': '按事件编号取得原始消息中的图片，直接返回图片内容。',
+         'inputSchema': {'type': 'object', 'properties': {'event_id': {'type': 'integer'}},
+                         'required': ['event_id'], 'additionalProperties': False}}]
+
+
 class CodexError(RuntimeError):
     pass
 
@@ -32,7 +42,7 @@ class UnknownOutcome(CodexError):
 
 
 class CodexAppServer:
-    def __init__(self, executable, cwd, config=None):
+    def __init__(self, executable, cwd, config=None, *, use_existing_login=False, codex_home=None):
         self.command = [executable] if isinstance(executable, str) else list(executable)
         self.cwd = os.path.abspath(cwd)
         self.config = dict(config or {})
@@ -51,17 +61,24 @@ class CodexAppServer:
         self.approvals = {}
         self.pending_tools = {}
         self.readonly_threads = set()
+        self.triage_threads = set()
         self.queue = asyncio.Queue()
         self.next_id = 0
         self.process = None
-        configured_home = os.environ.get('SUPERAGENT_CODEX_HOME')
+        if not isinstance(use_existing_login, bool):
+            raise ValueError('use_existing_login must be a boolean')
+        self.use_existing_login = use_existing_login
+        configured_home = codex_home
+        if configured_home is None:
+            configured_home = (os.environ.get('CODEX_HOME') or str(Path.home() / '.codex')
+                               if use_existing_login else os.environ.get('SUPERAGENT_CODEX_HOME'))
         if configured_home and not os.path.isabs(configured_home):
             raise ValueError('SUPERAGENT_CODEX_HOME must be absolute')
         self.codex_home = Path(configured_home or (Path.cwd() / 'data' / 'codex-state')).resolve()
         user_homes = {Path.home().joinpath('.codex').resolve()}
         if os.environ.get('CODEX_HOME'):
             user_homes.add(Path(os.environ['CODEX_HOME']).resolve())
-        if any(self.codex_home == home or home in self.codex_home.parents for home in user_homes):
+        if not use_existing_login and any(self.codex_home == home or home in self.codex_home.parents for home in user_homes):
             raise ValueError('service Codex home must be separate from user Codex home')
         self.reader = None
         self.stderr_reader = None
@@ -74,11 +91,11 @@ class CodexAppServer:
         # An isolated home avoids loading the interactive user's Codex config,
         # plugins and MCP servers. No application/channel/database env is inherited.
         self.codex_home.mkdir(parents=True, exist_ok=True)
-        if (self.codex_home / 'config.toml').exists() or list(self.codex_home.glob('*.config.toml')):
+        if not self.use_existing_login and ((self.codex_home / 'config.toml').exists() or list(self.codex_home.glob('*.config.toml'))):
             raise CodexError('service Codex home has disallowed tool configuration')
         plugins = self.codex_home / 'plugins'
         _no_links(self.codex_home, ('plugins',))
-        if plugins.exists():
+        if not self.use_existing_login and plugins.exists():
             if not plugins.is_dir():
                 raise CodexError('invalid plugins directory')
             for entry in plugins.iterdir():
@@ -93,8 +110,13 @@ class CodexAppServer:
                        'LANG', 'LC_ALL', 'LC_CTYPE', 'SSL_CERT_FILE',
                        'SSL_CERT_DIR', 'OPENAI_API_KEY', 'CODEX_API_KEY')
         environment = {key: os.environ[key] for key in allowed_env if key in os.environ}
+        if self.use_existing_login:
+            # Existing managed login wins over inherited API key overrides.
+            environment.pop('OPENAI_API_KEY', None)
+            environment.pop('CODEX_API_KEY', None)
         environment['CODEX_HOME'] = str(self.codex_home)
-        self.process = await asyncio.create_subprocess_exec(*self.command, 'app-server', '--disable', 'plugins', '--disable', 'apps', '--disable', 'remote_plugin', '--disable', 'hooks', '--disable', 'plugin_discovery_prefetch', cwd=self.cwd, env=environment, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, limit=self.max_line_bytes, **kwargs)
+        overrides = ['-c', 'mcp_servers={}', '-c', 'approval_policy="on-request"', '-c', 'sandbox_mode="read-only"'] if self.use_existing_login else []
+        self.process = await asyncio.create_subprocess_exec(*self.command, 'app-server', '--disable', 'plugins', '--disable', 'apps', '--disable', 'remote_plugin', '--disable', 'hooks', '--disable', 'plugin_discovery_prefetch', *overrides, cwd=self.cwd, env=environment, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, limit=self.max_line_bytes, **kwargs)
         self.reader = asyncio.create_task(self._read())
         self.stderr_reader = asyncio.create_task(self._stderr())
         try:
@@ -170,24 +192,35 @@ class CodexAppServer:
         while line := await self.process.stderr.read(4096):
             await self.queue.put({'method': 'runtime/stderr', 'params': {'text': line.decode('utf-8', 'replace').rstrip()}})
 
-    async def start_thread(self, cwd, instructions='', *, read_only=False):
+    async def start_thread(self, cwd, instructions='', *, read_only=False, tool_less=False, triage=False):
         if not isinstance(read_only, bool):
             raise ValueError('read_only must be a boolean')
+        if not isinstance(tool_less, bool) or (tool_less and not read_only):
+            raise ValueError('tool_less requires read_only=True')
+        if not isinstance(triage, bool) or (triage and (not read_only or tool_less)):
+            raise ValueError('triage tools require a dedicated read-only thread')
         params = {'cwd': os.path.abspath(cwd), 'approvalPolicy': 'on-request', 'sandbox': 'read-only' if read_only else 'workspace-write', **self.config}
         if instructions:
             params['developerInstructions'] = instructions
-        if read_only:
+        if triage:
+            params['approvalPolicy'] = 'never'
+            params['dynamicTools'] = _triage_tools()
+        elif read_only and not tool_less:
             params['dynamicTools'] = _readonly_tools()
         thread = (await self._request('thread/start', params))['thread']
-        if read_only:
+        if triage:
+            self.triage_threads.add(thread['id'])
+        elif read_only and not tool_less:
             self.readonly_threads.add(thread['id'])
         return thread
 
-    async def resume_thread(self, thread_id, *, read_only=False):
+    async def resume_thread(self, thread_id, *, read_only=False, tool_less=False):
         if not isinstance(read_only, bool):
             raise ValueError('read_only must be a boolean')
+        if not isinstance(tool_less, bool) or (tool_less and not read_only):
+            raise ValueError('tool_less requires read_only=True')
         thread = (await self._request('thread/resume', {'threadId': thread_id, 'approvalPolicy': 'on-request', 'sandbox': 'read-only' if read_only else 'workspace-write'}))['thread']
-        if read_only:
+        if read_only and not tool_less:
             self.readonly_threads.add(thread_id)
         else:
             self.readonly_threads.discard(thread_id)
@@ -241,8 +274,26 @@ class CodexAppServer:
     async def interrupt_turn(self, thread_id, turn_id):
         return await self._request('turn/interrupt', {'threadId': thread_id, 'turnId': turn_id})
 
-    async def read_thread(self, thread_id):
-        return await self._request('thread/read', {'threadId': thread_id, 'includeTurns': True})
+    async def read_thread(self, thread_id, *, include_turns=True):
+        if not isinstance(thread_id, str) or not thread_id.strip():
+            raise ValueError('thread_id must be a nonempty string')
+        if not isinstance(include_turns, bool):
+            raise ValueError('include_turns must be a boolean')
+        result = await self._request('thread/read', {'threadId': thread_id, 'includeTurns': include_turns})
+        thread = result.get('thread', {})
+        visible = {key: thread[key] for key in ('id', 'name', 'cwd', 'status', 'createdAt', 'updatedAt') if key in thread}
+        visible['turns'] = []
+        fields = {'userMessage': ('id', 'type', 'content'), 'agentMessage': ('id', 'type', 'text', 'phase'),
+                  'commandExecution': ('id', 'type', 'command', 'cwd', 'status', 'aggregatedOutput', 'exitCode'),
+                  'fileChange': ('id', 'type', 'status', 'changes'),
+                  'mcpToolCall': ('id', 'type', 'server', 'tool', 'arguments', 'result', 'error', 'status'),
+                  'dynamicToolCall': ('id', 'type', 'tool', 'arguments', 'contentItems', 'success', 'status')}
+        for turn in thread.get('turns', []):
+            clean = {key: turn[key] for key in ('id', 'status') if key in turn}
+            clean['items'] = [{key: item[key] for key in fields[item['type']] if key in item}
+                              for item in turn.get('items', []) if item.get('type') in fields]
+            visible['turns'].append(clean)
+        return {'thread': visible}
 
     async def respond_approval(self, request_id, decision):
         request = self.approvals.get(request_id)
@@ -262,9 +313,13 @@ class CodexAppServer:
 
     async def respond_tool(self, request_id, result):
         params = self.pending_tools.get(request_id)
-        if (not isinstance(params, dict) or params.get('threadId') not in self.readonly_threads
+        thread = params.get('threadId') if isinstance(params, dict) else None
+        tool = params.get('tool') if isinstance(params, dict) else None
+        triage = thread in self.triage_threads
+        permitted = (tool in ('chat_evidence', 'source_image') if triage else
+                     thread in self.readonly_threads and tool in ('list_files', 'read_file', 'search_text'))
+        if (not isinstance(params, dict) or not permitted
                 or (params.get('threadId'), params.get('turnId')) not in self.active_turns
-                or params.get('tool') not in ('list_files', 'read_file', 'search_text')
                 or params.get('namespace') is not None):
             raise CodexError('unknown or unauthorized dynamic tool request')
         if not isinstance(result, dict) or set(result) != {'contentItems', 'success'} or not isinstance(result['success'], bool):
@@ -273,7 +328,21 @@ class CodexAppServer:
         if not isinstance(items, list) or len(items) > 16:
             raise ValueError('invalid dynamic tool content')
         size = 0
+        image_size = 0
         for item in items:
+            if (triage and tool == 'source_image' and isinstance(item, dict)
+                    and set(item) == {'type', 'imageUrl'} and item['type'] == 'inputImage'):
+                url = item['imageUrl']
+                if not isinstance(url, str) or len(url) > 14 * 1024 * 1024:
+                    raise ValueError('invalid dynamic tool image')
+                prefix, _, payload = url.partition(',')
+                if prefix not in ('data:image/png;base64', 'data:image/jpeg;base64',
+                                  'data:image/gif;base64', 'data:image/webp;base64'):
+                    raise ValueError('only embedded source images are supported')
+                image_size += len(base64.b64decode(payload, validate=True))
+                if image_size > 20 * 1024 * 1024:
+                    raise ValueError('dynamic tool images exceed limit')
+                continue
             if not isinstance(item, dict) or set(item) != {'type', 'text'} or item['type'] != 'inputText' or not isinstance(item['text'], str):
                 raise ValueError('only inputText is supported')
             size += len(item['text'].encode('utf-8'))

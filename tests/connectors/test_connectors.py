@@ -268,12 +268,30 @@ class RedmineTests(unittest.IsolatedAsyncioTestCase):
 
 
 class DingTalkTests(unittest.IsolatedAsyncioTestCase):
+    async def test_transient_start_failure_retries_without_history_replay(self):
+        spawns = []
+        async def spawn(*args, **kwargs):
+            argv = list(args)
+            argv[2] = 'exit' if not spawns else 'normal'
+            spawns.append(argv)
+            return await asyncio.create_subprocess_exec(*argv, **kwargs)
+        async def emit(event):
+            pass
+        listener = DingTalkListener([sys.executable, str(Path(__file__).with_name('fake_dws.py')), 'exit'],
+                                   emit, profile='offline', self_ids={'me'}, process_factory=spawn)
+        try:
+            await listener.start()
+            self.assertEqual(listener.status, 'running')
+            self.assertEqual(len(spawns), 2)
+        finally:
+            await listener.stop()
+
     async def test_flatten_dedupe_self_scope_and_timestamp(self):
         raw = message()
         first = normalize_event(raw, profile="org:user")
         raw.update(type="user_im_message_receive_group", event_id="different")
         self.assertEqual(first["external_id"], normalize_event(raw, profile="org:user")["external_id"])
-        self.assertIsNone(normalize_event(message(sender="me"), profile="org:user", self_ids={"me"}))
+        self.assertTrue(normalize_event(message(sender="me"), profile="org:user", self_ids={"me"})["metadata"]["self_authored"])
         self.assertNotEqual(first["external_id"], normalize_event(raw, profile="other:user")["external_id"])
         with self.assertRaises(ValueError):
             timestamp("2026-11-13T00:00:00")
