@@ -1,0 +1,209 @@
+EEEE
+=================================== ERRORS ====================================
+____ ERROR at setup of test_active_crash_preserves_unknown_without_replay _____
+
+request = <SubRequest 'service' for <Function test_active_crash_preserves_unknown_without_replay>>
+
+    @pytest.fixture
+    def service(request):
+        root = Path.cwd()
+        assert (root / 'tests/e2e/test_blackbox.py').is_file()
+        assert 'audit' in root.name.lower()
+        assert os.environ.get('SUPERAGENT_DATABASE_URL', '').startswith('sqlite:///')
+        spec = importlib.util.spec_from_file_location('audit_blackbox', root / 'tests/e2e/test_blackbox.py')
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        case = mod.BlackBoxAcceptance(methodName='test_full_delivery_and_persistence')
+        start = case.start
+        mode = getattr(request, 'param', 'idle')
+    
+        def start_probe():
+            case.sink = case.root / 'runtime-requests.jsonl'
+            fake = case.root / 'audit_fake_codex.py'
+            fake.write_text(FAKE, encoding='utf-8')
+            case.environment.update({
+                'SUPERAGENT_CODEX_EXECUTABLE': json.dumps([sys.executable, str(fake), str(case.sink), mode]),
+                'SUPERAGENT_RUN_IDLE_TIMEOUT_SECONDS': '1' if mode == 'noise' else '20',
+            })
+            start()
+    
+        case.start = start_probe
+        try:
+>           case.setUp()
+
+..\..\docs\superagent-audit\evidence\audit_probes.py:71: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\e2e\test_blackbox.py:57: in setUp
+    self.start()
+..\..\docs\superagent-audit\evidence\audit_probes.py:67: in start_probe
+    start()
+tests\e2e\test_blackbox.py:86: in start
+    self.fail(f"HTTP service did not become healthy: {last_error!r}\n" + self.log.read())
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <audit_blackbox.BlackBoxAcceptance testMethod=test_full_delivery_and_persistence>
+msg = "HTTP service did not become healthy: URLError(PermissionError(13, '��һ�ַ���Ȩ�޲������ķ�ʽ����һ�������׽��ֵĳ��ԡ�', None, 10013, None))\n"
+
+    def fail(self, msg=None):
+        """Fail immediately, with the given message."""
+>       raise self.failureException(msg)
+E       AssertionError: HTTP service did not become healthy: URLError(PermissionError(13, '��һ�ַ���Ȩ�޲������ķ�ʽ����һ�������׽��ֵĳ��ԡ�', None, 10013, None))
+
+C:\Users\examp\AppData\Local\Programs\Python\Python312\Lib\unittest\case.py:715: AssertionError
+___ ERROR at setup of test_active_message_steers_matching_turn_then_cancel ____
+
+request = <SubRequest 'service' for <Function test_active_message_steers_matching_turn_then_cancel>>
+
+    @pytest.fixture
+    def service(request):
+        root = Path.cwd()
+        assert (root / 'tests/e2e/test_blackbox.py').is_file()
+        assert 'audit' in root.name.lower()
+        assert os.environ.get('SUPERAGENT_DATABASE_URL', '').startswith('sqlite:///')
+        spec = importlib.util.spec_from_file_location('audit_blackbox', root / 'tests/e2e/test_blackbox.py')
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        case = mod.BlackBoxAcceptance(methodName='test_full_delivery_and_persistence')
+        start = case.start
+        mode = getattr(request, 'param', 'idle')
+    
+        def start_probe():
+            case.sink = case.root / 'runtime-requests.jsonl'
+            fake = case.root / 'audit_fake_codex.py'
+            fake.write_text(FAKE, encoding='utf-8')
+            case.environment.update({
+                'SUPERAGENT_CODEX_EXECUTABLE': json.dumps([sys.executable, str(fake), str(case.sink), mode]),
+                'SUPERAGENT_RUN_IDLE_TIMEOUT_SECONDS': '1' if mode == 'noise' else '20',
+            })
+            start()
+    
+        case.start = start_probe
+        try:
+>           case.setUp()
+
+..\..\docs\superagent-audit\evidence\audit_probes.py:71: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\e2e\test_blackbox.py:57: in setUp
+    self.start()
+..\..\docs\superagent-audit\evidence\audit_probes.py:67: in start_probe
+    start()
+tests\e2e\test_blackbox.py:86: in start
+    self.fail(f"HTTP service did not become healthy: {last_error!r}\n" + self.log.read())
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <audit_blackbox.BlackBoxAcceptance testMethod=test_full_delivery_and_persistence>
+msg = "HTTP service did not become healthy: URLError(PermissionError(13, '��һ�ַ���Ȩ�޲������ķ�ʽ����һ�������׽��ֵĳ��ԡ�', None, 10013, None))\n"
+
+    def fail(self, msg=None):
+        """Fail immediately, with the given message."""
+>       raise self.failureException(msg)
+E       AssertionError: HTTP service did not become healthy: URLError(PermissionError(13, '��һ�ַ���Ȩ�޲������ķ�ʽ����һ�������׽��ֵĳ��ԡ�', None, 10013, None))
+
+C:\Users\examp\AppData\Local\Programs\Python\Python312\Lib\unittest\case.py:715: AssertionError
+_ ERROR at setup of test_old_message_is_persisted_but_not_recalled_at_worker_start _
+
+request = <SubRequest 'service' for <Function test_old_message_is_persisted_but_not_recalled_at_worker_start>>
+
+    @pytest.fixture
+    def service(request):
+        root = Path.cwd()
+        assert (root / 'tests/e2e/test_blackbox.py').is_file()
+        assert 'audit' in root.name.lower()
+        assert os.environ.get('SUPERAGENT_DATABASE_URL', '').startswith('sqlite:///')
+        spec = importlib.util.spec_from_file_location('audit_blackbox', root / 'tests/e2e/test_blackbox.py')
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        case = mod.BlackBoxAcceptance(methodName='test_full_delivery_and_persistence')
+        start = case.start
+        mode = getattr(request, 'param', 'idle')
+    
+        def start_probe():
+            case.sink = case.root / 'runtime-requests.jsonl'
+            fake = case.root / 'audit_fake_codex.py'
+            fake.write_text(FAKE, encoding='utf-8')
+            case.environment.update({
+                'SUPERAGENT_CODEX_EXECUTABLE': json.dumps([sys.executable, str(fake), str(case.sink), mode]),
+                'SUPERAGENT_RUN_IDLE_TIMEOUT_SECONDS': '1' if mode == 'noise' else '20',
+            })
+            start()
+    
+        case.start = start_probe
+        try:
+>           case.setUp()
+
+..\..\docs\superagent-audit\evidence\audit_probes.py:71: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\e2e\test_blackbox.py:57: in setUp
+    self.start()
+..\..\docs\superagent-audit\evidence\audit_probes.py:67: in start_probe
+    start()
+tests\e2e\test_blackbox.py:86: in start
+    self.fail(f"HTTP service did not become healthy: {last_error!r}\n" + self.log.read())
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <audit_blackbox.BlackBoxAcceptance testMethod=test_full_delivery_and_persistence>
+msg = "HTTP service did not become healthy: URLError(PermissionError(13, '��һ�ַ���Ȩ�޲������ķ�ʽ����һ�������׽��ֵĳ��ԡ�', None, 10013, None))\n"
+
+    def fail(self, msg=None):
+        """Fail immediately, with the given message."""
+>       raise self.failureException(msg)
+E       AssertionError: HTTP service did not become healthy: URLError(PermissionError(13, '��һ�ַ���Ȩ�޲������ķ�ʽ����һ�������׽��ֵĳ��ԡ�', None, 10013, None))
+
+C:\Users\examp\AppData\Local\Programs\Python\Python312\Lib\unittest\case.py:715: AssertionError
+_ ERROR at setup of test_repeated_deltas_evade_idle_timeout_without_progress[noise] _
+
+request = <SubRequest 'service' for <Function test_repeated_deltas_evade_idle_timeout_without_progress[noise]>>
+
+    @pytest.fixture
+    def service(request):
+        root = Path.cwd()
+        assert (root / 'tests/e2e/test_blackbox.py').is_file()
+        assert 'audit' in root.name.lower()
+        assert os.environ.get('SUPERAGENT_DATABASE_URL', '').startswith('sqlite:///')
+        spec = importlib.util.spec_from_file_location('audit_blackbox', root / 'tests/e2e/test_blackbox.py')
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        case = mod.BlackBoxAcceptance(methodName='test_full_delivery_and_persistence')
+        start = case.start
+        mode = getattr(request, 'param', 'idle')
+    
+        def start_probe():
+            case.sink = case.root / 'runtime-requests.jsonl'
+            fake = case.root / 'audit_fake_codex.py'
+            fake.write_text(FAKE, encoding='utf-8')
+            case.environment.update({
+                'SUPERAGENT_CODEX_EXECUTABLE': json.dumps([sys.executable, str(fake), str(case.sink), mode]),
+                'SUPERAGENT_RUN_IDLE_TIMEOUT_SECONDS': '1' if mode == 'noise' else '20',
+            })
+            start()
+    
+        case.start = start_probe
+        try:
+>           case.setUp()
+
+..\..\docs\superagent-audit\evidence\audit_probes.py:71: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\e2e\test_blackbox.py:57: in setUp
+    self.start()
+..\..\docs\superagent-audit\evidence\audit_probes.py:67: in start_probe
+    start()
+tests\e2e\test_blackbox.py:86: in start
+    self.fail(f"HTTP service did not become healthy: {last_error!r}\n" + self.log.read())
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <audit_blackbox.BlackBoxAcceptance testMethod=test_full_delivery_and_persistence>
+msg = "HTTP service did not become healthy: URLError(PermissionError(13, '��һ�ַ���Ȩ�޲������ķ�ʽ����һ�������׽��ֵĳ��ԡ�', None, 10013, None))\n"
+
+    def fail(self, msg=None):
+        """Fail immediately, with the given message."""
+>       raise self.failureException(msg)
+E       AssertionError: HTTP service did not become healthy: URLError(PermissionError(13, '��һ�ַ���Ȩ�޲������ķ�ʽ����һ�������׽��ֵĳ��ԡ�', None, 10013, None))
+
+C:\Users\examp\AppData\Local\Programs\Python\Python312\Lib\unittest\case.py:715: AssertionError
+=========================== short test summary info ===========================
+ERROR ..\..\docs\superagent-audit\evidence\audit_probes.py::test_active_crash_preserves_unknown_without_replay
+ERROR ..\..\docs\superagent-audit\evidence\audit_probes.py::test_active_message_steers_matching_turn_then_cancel
+ERROR ..\..\docs\superagent-audit\evidence\audit_probes.py::test_old_message_is_persisted_but_not_recalled_at_worker_start
+ERROR ..\..\docs\superagent-audit\evidence\audit_probes.py::test_repeated_deltas_evade_idle_timeout_without_progress[noise]
+4 errors in 48.63s
+wall_seconds=50.28; exit_code=1

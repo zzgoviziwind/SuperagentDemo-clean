@@ -1,0 +1,18 @@
+
+> superagent-workbench@0.1.0 build
+> tsc --noEmit && vite build --outDir E:\Workspace\superagentDemo\.test-tmp\superagent-audit-20261117\web-dist
+
+vite v6.4.6 building for production...
+
+(!) outDir E:\Workspace\superagentDemo\.test-tmp\superagent-audit-20261117\web-dist is not inside project root and will not be emptied.
+Use --emptyOutDir to override.
+
+transforming...
+✓ 67 modules transformed.
+rendering chunks...
+computing gzip size...
+../../.test-tmp/superagent-audit-20261117/web-dist/index.html                   0.46 kB │ gzip:   0.31 kB
+../../.test-tmp/superagent-audit-20261117/web-dist/assets/index-vH2GkWBX.css   79.04 kB │ gzip:  16.07 kB
+../../.test-tmp/superagent-audit-20261117/web-dist/assets/index-Dorgyqhk.js   430.46 kB │ gzip: 135.10 kB
+✓ built in 5.88s
+wall_seconds=23.88; exit_code=0

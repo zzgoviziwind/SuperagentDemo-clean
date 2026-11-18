@@ -1,0 +1,65 @@
+real SQLite and prompt builder: 31 messages >4200 chars; injected=24; prompt_chars=76034; old marker and tails absent
+.startup recovery body + SQLite: running/approval -> unknown; queue preserved; retry and old approval both 409
+.idle limit=1s; 14 equal deltas over >2s; no stall was identified by the monitor
+...................................................................................F...................................................
+================================== FAILURES ===================================
+_______ test_manager_wires_scoped_history_replay_and_governance_config ________
+
+sessions = sessionmaker(class_='Session', bind=Engine(sqlite:///E%3A%5CWorkspace%5CsuperagentDemo%5C.test-tmp%5Csuperagent-audit-20261117%5Csocketless-data%5Ctest_manager_wires_scoped_hist0%5Crouting.db), autoflush=True, expire_on_commit=False)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000020794DD7D10>
+
+    def test_manager_wires_scoped_history_replay_and_governance_config(sessions, monkeypatch):
+        from superagent.core import governance
+        from superagent.core.connections import validate_configuration
+        monkeypatch.setattr(governance.db, "Session", sessions)
+        executable = [sys.executable, str(Path(__file__).with_name("fake_business_dws.py"))]
+        value = {"enabled": True, "executable": executable, "profile": "test", "self_ids": ["self"],
+                 "history": {"chat_ids": ["chat"], "initial_since": "2020-01-01T00:00:00Z", "history_timezone": "+08:00",
+                             "sender_map": {"history-user": "trusted"}, "page_limit": 2}}
+        governance.set_setting("connectors.dingtalk", value)
+        async def scenario():
+            async def emit(event):
+                receive(sessions, event)
+            manager = ConnectionManager(session_factory=sessions, emit=emit)
+            try:
+                await manager.start("dingtalk")
+                assert manager.statuses()[0]["status"] == "running"
+                with sessions() as session:
+                    events = session.scalars(select(Event).where(Event.source == "dingtalk")).all()
+                    assert any("historical-message" in event.external_id for event in events)
+                    assert len(session.scalars(select(Task)).all()) == 1
+                assert manager.instances["dingtalk"].replay is not None
+            finally:
+                await manager.stop()
+>       asyncio.run(scenario())
+
+tests\integration\test_routing_delivery.py:552: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\examp\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py:195: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+C:\Users\examp\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\examp\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:691: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    async def scenario():
+        async def emit(event):
+            receive(sessions, event)
+        manager = ConnectionManager(session_factory=sessions, emit=emit)
+        try:
+            await manager.start("dingtalk")
+>           assert manager.statuses()[0]["status"] == "running"
+E           AssertionError: assert 'failed' == 'running'
+E             
+E             - running
+E             + failed
+
+tests\integration\test_routing_delivery.py:544: AssertionError
+=========================== short test summary info ===========================
+FAILED tests\integration\test_routing_delivery.py::test_manager_wires_scoped_history_replay_and_governance_config
+1 failed, 136 passed, 15 deselected in 60.77s (0:01:00)
+wall_seconds=62.89; exit_code=1

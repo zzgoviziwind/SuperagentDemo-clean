@@ -1,0 +1,911 @@
+
+> superagent-workbench@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 E:/Workspace/superagentDemo/apps/web
+
+ ✓ src/EventGroups.test.tsx (2 tests) 919ms
+   ✓ 事件核验携带事件版本和依据，冲突时保留输入  860ms
+ ✓ src/MessageAccessPanel.test.tsx (5 tests) 1363ms
+   ✓ 支持最近发送人、个人候选项目和追问默认项目的持久配置  644ms
+ ✓ src/ProjectWorkspaceFields.test.tsx (5 tests) 1090ms
+   ✓ 打开已有项目自动加载完整分支，切换目录后清除旧分支  708ms
+ ✓ src/ProductWorkbench.test.tsx (6 tests) 2291ms
+   ✓ 架构模块展示服务实际能力并跳转对应入口  795ms
+   ✓ 事件中心读取全部来源并按服务端持久化次数展示阶段  504ms
+   ✓ Worker人工纠正携带版本，失败保留文本并展示可读报告  715ms
+ ✓ src/EventCenterUx.test.tsx (2 tests) 1847ms
+   ✓ resets hidden source, project, status and search conditions without losing the selected event or rename draft  1468ms
+   ✓ does not mistake a list request failure for an empty result and allows retry  377ms
+ ✓ src/RecoveryPanels.test.tsx (7 tests) 4589ms
+   ✓ 收件箱按 after 游标翻页，重试后明确展示仍待确认原因  863ms
+   ✓ 未知预算需要实际费用和非空依据，允许实际费用为零  559ms
+   ✓ 仅将当前目标版本的 summary 文本填入草稿并允许编辑后保存  522ms
+   ✓ 回填和复用不会静默覆盖手写正文，复用明确显示新的目标  1250ms
+   ✓ 保存等待期间的新输入不被清空，提交内容仍是点击时的版本  947ms
+ ✓ src/GroupedEvents.test.tsx (9 tests) 4900ms
+   ✓ opens an event with a multi-repository change record without losing the workbench  732ms
+   ✓ refreshes from the first page without losing filters, loaded rows, or an unsaved event name  722ms
+   ✓ opens narrow details at the heading and restores the list focus and scroll position  450ms
+   ✓ one event contains multiple messages and supports versioned rename  609ms
+   ✓ uses current execution status after cancellation  412ms
+   ✓ closes selected receipts, keeps filter counts, and can link a retained message  1439ms
+   ✓ batch closes only pending messages from the loaded selection and keeps a rejected selection  434ms
+ ✓ src/ExtendedWorkbench.test.tsx (9 tests) 5242ms
+   ✓ 人工纠正使用路由快照版本，失败保留核验证据  1649ms
+   ✓ 设备与守护读取真实接口并支持进入事件介入  386ms
+   ✓ 单条事件展示多个目标并进入各自结果处理页  610ms
+   ✓ 设备选择和守护纠正提交实际API  1377ms
+   ✓ 多目标事件展示逐事件执行和持久巡检证据  729ms
+ ✓ src/ProductV4.test.tsx (10 tests) 6013ms
+   ✓ 群卡片侧栏编辑与开关同步右侧摘要  2026ms
+   ✓ 开启和关闭的群都可删除，保存后旧配置不会把群重新加回来  868ms
+   ✓ 接收范围显示指定群与绑定项目，可保存所有群或关闭指定群  891ms
+   ✓ 默认三步配置读取本机Agent，连接复用登录且仅提交业务策略  898ms
+   ✓ 分流会话按原线程提交复核并读取真实可见记录，可进入Worker  606ms
+   ✓ 消息范围显示部分故障，显式确认后才启动连接  375ms
+ ✓ src/Panels.test.tsx (9 tests) 8513ms
+   ✓ 保存所有 @我的钉钉消息处理策略  667ms
+   ✓ 按任务保存独立字段，并允许清除覆盖以恢复全局设置  2371ms
+   ✓ 身份授权仅发送用户明确勾选的项目和请求权限  1372ms
+   ✓ 连接器配置保存引用环境变量，保持启用为明确选择  2199ms
+   ✓ 回复审批使用 delivery endpoint，批准后发送仍需要确认  459ms
+   ✓ 任务执行结果未知时不提供审批、发送和保存草稿动作  383ms
+   ✓ 结果未知时仅提供有证据的对账操作  954ms
+ ✓ src/proxy.test.ts (1 test) 1639ms
+   ✓ 开发代理保留请求身份和 Host/Origin，不从环境注入管理员凭据  1637ms
+ ✓ src/MessageRecords.test.tsx (1 test) 960ms
+   ✓ 消息详情仅展示相关消息和对应事件入口  958ms
+ ✓ src/EventCenterSimplified.test.tsx (1 test) 556ms
+   ✓ 来源优先、进度一图、诊断默认折叠且完成不冒充发送  555ms
+ ✓ src/api.test.ts (6 tests) 24ms
+ ✓ src/ConversationInput.test.tsx (3 tests) 439ms
+   ✓ 真实Worker输入按角色显示消息，空附件省略，原始输入折叠  408ms
+ ✓ src/MessageTracePanel.test.tsx (3 tests) 939ms
+   ✓ 真实收件接口驱动图节点，点击授权节点可进入管理入口  932ms
+ ✓ src/CoordinationPanel.test.tsx (1 test) 447ms
+   ✓ 应用关联展示目标依据并保留服务端冲突反馈  444ms
+ ✓ src/HandoffPanel.test.tsx (1 test) 497ms
+   ✓ 一次展开完成暂停和材料准备，收起不重复操作  495ms
+stderr | src/App.test.tsx > 工作台关键交互 > 事件中心默认展示总览，合并待处理计数并保留筛选和事件诊断
+Not implemented: Window's scrollTo() method
+
+ ✓ src/ProcessingResults.test.tsx (2 tests) 122ms
+ ✓ src/ArtifactView.test.tsx (5 tests) 158ms
+ ❯ src/App.test.tsx (22 tests | 2 failed) 21139ms
+   × 工作台关键交互 > 飞书链接打开当前审批并聚焦，打开链接本身不提交决定 1460ms
+     → Unable to find role="button" and name "批准"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"shell ide-shell"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"ide-toolbar"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33maria-label[39m=[32m"SuperAgent"[39m
+          [33mclass[39m=[32m"brand"[39m
+          [33mhref[39m=[32m"#"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"logo"[39m
+          [36m>[39m
+            [0mS[0m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"brand-copy"[39m
+          [36m>[39m
+            [0mSuperAgent[0m
+          [36m</span>[39m
+        [36m</a>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"ide-workspace-name"[39m
+        [36m>[39m
+          [0m研发协作空间[0m
+        [36m</span>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"ide-palette"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"ide-palette-dot"[39m
+          [36m/>[39m
+          [36m<select[39m
+            [33maria-label[39m=[32m"内容区配色"[39m
+          [36m>[39m
+            [36m<option[39m
+              [33mvalue[39m=[32m"slate"[39m
+            [36m>[39m
+              [0m冰川蓝[0m
+            [36m</option>[39m
+            [36m<option[39m
+              [33mvalue[39m=[32m"cypress"[39m
+            [36m>[39m
+              [0m冷杉绿[0m
+            [36m</option>[39m
+            [36m<option[39m
+              [33mvalue[39m=[32m"walnut"[39m
+            [36m>[39m
+              [0m胡桃棕[0m
+            [36m</option>[39m
+            [36m<option[39m
+              [33mvalue[39m=[32m"iris"[39m
+            [36m>[39m
+              [0m鸢尾紫[0m
+            [36m</option>[39m
+            [36m<option[39m
+              [33mvalue[39m=[32m"darcula"[39m
+            [36m>[39m
+              [0mDarcula 深色[0m
+            [36m</option>[39m
+          [36m</select>[39m
+        [36m</label>[39m
+        [36m<button[39m
+          [33maria-haspopup[39m=[32m"dialog"[39m
+          [33mclass[39m=[32m"primary ide-create"[39m
+        [36m>[39m
+          [0m＋ 提出事件[0m
+        [36m</button>[39m
+        [36m<details[39m
+          [33mclass[39m=[32m"ide-account"[39m
+        [36m>[39m
+          [36m<summary>[39m
+            [0m测试用户[0m
+          [36m</summary>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"account-actions"[39m
+          [36m>[39m
+            [36m<button>[39m
+              [0m登出[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</details>[39m
+      [36m</header>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"ide-rail"[39m
+      [36m>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"主导航"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"工作空间"[39m
+            [33mclass[39m=[32m"ide-tool-group"[39m
+            [33mrole[39m=[32m"group"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-current[39m=[32m"page"[39m
+              [33maria-label[39m=[32m"事件中心"[39m
+              [33mtitle[39m=[32m"事件中心"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.65"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"18"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M5 3h14v18H5z M8 8h8 M8 12h8 M8 16h5"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+              [36m>[39m
+                [0m事件[0m
+              [36m</span>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Worker 工作台"[39m
+              [33mtitle[39m=[32m"Worker 工作台"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.65"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"18"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M4 5h16v14H4z M7 9l3 3-3 3 M12 15h5"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+              [36m>[39m
+                [0mWorker[0m
+              [36m</span>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"配置与连接"[39m
+            [33mclass[39m=[32m"ide-tool-group"[39m
+            [33mrole[39m=[32m"group"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"项目设置"[39m
+              [33mtitle[39m=[32m"项目设置"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.65"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"18"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M3 7V5h7l2 2h9v12H3z"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+              [36m>[39m
+                [0m项目[0m
+              [36m</span>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"事件规则"[39m
+              [33mtitle[39m=[32m"事件规则"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"shell ide-shell"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"ide-toolbar"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33maria-label[39m=[32m"SuperAgent"[39m
+          [33mclass[39m=[32m"brand"[39m
+          [33mhref[39m=[32m"#"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"logo"[39m
+          [36m>[39m
+            [0mS[0m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"brand-copy"[39m
+          [36m>[39m
+            [0mSuperAgent[0m
+          [36m</span>[39m
+        [36m</a>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"ide-workspace-name"[39m
+        [36m>[39m
+          [0m研发协作空间[0m
+        [36m</span>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"ide-palette"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"ide-palette-dot"[39m
+          [36m/>[39m
+          [36m<select[39m
+            [33maria-label[39m=[32m"内容区配色"[39m
+          [36m>[39m
+            [36m<option[39m
+              [33mvalue[39m=[32m"slate"[39m
+            [36m>[39m
+              [0m冰川蓝[0m
+            [36m</option>[39m
+            [36m<option[39m
+              [33mvalue[39m=[32m"cypress"[39m
+            [36m>[39m
+              [0m冷杉绿[0m
+            [36m</option>[39m
+            [36m<option[39m
+              [33mvalue[39m=[32m"walnut"[39m
+            [36m>[39m
+              [0m胡桃棕[0m
+            [36m</option>[39m
+            [36m<option[39m
+              [33mvalue[39m=[32m"iris"[39m
+            [36m>[39m
+              [0m鸢尾紫[0m
+            [36m</option>[39m
+            [36m<option[39m
+              [33mvalue[39m=[32m"darcula"[39m
+            [36m>[39m
+              [0mDarcula 深色[0m
+            [36m</option>[39m
+          [36m</select>[39m
+        [36m</label>[39m
+        [36m<button[39m
+          [33maria-haspopup[39m=[32m"dialog"[39m
+          [33mclass[39m=[32m"primary ide-create"[39m
+        [36m>[39m
+          [0m＋ 提出事件[0m
+        [36m</button>[39m
+        [36m<details[39m
+          [33mclass[39m=[32m"ide-account"[39m
+        [36m>[39m
+          [36m<summary>[39m
+            [0m测试用户[0m
+          [36m</summary>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"account-actions"[39m
+          [36m>[39m
+            [36m<button>[39m
+              [0m登出[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</details>[39m
+      [36m</header>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"ide-rail"[39m
+      [36m>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"主导航"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"工作空间"[39m
+            [33mclass[39m=[32m"ide-tool-group"[39m
+            [33mrole[39m=[32m"group"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-current[39m=[32m"page"[39m
+              [33maria-label[39m=[32m"事件中心"[39m
+              [33mtitle[39m=[32m"事件中心"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.65"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"18"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M5 3h14v18H5z M8 8h8 M8 12h8 M8 16h5"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+              [36m>[39m
+                [0m事件[0m
+              [36m</span>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Worker 工作台"[39m
+              [33mtitle[39m=[32m"Worker 工作台"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.65"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"18"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M4 5h16v14H4z M7 9l3 3-3 3 M12 15h5"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+              [36m>[39m
+                [0mWorker[0m
+              [36m</span>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"配置与连接"[39m
+            [33mclass[39m=[32m"ide-tool-group"[39m
+            [33mrole[39m=[32m"group"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"项目设置"[39m
+              [33mtitle[39m=[32m"项目设置"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.65"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"18"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M3 7V5h7l2 2h9v12H3z"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+              [36m>[39m
+                [0m项目[0m
+              [36m</span>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"事件规则"[39m
+              [33mtitle[39m=[32m"事件规则"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+...
+   ✓ 工作台关键交互 > 飞书旧链接显示审批失效并隐藏过期操作  371ms
+   × 工作台关键交互 > 事件中心使用满高工作区，账号和分派复核入口移入左侧 106ms
+     → expected null to be truthy
+   ✓ 工作台关键交互 > 未知执行结果要求核验证据并携带状态版本对账  2513ms
+   ✓ 工作台关键交互 > 新项目默认只读，跨项目读取与改动范围独立  1402ms
+   ✓ 工作台关键交互 > 连接器展示目标并等待用户明确确认后才发送启用请求  513ms
+   ✓ 工作台关键交互 > 401 展示会话登录入口，登录令牌不会写入浏览器存储  830ms
+   ✓ 工作台关键交互 > 只读角色隐藏创建与任务写入操作  558ms
+   ✓ 工作台关键交互 > 新建弹窗响应原生取消事件，取消后回到提出事件按钮  319ms
+   ✓ 工作台关键交互 > 选中旧事件时新建事件，跳到正确详情和处理区，即使新事件不在当前列表  2426ms
+   ✓ 工作台关键交互 > 事件中心默认展示总览，合并待处理计数并保留筛选和事件诊断  2023ms
+   ✓ 工作台关键交互 > 事件中心定时读取只请求所选事件，慢请求不重叠，提交错误与草稿保留  422ms
+   ✓ 工作台关键交互 > 创建失败保留目标并展示错误  1407ms
+   ✓ 工作台关键交互 > 补充要求携带版本，冲突后保留文本并提示刷新  975ms
+   ✓ 工作台关键交互 > 保存补充后在事件消息里马上显示  1075ms
+   ✓ 工作台关键交互 > 暂停请求成功后等待执行端确认，保持真实运行状态  527ms
+   ✓ 工作台关键交互 > 切换事件后保留各自未保存的回复正文和来源  1496ms
+   ✓ 工作台关键交互 > 结束暂停事件必须确认，成功提示按返回状态显示  734ms
+   ✓ 管理员可从独立导航直接进入管理设置与事件中心  536ms
+   ✓ 编辑项目只提交可写字段并保持明确选中状态  306ms
+   ✓ 取消事件的 resume 操作携带版本，失败在按钮旁显示  586ms
+   ✓ 取消事件的 analyze 操作携带版本，失败在按钮旁显示  552ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/App.test.tsx > 工作台关键交互 > 飞书链接打开当前审批并聚焦，打开链接本身不提交决定
+TestingLibraryElementError: Unable to find role="button" and name "批准"
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="shell ide-shell"
+    >
+      <header
+        class="ide-toolbar"
+      >
+        <a
+          aria-label="SuperAgent"
+          class="brand"
+          href="#"
+        >
+          <span
+            aria-hidden="true"
+            class="logo"
+          >
+            S
+          </span>
+          <span
+            class="brand-copy"
+          >
+            SuperAgent
+          </span>
+        </a>
+        <span
+          class="ide-workspace-name"
+        >
+          研发协作空间
+        </span>
+        <label
+          class="ide-palette"
+        >
+          <span
+            aria-hidden="true"
+            class="ide-palette-dot"
+          />
+          <select
+            aria-label="内容区配色"
+          >
+            <option
+              value="slate"
+            >
+              冰川蓝
+            </option>
+            <option
+              value="cypress"
+            >
+              冷杉绿
+            </option>
+            <option
+              value="walnut"
+            >
+              胡桃棕
+            </option>
+            <option
+              value="iris"
+            >
+              鸢尾紫
+            </option>
+            <option
+              value="darcula"
+            >
+              Darcula 深色
+            </option>
+          </select>
+        </label>
+        <button
+          aria-haspopup="dialog"
+          class="primary ide-create"
+        >
+          ＋ 提出事件
+        </button>
+        <details
+          class="ide-account"
+        >
+          <summary>
+            测试用户
+          </summary>
+          <div
+            class="account-actions"
+          >
+            <button>
+              登出
+            </button>
+          </div>
+        </details>
+      </header>
+      <aside
+        class="ide-rail"
+      >
+        <nav
+          aria-label="主导航"
+        >
+          <div
+            aria-label="工作空间"
+            class="ide-tool-group"
+            role="group"
+          >
+            <button
+              aria-current="page"
+              aria-label="事件中心"
+              title="事件中心"
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                fill="none"
+                height="18"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.65"
+                viewBox="0 0 24 24"
+                width="18"
+              >
+                <path
+                  d="M5 3h14v18H5z M8 8h8 M8 12h8 M8 16h5"
+                />
+              </svg>
+              <span
+                aria-hidden="true"
+              >
+                事件
+              </span>
+            </button>
+            <button
+              aria-label="Worker 工作台"
+              title="Worker 工作台"
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                fill="none"
+                height="18"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.65"
+                viewBox="0 0 24 24"
+                width="18"
+              >
+                <path
+                  d="M4 5h16v14H4z M7 9l3 3-3 3 M12 15h5"
+                />
+              </svg>
+              <span
+                aria-hidden="true"
+              >
+                Worker
+              </span>
+            </button>
+          </div>
+          <div
+            aria-label="配置与连接"
+            class="ide-tool-group"
+            role="group"
+          >
+            <button
+              aria-label="项目设置"
+              title="项目设置"
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                fill="none"
+                height="18"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.65"
+                viewBox="0 0 24 24"
+                width="18"
+              >
+                <path
+                  d="M3 7V5h7l2 2h9v12H3z"
+                />
+              </svg>
+              <span
+                aria-hidden="true"
+              >
+                项目
+              </span>
+            </button>
+            <button
+              aria-label="事件规则"
+              title="事件规则"
+              type="button"
+            >
+...
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="shell ide-shell"
+    >
+      <header
+        class="ide-toolbar"
+      >
+        <a
+          aria-label="SuperAgent"
+          class="brand"
+          href="#"
+        >
+          <span
+            aria-hidden="true"
+            class="logo"
+          >
+            S
+          </span>
+          <span
+            class="brand-copy"
+          >
+            SuperAgent
+          </span>
+        </a>
+        <span
+          class="ide-workspace-name"
+        >
+          研发协作空间
+        </span>
+        <label
+          class="ide-palette"
+        >
+          <span
+            aria-hidden="true"
+            class="ide-palette-dot"
+          />
+          <select
+            aria-label="内容区配色"
+          >
+            <option
+              value="slate"
+            >
+              冰川蓝
+            </option>
+            <option
+              value="cypress"
+            >
+              冷杉绿
+            </option>
+            <option
+              value="walnut"
+            >
+              胡桃棕
+            </option>
+            <option
+              value="iris"
+            >
+              鸢尾紫
+            </option>
+            <option
+              value="darcula"
+            >
+              Darcula 深色
+            </option>
+          </select>
+        </label>
+        <button
+          aria-haspopup="dialog"
+          class="primary ide-create"
+        >
+          ＋ 提出事件
+        </button>
+        <details
+          class="ide-account"
+        >
+          <summary>
+            测试用户
+          </summary>
+          <div
+            class="account-actions"
+          >
+            <button>
+              登出
+            </button>
+          </div>
+        </details>
+      </header>
+      <aside
+        class="ide-rail"
+      >
+        <nav
+          aria-label="主导航"
+        >
+          <div
+            aria-label="工作空间"
+            class="ide-tool-group"
+            role="group"
+          >
+            <button
+              aria-current="page"
+              aria-label="事件中心"
+              title="事件中心"
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                fill="none"
+                height="18"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.65"
+                viewBox="0 0 24 24"
+                width="18"
+              >
+                <path
+                  d="M5 3h14v18H5z M8 8h8 M8 12h8 M8 16h5"
+                />
+              </svg>
+              <span
+                aria-hidden="true"
+              >
+                事件
+              </span>
+            </button>
+            <button
+              aria-label="Worker 工作台"
+              title="Worker 工作台"
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                fill="none"
+                height="18"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.65"
+                viewBox="0 0 24 24"
+                width="18"
+              >
+                <path
+                  d="M4 5h16v14H4z M7 9l3 3-3 3 M12 15h5"
+                />
+              </svg>
+              <span
+                aria-hidden="true"
+              >
+                Worker
+              </span>
+            </button>
+          </div>
+          <div
+            aria-label="配置与连接"
+            class="ide-tool-group"
+            role="group"
+          >
+            <button
+              aria-label="项目设置"
+              title="项目设置"
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                fill="none"
+                height="18"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.65"
+                viewBox="0 0 24 24"
+                width="18"
+              >
+                <path
+                  d="M3 7V5h7l2 2h9v12H3z"
+                />
+              </svg>
+              <span
+                aria-hidden="true"
+              >
+                项目
+              </span>
+            </button>
+            <button
+              aria-label="事件规则"
+              title="事件规则"
+              type="button"
+            >
+...
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/App.test.tsx:98:34
+     96|     setup(write, "admin", [], { status: "waiting_approval", control_ve…
+     97|       [{ id: 17, status: "pending", revision: 1, control_version: 3, a…
+     98|     const approve = await screen.findByRole("button", { name: "批准" });
+       |                                  ^
+     99|     expect(document.activeElement).toBe(approve.closest("article"));
+    100|     expect(write).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/App.test.tsx > 工作台关键交互 > 事件中心使用满高工作区，账号和分派复核入口移入左侧
+AssertionError: expected null to be truthy
+
+- Expected: 
+true
+
++ Received: 
+null
+
+ ❯ src/App.test.tsx:115:38
+    113|     setup(() => new Response("{}"));
+    114|     const account = await screen.findByText("测试用户");
+    115|     expect(account.closest("aside")).toBeTruthy();
+       |                                      ^
+    116|     expect(account.closest("details")?.open).toBe(false);
+    117|     expect(document.querySelector("main.event-center-page")).toBeTruth…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 20 passed (21)
+      Tests  2 failed | 108 passed (110)
+   Start at  17:18:50
+   Duration  36.44s (transform 14.24s, setup 685ms, collect 46.35s, tests 63.69s, environment 130.68s, prepare 11.51s)
+
+wall_seconds=43.84; exit_code=1

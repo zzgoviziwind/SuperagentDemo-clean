@@ -1,0 +1,60 @@
+
+> superagent-workbench@0.1.0 test
+> vitest run src/App.test.tsx -t 飞书链接打开当前审批|事件中心使用满高
+
+
+ RUN  v3.2.7 E:/Workspace/superagentDemo/apps/web
+
+ ❯ src/App.test.tsx (22 tests | 1 failed | 20 skipped) 587ms
+   ✓ 工作台关键交互 > 飞书链接打开当前审批并聚焦，打开链接本身不提交决定  538ms
+   ↓ 工作台关键交互 > 飞书旧链接显示审批失效并隐藏过期操作
+   × 工作台关键交互 > 事件中心使用满高工作区，账号和分派复核入口移入左侧 47ms
+     → expected null to be truthy
+   ↓ 工作台关键交互 > 未知执行结果要求核验证据并携带状态版本对账
+   ↓ 工作台关键交互 > 新项目默认只读，跨项目读取与改动范围独立
+   ↓ 工作台关键交互 > 连接器展示目标并等待用户明确确认后才发送启用请求
+   ↓ 工作台关键交互 > 401 展示会话登录入口，登录令牌不会写入浏览器存储
+   ↓ 工作台关键交互 > 只读角色隐藏创建与任务写入操作
+   ↓ 工作台关键交互 > 新建弹窗响应原生取消事件，取消后回到提出事件按钮
+   ↓ 工作台关键交互 > 选中旧事件时新建事件，跳到正确详情和处理区，即使新事件不在当前列表
+   ↓ 工作台关键交互 > 事件中心默认展示总览，合并待处理计数并保留筛选和事件诊断
+   ↓ 工作台关键交互 > 事件中心定时读取只请求所选事件，慢请求不重叠，提交错误与草稿保留
+   ↓ 工作台关键交互 > 创建失败保留目标并展示错误
+   ↓ 工作台关键交互 > 补充要求携带版本，冲突后保留文本并提示刷新
+   ↓ 工作台关键交互 > 保存补充后在事件消息里马上显示
+   ↓ 工作台关键交互 > 暂停请求成功后等待执行端确认，保持真实运行状态
+   ↓ 工作台关键交互 > 切换事件后保留各自未保存的回复正文和来源
+   ↓ 工作台关键交互 > 结束暂停事件必须确认，成功提示按返回状态显示
+   ↓ 管理员可从独立导航直接进入管理设置与事件中心
+   ↓ 编辑项目只提交可写字段并保持明确选中状态
+   ↓ 取消事件的 resume 操作携带版本，失败在按钮旁显示
+   ↓ 取消事件的 analyze 操作携带版本，失败在按钮旁显示
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/App.test.tsx > 工作台关键交互 > 事件中心使用满高工作区，账号和分派复核入口移入左侧
+AssertionError: expected null to be truthy
+
+- Expected: 
+true
+
++ Received: 
+null
+
+ ❯ src/App.test.tsx:115:38
+    113|     setup(() => new Response("{}"));
+    114|     const account = await screen.findByText("测试用户");
+    115|     expect(account.closest("aside")).toBeTruthy();
+       |                                      ^
+    116|     expect(account.closest("details")?.open).toBe(false);
+    117|     expect(document.querySelector("main.event-center-page")).toBeTruth…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed | 20 skipped (22)
+   Start at  17:33:25
+   Duration  7.00s (transform 588ms, setup 30ms, collect 1.47s, tests 587ms, environment 2.17s, prepare 223ms)
+
+wall_seconds=11.89; exit_code=1

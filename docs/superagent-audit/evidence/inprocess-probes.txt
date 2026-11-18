@@ -1,0 +1,8 @@
+real SQLite and prompt builder: 31 messages >4200 chars; injected=24; prompt_chars=76034; old marker and tails absent
+.startup recovery body + SQLite: running/approval -> unknown; queue preserved; retry and old approval both 409
+.idle limit=1s; 14 equal deltas over >2s; no stall was identified by the monitor
+.silent stream crossed the 1s limit and raised TimeoutError
+.stored message only for Worker 2; steer called matching thread and turn on stub
+.
+5 passed in 5.81s
+wall_seconds=7.66; exit_code=0

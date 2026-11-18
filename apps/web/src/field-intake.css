@@ -1,0 +1,37 @@
+.field-intake .field-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 12px;
+  align-items: start;
+}
+.field-layout > section { min-width: 0; }
+.field-intake fieldset, .field-implementation fieldset {
+  display: grid;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;
+}
+.field-intake label, .field-implementation label { display: grid; gap: 4px; margin-block: 0; }
+.field-intake input, .field-intake select, .field-intake textarea,
+.field-implementation textarea { width: 100%; min-width: 0; }
+.field-candidate, .field-implementation { border-top: 1px solid var(--line, currentColor); padding-block: 12px; }
+.field-candidate { margin-top: 8px; overflow-wrap: anywhere; }
+.field-candidate legend { font-weight: 600; }
+.field-candidate blockquote { margin: 0; padding-inline-start: 8px; border-inline-start: 2px solid currentColor; }
+.field-candidate-evidence blockquote { margin-block-start: 6px; }
+.field-time-button { font-variant-numeric: tabular-nums; }
+.field-transcript-evidence { min-width: 0; display: grid; gap: 3px; grid-template-columns: minmax(0, 1fr); }
+.field-transcript-evidence span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.field-transcript-dialog blockquote { margin-inline: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.field-media-player { width: 100%; max-height: 44vh; }
+.field-frame-matches { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.field-transcript-dialog .field-media-player + a { display: block; margin-block: 6px; }
+.field-candidate button, .field-implementation button { justify-self: start; }
+.field-candidate > strong, .field-candidate > span, .field-evidence { display: block; overflow-wrap: anywhere; }
+.field-candidate legend { max-width: 100%; overflow-wrap: anywhere; }
+.field-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 850px) {
+  .field-intake .field-layout { grid-template-columns: minmax(0, 1fr); }
+}
