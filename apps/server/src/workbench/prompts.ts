@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { replyDecisionInstructions } from '../deliveries/replies.ts';
 import { buildWorkerPrompt, WORKER_PROMPTS } from '../worker/prompts.ts';
 import type { WorkbenchModelKind } from './model-driver.ts';
 import { requireAdmin } from './store.ts';
@@ -44,7 +45,8 @@ export function registerPromptCatalog(app: FastifyInstance, worker?: () => Promp
       watchdog: [{ title: '独立巡检指令', text: watchdog }],
       analysis: [{ title: '只读任务输入模板', text: sample('analysis') }],
       repair: [{ title: '代码修复任务输入模板', text: sample('repair') }],
-      reply: [{ title: '普通回复指令', text: WORKER_PROMPTS.reply }],
+      reply: [{ title: '普通回复指令', text: WORKER_PROMPTS.reply },
+        { title: '渠道回复判断规则', text: replyDecisionInstructions }],
       ...worker?.(),
     };
   });

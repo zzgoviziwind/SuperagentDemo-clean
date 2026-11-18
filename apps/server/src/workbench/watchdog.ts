@@ -19,12 +19,12 @@ export function registerWatchdog(app: FastifyInstance, store: WorkbenchStore): v
     requireAdmin(request, '仅管理员可执行此操作');
     const id = integer(request.params.task_id, 'task_id');
     if (!store.row('tasks', 'id', id)) fail(404, '任务不存在');
+    const prior = store.rows('watchdog_runs', 'WHERE task_id=? ORDER BY created_at DESC', id);
+    if (active.has(id) || prior.some(row => row.status === 'running')) fail(409, '巡检正在执行');
+    if (prior.some(row => row.status === 'unknown')) fail(409, '历史巡检结果未知，需先人工核验');
     if (store.row('governance_settings', 'key', 'watchdog_enabled')?.value !== true) fail(409, 'Watchdog 尚未启用');
     const run = workbenchRuntime(app)?.runWatchdog;
     if (!run) fail(409, 'Watchdog 运行服务尚未接入');
-    const prior = store.rows('watchdog_runs', 'WHERE task_id=? ORDER BY created_at DESC', id);
-    if (active.has(id) || prior.some(row => row.status === 'running')) fail(409, '巡检正在执行');
-    if (prior[0]?.status === 'unknown') fail(409, '上次巡检结果未知，需先人工核验');
     let runId: string;
     active.add(id);
     try { runId = await run(id); }

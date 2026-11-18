@@ -28,14 +28,13 @@ export function registerAttachments(app:FastifyInstance,store:Storage,lease:Leas
   function sourceFailure(job:Row):SourceFailure|null {
     const name=job.source;
     if((name!=='redmine' && name!=='dingtalk') || !job.data || job.current_revision==null || job.enabled==null) return 'no_source';
-    if(!available(name) || configFor(name)?.enabled!==true) return 'disabled';
     const data=JSON.parse(String(job.data));
     const text=(v:unknown)=>typeof v==='string' && !!v.trim();
-    if(name==='redmine'){
-      return positiveId.safeParse(data?.issue_id).success && text(data.metadata?.redmine_endpoint)
-        && redmineAttachments.safeParse(data.attachments).success ? null : 'no_source';
-    }
-    return text(data?.thread_id) && text(data.metadata?.message_id) && text(data.metadata?.profile) ? null : 'no_source';
+    const hasSource=name==='redmine'
+      ? positiveId.safeParse(data?.issue_id).success && text(data.metadata?.redmine_endpoint) && redmineAttachments.safeParse(data.attachments).success
+      : text(data?.thread_id) && text(data.metadata?.message_id) && text(data.metadata?.profile);
+    if(!hasSource) return 'no_source';
+    return !available(name) || configFor(name)?.enabled!==true ? 'disabled' : null;
   }
   function settle(job:Row,results:Attachment[],error:string|null,code:SourceFailure|null=null,from:'pending'|'processing'='processing') {
     const {task_id:task,event_id:id,revision,control_version:control}=job,now=utc();

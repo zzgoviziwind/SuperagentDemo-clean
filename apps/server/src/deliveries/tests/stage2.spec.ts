@@ -339,6 +339,7 @@ test('HANDOFF-119 附件重试在 HTTP 返回前持久化 disabled 或 no_source
     try{
       db.prepare("UPDATE tasks SET status='paused' WHERE id=?").run(f.task);
       db.prepare("UPDATE events SET id=100, data=json_set(data,'$.metadata.redmine_endpoint',?) WHERE id=?").run(base,f.event);
+      if(reason==='disabled') db.prepare("UPDATE events SET data=json_set(data,'$.attachments',json(?)) WHERE id=100").run(JSON.stringify([{id:12}]));
       db.prepare("INSERT INTO event_attachment_jobs VALUES(100,?,1,1,'failed','[]')").run(f.task);
       db.prepare("INSERT INTO events(id,task_id,source,event_type,content,data,created_at) SELECT 101,task_id,source,event_type,content,data,created_at FROM events WHERE id=100").run();
       db.prepare("INSERT INTO event_attachment_jobs VALUES(101,?,1,1,'pending','[]')").run(f.task);

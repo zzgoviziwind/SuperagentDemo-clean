@@ -65,9 +65,10 @@ function route(db:DatabaseSync,e:Receipt,id:number,env:NodeJS.ProcessEnv) {
   const attempts=Array.isArray(prior._lifecycle)?prior._lifecycle:[];
   const started=utc();
   const checks:Record<string,unknown>={};
-  const detail:Record<string,unknown>={rule_set:'ingestion-v4',checks,authorization:{status:'not_evaluated'},settings_provider:'database',input:{source:e.source,event_type:e.event_type,
+  const conversationType=e.source==='dingtalk' ? e.metadata.conversation_type??null : null;
+  const detail:Record<string,unknown>={conversation_type:conversationType,rule_set:'ingestion-v4',checks,authorization:{status:'not_evaluated'},settings_provider:'database',input:{source:e.source,event_type:e.event_type,
     actor_id:e.actor_id??null,thread_id:e.thread_id??null,project_external_id:e.project_external_id??null,content_length:Array.from(e.content).length,
-    at_me:e.metadata.at_me??null,needs_confirmation:e.metadata.needs_confirmation??null,uncertain_mentions:e.metadata.uncertain_mentions??null}};
+    conversation_type:conversationType,at_me:e.metadata.at_me??null,needs_confirmation:e.metadata.needs_confirmation??null,uncertain_mentions:e.metadata.uncertain_mentions??null}};
   const steps=new Map<string,{status:string;reason:string;detail:unknown}>();
   const step=(stage:string,status:string,reason:string,info:unknown=null)=>steps.set(stage,{status,reason,detail:info});
   step('trigger','passed','event_received');
@@ -82,7 +83,8 @@ function route(db:DatabaseSync,e:Receipt,id:number,env:NodeJS.ProcessEnv) {
     const stages=['trigger','fast_filter','slow_filter','subscription','router','worker','delivery','watchdog'].map(stage=>{
       const later=['worker','delivery','watchdog'].includes(stage);
       return {stage,...(steps.get(stage)??{status:later?'unknown':'skipped',reason:later?'not_recorded_in_routing_attempt':
-        stage==='slow_filter'?'semantic_filter_disabled_or_fastpath':'stage_not_reached',detail:null}),at};
+        stage==='slow_filter'?'semantic_filter_disabled_or_fastpath':'stage_not_reached',
+        detail:stage==='slow_filter'?{semantic_routing_enabled:cfg.semantic_routing_enabled===true}:null}),at};
     });
     const data={...prior,...e,routing_status:status,routing_reason:reason,...extra,
       _lifecycle:[...attempts,{attempt:attempts.length+1,started_at:started,steps:stages}]};
@@ -116,11 +118,21 @@ function route(db:DatabaseSync,e:Receipt,id:number,env:NodeJS.ProcessEnv) {
   checks.response_policy={rule:'dingtalk_response_scope',status:e.source==='dingtalk'?'evaluated':'not_applicable',allowed:detail.policy_allowed};
   if(!policyAllowed) return set('ignored','message_response_policy_off_or_scope');
   const field=e.source==='dingtalk'?'dingtalk_chat_ids':'redmine_project_ids';
-  let projects=db.prepare('SELECT id,enabled FROM projects WHERE archived=0 AND EXISTS (SELECT 1 FROM json_each('+field+') WHERE CAST(value AS TEXT)=?)').all(e.project_external_id??'');
-  if(!projects.length && direct && policy.default_project_id) projects=db.prepare('SELECT id,enabled FROM projects WHERE id=? AND archived=0').all(policy.default_project_id);
+  const externalProjects=db.prepare('SELECT id,name,enabled FROM projects WHERE archived=0 AND EXISTS (SELECT 1 FROM json_each('+field+') WHERE CAST(value AS TEXT)=?)').all(e.project_external_id??'');
+  let projects=externalProjects;
+  let selectionSource='external_binding';
+  if(!projects.length && direct && policy.default_project_id) {
+    projects=db.prepare('SELECT id,name,enabled FROM projects WHERE id=? AND archived=0').all(policy.default_project_id);
+    selectionSource='default_project';
+  }
   let clarification=false;
-  if(access) ({projects,clarification}=selectAdmissionProject(db,id,e,access,candidates??[]));
-  detail.project_candidates=projects.map(p=>({id:p.id,enabled:!!p.enabled}));
+  if(access) {
+    ({projects,clarification}=selectAdmissionProject(db,id,e,access,candidates??[]));
+    selectionSource='dingtalk_access_policy';
+  }
+  detail.external_project_candidates=externalProjects.map(p=>Number(p.id));
+  detail.project_selection_source=selectionSource;
+  detail.project_candidates=projects.map(p=>({id:p.id,name:p.name??db.prepare('SELECT name FROM projects WHERE id=?').get(p.id)?.name,enabled:!!p.enabled}));
   checks.project_binding={rule:'single_enabled_project',allowed:projects.length===1&&!!projects[0].enabled};
   if(projects.length!==1 || !projects[0].enabled) {
     pending('project_binding_missing_ambiguous_or_disabled');
@@ -228,7 +240,7 @@ function route(db:DatabaseSync,e:Receipt,id:number,env:NodeJS.ProcessEnv) {
   }
   if(latest.size>1) return pending('conflicting_task_references');
   let task=latest.size?db.prepare('SELECT * FROM tasks WHERE id=? AND project_id=?').get([...latest][0],project):undefined;
-  step('subscription','passed',task?'existing_task_matched':'no_existing_task',{candidate_task_ids:[...targets],selected_task_id:task?.id??null});
+  step('subscription','passed',task?'existing_task_matched':'no_existing_task',{reference_types:[...(issues.size?['issue']:[]),...(replyKey?['reply']:[])],candidate_task_ids:[...targets],selected_task_id:task?.id??null});
   if(task) {
     const holds=evaluateRules(db,e.source,project,String(task.kind),e);
     if(holds.has('pause')||holds.has('quiet')) return pending('private_policy_hold');
