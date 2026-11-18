@@ -6,6 +6,7 @@ import { MessageRecords } from './MessageRecords';
 import { ConversationContent } from './ConversationContent';
 import { ProjectWorkspaceFields } from './ProjectWorkspaceFields';
 import { GroupedEvents } from "./GroupedEvents";
+import { FieldImplementation, FieldIntake } from "./FieldIntake";
 import { EventGroupDiagnostics } from "./EventGroups";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -562,6 +563,10 @@ export function App() {
   ) : null;
   const eventOperations = task && detail ? (
           <>
+            {isAdmin && task.kind === 'analysis' && ['review_ready', 'completed'].includes(task.status) &&
+              !task.outcome_unknown && detail.events.some(e => e.source === 'field' && e.event_type === 'message.received') &&
+              <FieldImplementation key={`${task.id}:${task.state_version}`} id={String(task.id)} version={task.state_version}
+                onOpen={id => void openTask(String(id))} />}
             <div className="detail-grid">
               <section aria-label="执行审批">
                 {
@@ -742,7 +747,7 @@ export function App() {
       <aside className="ide-rail">
         <nav aria-label="主导航">
           {[
-            { title: "工作空间", items: [["事件中心", "事件"], ["Worker 工作台", "Worker"]] },
+            { title: "工作空间", items: [["事件中心", "事件"], ["Worker 工作台", "Worker"], ...(isAdmin ? [["现场记录", "现场"]] : [])] },
             { title: "配置与连接", items: [["项目设置", "项目"], ...(isAdmin ? [["事件规则", "规则"], ["管理设置", "设置"]] : []), ["运行状态", "状态"]] },
           ].map(group => <div className="ide-tool-group" role="group" aria-label={group.title} key={group.title}>
             {group.items.map(([item, label]) => <button type="button" key={item} title={item} aria-label={item}
@@ -1018,6 +1023,10 @@ export function App() {
             onOpenTask={(id) => void openTask(id)}
           />
         )}
+        {page === '现场记录' && isAdmin && <FieldIntake projects={projects.map(p => ({ id: p.id, name: p.name, enabled: p.enabled }))} onOpen={id => {
+          setEventScope({ status: '', project: '' });
+          void openTask(String(id));
+        }} />}
         {page === "事件中心" && user && (
             <GroupedEvents key={eventHomeVersion} taskDetail={detail} initialGroupId={focusedGroup} operations={eventOperations} reply={eventReply} replySnapshot={replySnapshot} operationsId={task ? String(task.id) : undefined}
               initialScope={eventScope} onScopeChange={setEventScope} projects={projects} canManage={isAdmin}

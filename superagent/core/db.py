@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timezone
-from sqlalchemy import create_engine, String, Integer, Text, JSON, UniqueConstraint
+from sqlalchemy import create_engine, String, Integer, Text, JSON, Index, UniqueConstraint, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 
@@ -69,6 +69,76 @@ class Artifact(Base):
     kind: Mapped[str] = mapped_column(String(80))
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[str] = mapped_column(String(40), default=now)
+    attempt_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+ACTIVE_ATTEMPT_STATUSES = ('claimed', 'running', 'waiting_approval')
+_active_attempt = text("status IN ('claimed', 'running', 'waiting_approval')")
+
+class ExecutionAttempt(Base):
+    __tablename__ = 'execution_attempts'
+    __table_args__ = (
+        UniqueConstraint('task_id', 'attempt_no'),
+        Index('ix_execution_attempts_task_status', 'task_id', 'status'),
+        Index('uq_execution_attempts_active_task', 'task_id', unique=True,
+              sqlite_where=_active_attempt, postgresql_where=_active_attempt),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[int] = mapped_column(Integer)
+    attempt_no: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32))
+    phase: Mapped[str] = mapped_column(String(32))
+    owner: Mapped[str] = mapped_column(String(36))
+    revision: Mapped[int] = mapped_column(Integer)
+    control_version: Mapped[int] = mapped_column(Integer)
+    thread_id: Mapped[str | None] = mapped_column(String(200))
+    turn_id: Mapped[str | None] = mapped_column(String(200))
+    manifest_id: Mapped[int | None] = mapped_column(Integer)
+    workspace_path: Mapped[str | None] = mapped_column(Text)
+    base_sha: Mapped[str | dict | None] = mapped_column(JSON(none_as_null=True))
+    started_at: Mapped[str | None] = mapped_column(String(40))
+    updated_at: Mapped[str] = mapped_column(String(40), default=now)
+    ended_at: Mapped[str | None] = mapped_column(String(40))
+    last_error: Mapped[str | None] = mapped_column(Text)
+
+class ControllerLease(Base):
+    __tablename__ = 'controller_leases'
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(36))
+    epoch: Mapped[int] = mapped_column(Integer)
+    heartbeat_at: Mapped[str] = mapped_column(String(40))
+    expires_at: Mapped[str] = mapped_column(String(40))
+
+class Decision(Base):
+    __tablename__ = 'decisions'
+    __table_args__ = (Index('ix_decisions_scope_status', 'project_id', 'task_id', 'status'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(Integer)
+    task_id: Mapped[int | None] = mapped_column(Integer)
+    event_id: Mapped[int | None] = mapped_column(Integer)
+    kind: Mapped[str] = mapped_column(String(20))
+    content: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default='active')
+    superseded_by: Mapped[int | None] = mapped_column(Integer)
+    revision: Mapped[int | None] = mapped_column(Integer)
+    actor: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[str] = mapped_column(String(40), default=now)
+    revoked_at: Mapped[str | None] = mapped_column(String(40))
+    revoked_by: Mapped[str | None] = mapped_column(String(200))
+    revocation_reason: Mapped[str | None] = mapped_column(Text)
+
+class ContextManifest(Base):
+    __tablename__ = 'context_manifests'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    attempt_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    task_id: Mapped[int] = mapped_column(Integer, index=True)
+    project_id: Mapped[int] = mapped_column(Integer)
+    revision: Mapped[int] = mapped_column(Integer)
+    control_version: Mapped[int] = mapped_column(Integer)
+    thread_id: Mapped[str] = mapped_column(String(200))
+    turn_id: Mapped[str | None] = mapped_column(String(200))
+    budget_chars: Mapped[int] = mapped_column(Integer)
+    items: Mapped[list] = mapped_column(JSON)
+    created_at: Mapped[str] = mapped_column(String(40), default=now)
 
 class Approval(Base):
     __tablename__ = 'approvals'
@@ -107,6 +177,17 @@ def init_db():
             conn.execute(text("ALTER TABLE tasks ADD COLUMN owner_id VARCHAR(200) NOT NULL DEFAULT 'local-admin'"))
         if 'outcome_unknown' not in columns:
             conn.execute(text("ALTER TABLE tasks ADD COLUMN outcome_unknown BOOLEAN NOT NULL DEFAULT false"))
+    with engine.begin() as conn:
+        artifacts = {c['name'] for c in inspect(conn).get_columns('artifacts')}
+        if 'attempt_id' not in artifacts:
+            conn.execute(text("ALTER TABLE artifacts ADD COLUMN attempt_id VARCHAR(36)"))
+        attempts = {c['name'] for c in inspect(conn).get_columns('execution_attempts')}
+        if 'manifest_id' not in attempts:
+            conn.execute(text("ALTER TABLE execution_attempts ADD COLUMN manifest_id INTEGER"))
+        if inspect(conn).has_table('delivery_records'):
+            delivery = {c['name'] for c in inspect(conn).get_columns('delivery_records')}
+            if 'claim_token' not in delivery:
+                conn.execute(text("ALTER TABLE delivery_records ADD COLUMN claim_token VARCHAR(36)"))
 
 def dump(obj):
     return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}

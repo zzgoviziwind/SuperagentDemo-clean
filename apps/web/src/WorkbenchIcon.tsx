@@ -1,5 +1,6 @@
 const paths: Record<string, string> = {
   "事件中心": "M5 3h14v18H5z M8 8h8 M8 12h8 M8 16h5",
+  "现场记录": "M5 4h14v16H5z M8 8h8 M8 12h5 M8 16h8",
   "Worker 工作台": "M4 5h16v14H4z M7 9l3 3-3 3 M12 15h5",
   "项目设置": "M3 7V5h7l2 2h9v12H3z",
   "事件规则": "M4 6h16 M4 12h16 M4 18h16 M8 4v4 M16 10v4 M10 16v4",

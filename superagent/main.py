@@ -1,13 +1,17 @@
 import asyncio
+import logging
 import os
+import uuid
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, or_, select, update
 from sqlalchemy.exc import IntegrityError
-from superagent.core.db import Session, Project, Task, Event, Artifact, Approval, dump, init_db, now
-from superagent.core.scheduler import scheduler
+from superagent.core.db import Session, Project, Task, Event, Artifact, Approval, ExecutionAttempt, dump, init_db, now
+from superagent.core import execution
+from superagent.core.scheduler import RunDeadlineExceeded, before_deadline, check_deadline, scheduler
+from superagent.core.delivery import delivery_loop, recover_claimed, worker_enabled
 from superagent.core import governance as gov
 from superagent.core.connections import manager
 from superagent.api.governance import router as governance_router
@@ -19,6 +23,7 @@ from superagent.core.router_agent import router_agent
 from superagent.api.routing import router as routing_router
 from superagent.core.semantic_routing import semantic_routing_service
 from superagent.api.operations import router as operations_router, operations
+from superagent.api.context import router as context_router
 from superagent.api.conversation_providers import router as conversation_providers_router
 from superagent.api.local_agents import router as local_agents_router
 from superagent.core import feishu_decisions
@@ -27,16 +32,46 @@ from superagent.core.feishu_cards import CardApprovals
 @asynccontextmanager
 async def lifespan(app):
     init_db()
+    if not execution.enabled():
+        async with _service_lifespan():
+            yield
+        return
+    lease = execution.ControllerLease(str(uuid.uuid4()), Session)
+    lease.acquire()
+    scheduler.owner = lease.owner
+    scheduler.lease = lease
+    heartbeat = asyncio.create_task(lease.heartbeat(scheduler.close))
+    try:
+        async with _service_lifespan():
+            yield
+    finally:
+        try:
+            if scheduler.loop_task:
+                await scheduler.close()
+        finally:
+            heartbeat.cancel()
+            await asyncio.gather(heartbeat, return_exceptions=True)
+            scheduler.lease = None
+            lease.release()
+
+
+@asynccontextmanager
+async def _service_lifespan():
     # A previous process may have died mid-turn or before recording a requested stop.
     # Neither case proves that execution has stopped; recover through reconciliation.
     with Session.begin() as s:
-        s.execute(update(Task).where(or_(
-            Task.status.in_(['running', 'waiting_approval']),
-            and_(Task.status == 'waiting_resource', Task.last_error == '正在停止执行'),
-        )).values(status='waiting_resource', outcome_unknown=True, last_error='服务重启，运行结果未知，请人工对账', updated_at=now(), state_version=Task.state_version + 1))
+        if scheduler.lease:
+            scheduler.lease.check(s)
+            execution.recover_startup(s)
+        else:
+            s.execute(update(Task).where(or_(
+                Task.status.in_(['running', 'waiting_approval']),
+                and_(Task.status == 'waiting_resource', Task.last_error == '正在停止执行'),
+            )).values(status='waiting_resource', outcome_unknown=True, last_error='服务重启，运行结果未知，请人工对账', updated_at=now(), state_version=Task.state_version + 1))
         s.execute(update(RouterSession).where(RouterSession.status == 'running').values(status='waiting_resource', outcome_unknown=True, last_error='服务重启，Router 结果未知，请核验', updated_at=now(), state_version=RouterSession.state_version + 1))
         for message in s.scalars(select(RouterMessage).where(RouterMessage.data['status'].as_string().in_(['queued', 'running']))):
             message.data = {**message.data, 'status': 'unknown'}
+    recover_claimed(session_factory=Session, exclusive=scheduler.lease is not None)
     # Recover daemon leases before the scheduler can create new operations.
     await operations.start()
     await scheduler.start()
@@ -51,9 +86,22 @@ async def lifespan(app):
         cards.start()
     elif feishu_config:
         reminders = asyncio.create_task(feishu_decisions.run(Session, scheduler, feishu_config))
+    delivery_task = (asyncio.create_task(delivery_loop(session_factory=Session, lease=scheduler.lease))
+                     if worker_enabled() else None)
+    from superagent.core.field_media import media_loop
+    media_task = asyncio.create_task(media_loop())
     try:
         yield
     finally:
+        media_task.cancel()
+        await asyncio.gather(media_task, return_exceptions=True)
+        if delivery_task:
+            delivery_task.cancel()
+            done, _ = await asyncio.wait({delivery_task}, timeout=5)
+            if not done:
+                logging.warning('自动交付循环停止未确认，派发中账本需对账')
+        if scheduler.lease:
+            await scheduler.close()
         if cards:
             await cards.close()
         if reminders:
@@ -65,7 +113,8 @@ async def lifespan(app):
             await operations.close()
             await semantic_routing_service.close()
             await router_agent.close()
-            await scheduler.close()
+            if not scheduler.lease:
+                await scheduler.close()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -269,6 +318,8 @@ async def rebind_task_project(ident: int, body: ProjectRebindIn, request: Reques
                 raise HTTPException(409, '目标项目不可用')
             if t.project_id == p.id:
                 return dump(t)
+            if s.scalar(select(Event.id).where(Event.task_id == ident, Event.source == 'field').limit(1)):
+                raise HTTPException(409, '含现场证据的事件不能更换项目')
             if (t.outcome_unknown or t.status not in ('paused', 'waiting_input', 'review_ready', 'failed')
                     or ident in scheduler.active or ident in scheduler.clients or ident in scheduler.tests):
                 raise HTTPException(409, '请先停止执行并核验状态再更换项目')
@@ -327,13 +378,18 @@ async def message(ident: int, body: MessageIn, request: Request):
             if live:
                 try:
                     if not client or not thread or not turn: raise RuntimeError('当前运行尚未准备好接收消息')
-                    await client.steer_turn(thread,turn,body.content)
-                except Exception:
+                    await before_deadline(scheduler.deadlines.get(ident), client.steer_turn, thread, turn, body.content)
+                except Exception as exc:
                     with Session.begin() as s:
                         t=s.get(Task,ident)
                         if t.status in ('running','waiting_approval'):
-                            advance(s,t,{'status':'waiting_input','control_version':t.control_version+1,'last_error':'补充消息已保存，但未确认送达执行会话；请恢复任务'})
-                            s.execute(update(Approval).where(Approval.task_id==ident,Approval.status=='pending').values(status='expired'))
+                            if isinstance(exc, RunDeadlineExceeded):
+                                advance(s, t, {'status': 'waiting_resource', 'outcome_unknown': True,
+                                               'control_version': t.control_version + 1, 'last_error': str(exc)})
+                                execution.expire_worker_approvals(s, ident, 'expired', states=('pending',))
+                            else:
+                                advance(s,t,{'status':'waiting_input','control_version':t.control_version+1,'last_error':'补充消息已保存，但未确认送达执行会话；请恢复任务'})
+                                s.execute(update(Approval).where(Approval.task_id==ident,Approval.status=='pending').values(status='expired'))
                             record(s,ident,'steer_unconfirmed'); stop_after_failure=True
         if stop_after_failure: asyncio.create_task(scheduler.stop_run(ident,'change_goal'))
     return result
@@ -471,7 +527,21 @@ async def _decide_worker_approval(ident, decision, action_hash, principal):
                 raise HTTPException(409, '任务负责人已变化或执行状态需核对')
             if a.action.get('method') not in ('item/fileChange/requestApproval','item/commandExecution/requestApproval'):
                 raise HTTPException(409,'请从回复草稿处理这项外部发送审批')
+            if a.status == 'expired_on_restart':
+                raise HTTPException(409, '服务重启后旧审批已过期，请重新发起执行和审批')
             if a.status!='pending' or a.action_hash!=action_hash or a.revision!=t.revision or a.control_version!=t.control_version or t.status!='waiting_approval': raise HTTPException(409,'审批已过期或动作不匹配')
+            attempt_id = scheduler.attempt_ids.get(task_id)
+            if execution.enabled():
+                attempt = s.get(ExecutionAttempt, attempt_id) if attempt_id else None
+                if (not attempt or attempt.owner != scheduler.owner or attempt.status != 'waiting_approval'
+                        or attempt.revision != t.revision or attempt.control_version != t.control_version
+                        or a.action.get('attempt_id') != attempt_id):
+                    raise HTTPException(409, '当前执行尝试已失效，请重新发起审批')
+                if scheduler.lease:
+                    try:
+                        scheduler.lease.check(s)
+                    except execution.OwnershipLost:
+                        raise HTTPException(409, '控制器租约已失效，请核验执行状态') from None
             if decision=='approve':
                 if t.kind in ('analysis','reply'): raise HTTPException(409,'只读分析或回复不允许批准扩大执行权限，请拒绝该请求')
                 from pathlib import Path
@@ -493,34 +563,61 @@ async def _decide_worker_approval(ident, decision, action_hash, principal):
                     raise HTTPException(409,'项目已禁用或审批超出当前允许范围，请拒绝或重新发起') from None
             client=scheduler.clients.get(task_id)
             if not client: raise HTTPException(409,'执行会话不可用，请人工对账')
+            deadline = scheduler.deadlines.get(task_id)
+            if attempt_id:
+                try:
+                    check_deadline(deadline)
+                except RunDeadlineExceeded:
+                    raise HTTPException(409, '运行已超过绝对期限，请核验任务状态') from None
+                if not scheduler.approval_slot_available(task_id):
+                    raise HTTPException(409, '执行槽暂满，审批仍待处理，请稍后再提交')
             a.status='dispatching'; request_id=a.action['request_id']
             approval_revision=a.revision; approval_control=a.control_version
-            record(s,t.id,'approval_decision',decision,{'approval_id':ident})
+            trace = {'approval_id': ident}
+            if attempt_id:
+                trace['attempt_id'] = attempt_id
+            record(s,t.id,'approval_decision',decision,trace)
             gov.audit_action(s,principal,'approval.decide',ident,{'approval_id':ident,'decision':decision,'revision':t.revision,'source':'feishu' if principal.authentication == 'feishu' else 'web'})
+        if attempt_id:
+            scheduler.executing.add(task_id)
         try:
-            await client.respond_approval(request_id,decision)
-        except Exception:
+            await before_deadline(deadline, client.respond_approval, request_id, decision)
+        except (Exception, asyncio.CancelledError) as exc:
+            if isinstance(exc, asyncio.CancelledError) and not attempt_id:
+                raise
             with Session.begin() as s:
-                a=s.get(Approval,ident); t=s.get(Task,task_id); a.status='unknown'
-                values={'outcome_unknown':True,'last_error':'审批响应结果未知，请人工对账'}
+                a=s.get(Approval,ident); t=s.get(Task,task_id)
+                if a.status == 'expired_on_restart':
+                    raise HTTPException(409, '服务重启后旧审批已过期，请重新发起执行和审批') from None
+                a.status='unknown'
+                detail = str(exc) if isinstance(exc, RunDeadlineExceeded) else '审批响应结果未知，请人工对账'
+                values={'outcome_unknown':True,'last_error':detail}
                 if t.revision==approval_revision and t.control_version==approval_control and t.status=='waiting_approval':
                     values['status']='waiting_resource'
                 advance(s,t,values)
-                record(s,task_id,'approval_response_unknown',data={'approval_id':ident,'revision':approval_revision})
+                record(s,task_id,'approval_response_unknown',data={**trace,'revision':approval_revision})
+            if isinstance(exc, asyncio.CancelledError):
+                raise
             raise HTTPException(503,'审批响应结果未知，请人工对账')
         with Session.begin() as s:
             a=s.get(Approval,ident); t=s.get(Task,task_id)
             stale=t.revision!=approval_revision or t.control_version!=approval_control or t.status!='waiting_approval' or a.status!='dispatching'
             if stale:
-                a.status='expired_after_dispatch'
-                record(s,task_id,'stale_approval_dispatched',decision,{'approval_id':ident,'revision':approval_revision})
+                if a.status != 'expired_on_restart':
+                    a.status='expired_after_dispatch'
+                record(s,task_id,'stale_approval_dispatched',decision,{**trace,'revision':approval_revision})
             else:
                 a.status='approved' if decision=='approve' else 'rejected'
                 s.flush()
                 remaining=any(x.action.get('method') in ('item/fileChange/requestApproval','item/commandExecution/requestApproval') for x in s.scalars(select(Approval).where(Approval.task_id==task_id, Approval.revision==t.revision, Approval.control_version==t.control_version, Approval.status=='pending')))
                 advance(s,t,{'status':'waiting_approval' if remaining else 'running'})
+                if attempt_id and not remaining:
+                    if not execution.set_attempt(s, attempt_id, scheduler.owner, status='running', phase='turn'):
+                        raise HTTPException(409, '执行尝试已失效，请核验审批响应')
             result=dump(a)
         if stale: raise HTTPException(409,'审批发送期间需求已变化，旧响应已归档，请核验新任务状态')
+        if attempt_id:
+            scheduler.finish_approval_wait(task_id, remaining)
         return result
 @app.get('/api/v1/artifacts/{ident}')
 def artifact(ident: int):
@@ -569,10 +666,15 @@ app.include_router(lifecycle_router)
 app.include_router(sessions_router)
 app.include_router(routing_router)
 app.include_router(operations_router)
+app.include_router(context_router)
 app.include_router(conversation_providers_router)
 app.include_router(local_agents_router)
 from superagent.api.event_groups import router as event_groups_router
 app.include_router(event_groups_router)
+from superagent.api.field_intake import router as field_intake_router
+app.include_router(field_intake_router)
+from superagent.api.field_media import router as field_media_router
+app.include_router(field_media_router)
 
 # Serve the built workspace only when it exists; API routes always take precedence.
 from pathlib import Path

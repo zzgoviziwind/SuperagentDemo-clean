@@ -8,9 +8,21 @@ import { reasonText } from './InboxPanel';
 import { ProcessingResults } from './ProcessingResults';
 import { ConversationContent } from './ConversationContent';
 import { EventTriage, triageReason } from './EventTriage';
+import { FieldTranscript, fieldTime } from './FieldTranscript';
 import { eventBuckets, eventStates, type EventBucket, type EventState, type EventScope } from './eventState';
 type Row = Record<string, any>;
-const sourceName = (s:string) => ({dingtalk:'钉钉',redmine:'Redmine',web:'工作台'} as Row)[s] ?? s;
+const sourceName = (s:string) => ({dingtalk:'钉钉',redmine:'Redmine',web:'工作台',field:'现场'} as Row)[s] ?? s;
+
+function FieldEvidence({ message }: { message: Row }) {
+  const id = message.data?.field_record_id;
+  if (message.source !== 'field' || !id) return null;
+  return <>{(message.data.field_evidence ?? []).filter((ref: Row) => Number.isInteger(ref.start_ms) && Number.isInteger(ref.end_ms))
+    .map((ref: Row) => <FieldTranscript key={ref.id} recordId={id} segmentId={ref.id} start_ms={ref.start_ms} end_ms={ref.end_ms}
+      media={message.data.field_media} />)}
+    {(message.data?.screenshots ?? []).map((image: { id: number; filename: string; at_ms?: number }) =>
+    <a className="field-evidence" key={image.id} target="_blank" rel="noreferrer"
+      href={`/api/v1/field-intake/records/${encodeURIComponent(id)}/screenshots/${image.id}`}>截图 {image.id}{image.at_ms !== undefined && ` · ${fieldTime(image.at_ms)}`} · {image.filename}</a>)}</>;
+}
 const groupStateName = (group: Row) => group.kind === 'reply' && group.processing_status === 'review_ready'
   ? group.reply_decision === 'skip' ? '无需回复' : '回复判断已完成'
   : stateName(group.processing_status);
@@ -81,6 +93,7 @@ type DetailTab = typeof detailTabs[number];
 
 function eventCardTitle(group: Row | undefined, lead: Row | undefined, messages: Row[]): string {
   const saved = readableMessage(group?.title);
+  if (saved && lead?.source === 'field') return saved;
   const sourceText = readableMessage(lead?.content);
   const original = sourceText.replace(/^(?:@[^\s@]+\s+)+/u, '') || sourceText;
   const rawFallback = !saved || sourceText.startsWith(saved);
@@ -656,7 +669,7 @@ export function GroupedEvents({
             <button type="button" data-concealed={!showReset} disabled={busy || !showReset} onClick={resetConditions}>重置条件</button>
           </div>
           <div id={filtersId} className="event-list-filters" hidden={!filtersOpen}>
-            <label>来源<select disabled={busy} value={source} onChange={e=>changeFilter(setSource,e.target.value)}><option value="">全部来源</option><option value="dingtalk">钉钉</option><option value="redmine">Redmine</option><option value="web">工作台</option></select></label>
+            <label>来源<select disabled={busy} value={source} onChange={e=>changeFilter(setSource,e.target.value)}><option value="">全部来源</option><option value="dingtalk">钉钉</option><option value="redmine">Redmine</option><option value="web">工作台</option><option value="field">现场</option></select></label>
             {!!projects.length && <label>项目范围<select disabled={busy} value={project} onChange={e=>{
               changeFilter(setProject,e.target.value);
               onScopeChange?.({status,project:e.target.value});
@@ -793,6 +806,7 @@ export function GroupedEvents({
           if (hasChat && !chat && !issueId) return <li key={m.id} className="event-chat-secondary">
             <details><summary>{m.event_type === 'project_rebound' ? '项目调整' : local ? '补充给 Agent' : sourceName(m.source)} · {time}</summary>
               <ConversationContent content={m.content} />
+              <FieldEvidence message={m} />
             </details>
           </li>;
           return <li key={m.id} className={chat ? `event-chat-message${own ? ' event-chat-own' : ''}` : 'event-chat-secondary'}>
@@ -804,6 +818,7 @@ export function GroupedEvents({
                 {own ? '本账号发言' : local ? (m.event_type === 'project_rebound' ? '项目调整' : '补充给 Agent') : (({resolved:'已解决',dismissed:'无需处理',pending:'待核验'} as Row)[resolution]??eventStates[messageState as EventState])}</span></div>}
             <div className={chat ? 'event-chat-bubble' : undefined}><ConversationContent content={chat && typeof m.content === 'string'
               ? m.content.replace(/\[图片消息\]\s*\(mediaId=[^)]*\)/gi, '[图片消息]') : m.content}/></div>
+            <FieldEvidence message={m} />
             {chat && !own && <span className="badge event-state-badge" data-state={messageState}>
               {({resolved:'已解决',dismissed:'无需处理',pending:'待核验'} as Row)[resolution] ?? eventStates[messageState as EventState]}
             </span>}

@@ -37,6 +37,17 @@ class OperationsService:
 operations = OperationsService()
 
 
+@router.get('/tasks/{task_id}/attempts')
+def list_attempts(task_id: int, principal=Depends(gov.authenticate_request)):
+    with db.Session() as session:
+        if session.get(db.Task, task_id) is None:
+            raise HTTPException(404, '任务不存在')
+        gov.require_permission(principal, 'task.control', gov.task_owner(task_id, session))
+        attempts = session.scalars(select(db.ExecutionAttempt).where(
+            db.ExecutionAttempt.task_id == task_id).order_by(db.ExecutionAttempt.attempt_no))
+        return {'items': [db.dump(attempt) for attempt in attempts]}
+
+
 @router.get('/nodes', dependencies=[Depends(admin)])
 def list_nodes():
     with db.Session() as session:

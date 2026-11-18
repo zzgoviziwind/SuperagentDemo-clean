@@ -13,6 +13,7 @@ def prepare(state):
     state = Path(state).resolve()
     state.mkdir(parents=True, exist_ok=True)
     os.environ['SUPERAGENT_DATABASE_URL'] = 'sqlite:///' + (state / 'preview.db').as_posix()
+    os.environ['SUPERAGENT_ATTACHMENTS_ROOT'] = str(state / 'attachments')
     # A preview is local only and intentionally disconnected from accounts/channels.
     for name in ('SUPERAGENT_API_TOKEN', 'SUPERAGENT_USERS_JSON', 'SUPERAGENT_DINGTALK_CONFIG',
                  'SUPERAGENT_REDMINE_CONFIG', 'SUPERAGENT_CODEX_EXECUTABLE'):

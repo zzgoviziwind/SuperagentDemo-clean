@@ -1,17 +1,35 @@
 """Reply drafts, explicit approval, and crash-safe external action accounting."""
 
-import os
+import asyncio
 import json
+import logging
+import os
+import uuid
 from contextlib import nullcontext
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import Integer, JSON, String, Text, UniqueConstraint, or_, select
+from sqlalchemy import Integer, JSON, String, Text, UniqueConstraint, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, mapped_column
 
 from superagent.connectors.common import AuthorizedAction, digest, preview
 from .connections import get_config
 from .db import Approval, Base, Event, Session, Task, dump, now
+
+CLAIM_MAX_AGE = 30
+DISPATCH_MAX_AGE = 120
+
+
+def worker_enabled():
+    return os.getenv('SUPERAGENT_DELIVERY_MODE', 'inline') == 'worker'
+
+
+def ledger_v2_enabled():
+    return os.getenv('SUPERAGENT_LEDGER_MODE', 'v1') == 'v2'
+
+
+def _cutoff(seconds):
+    return (datetime.now(timezone.utc) - timedelta(seconds=seconds)).isoformat()
 
 
 class ReplyDraft(Base):
@@ -30,6 +48,7 @@ class DeliveryRecord(Base):
     action_hash: Mapped[str] = mapped_column(String(64))
     result: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[str] = mapped_column(String(40), default=now)
+    claim_token: Mapped[str | None] = mapped_column(String(36))
 
 
 class DeliveryEchoBinding(Base):
@@ -94,7 +113,7 @@ def recognize_redmine_echo(session, event, *, settings=None):
                 or approval.action.get("payload", {}).get("content") != event.content or draft.content != event.content
                 or record.action_hash != approval.action_hash or record.result.get("sender_actor_id") != actor_id
                 or record.action_hash != preview("redmine", "comment", target, {"content": event.content})["action_hash"]
-                or record.result.get("write_status") not in {"succeeded", "unknown"}):
+                or record.result.get("write_status") not in {"succeeded", "unknown", "dispatching"}):
             continue
         if bound and bound.action_id != record.action_id:
             continue
@@ -102,7 +121,8 @@ def recognize_redmine_echo(session, event, *, settings=None):
         if other and other.journal_key != journal_key:
             continue
         try:
-            claimed = datetime.fromisoformat(record.created_at.replace("Z", "+00:00"))
+            sent_at = record.result.get("dispatching_at") or record.created_at
+            claimed = datetime.fromisoformat(sent_at.replace("Z", "+00:00"))
             elapsed = (occurred - claimed).total_seconds()
         except (TypeError, ValueError):
             continue
@@ -111,14 +131,14 @@ def recognize_redmine_echo(session, event, *, settings=None):
         clock_skew_overlap = -30 <= elapsed < 0
         if not 0 <= elapsed <= 120 and not clock_skew_overlap:
             continue
-        candidate = record.result["write_status"] == "unknown" or clock_skew_overlap
+        candidate = record.result["write_status"] in {"unknown", "dispatching"} or clock_skew_overlap
         status = "self_echo_candidate" if candidate else "self_echo"
         reason = "matched_successful_write"
         if clock_skew_overlap:
             reason = "source_clock_skew_overlap"
         if coarse_overlap:
             reason = "source_second_precision_overlap"
-        if record.result["write_status"] == "unknown":
+        if record.result["write_status"] in {"unknown", "dispatching"}:
             reason = "write_outcome_unknown"
         if not bound:
             session.add(DeliveryEchoBinding(journal_key=journal_key, action_id=record.action_id, event_id=event.id))
@@ -154,7 +174,7 @@ def _check_delivery_policy(session, source, settings):
             raise PermissionError('当前钉钉策略为仅生成草稿，请选择批准后发送并逐条审批')
 
 
-def _check_automatic_authorization(session, draft, settings):
+def _check_automatic_authorization(session, draft, settings, *, action_id=None):
     source_event = _get(session, Event, draft.event_id)
     if not reply_source_allowed(session, source_event, draft.task_id):
         raise PermissionError('该来源的回复权限已变化，请检查人员与项目规则')
@@ -164,7 +184,7 @@ def _check_automatic_authorization(session, draft, settings):
         task = _get(session, Task, draft.task_id)
         decision = current_reply_decision(session, task)
         if (not decision or decision.data.get('draft_id') != draft.id
-                or not automatic_reply_allowed(session, task, source_event, decision, settings)):
+                or not automatic_reply_allowed(session, task, source_event, decision, settings, action_id=action_id)):
             raise PermissionError('自动交付策略已变化，请核对当前规则')
 
 
@@ -243,7 +263,7 @@ def retire_automatic_draft(session, task, source, decision, approval, policy):
     return True
 
 
-def automatic_reply_allowed(session, task, source, decision, settings):
+def automatic_reply_allowed(session, task, source, decision, settings, *, action_id=None):
     from .event_rules import evaluate
     from .message_policy import DEFAULT_REPLY_MAX_AGE_MINUTES, policy_allows, response_policy
     from .db import Project
@@ -267,13 +287,16 @@ def automatic_reply_allowed(session, task, source, decision, settings):
         return False
     # A manual send or unknown outcome for this source also prevents duplicate automation.
     origin_id = source.data.get('source_event_id') or source.id
-    previous = session.scalar(select(DeliveryRecord.action_id)
+    previous = select(DeliveryRecord.action_id)
+    previous = (previous
         .join(ReplyDraft, DeliveryRecord.action_id == 'reply-' + ReplyDraft.approval_id.cast(String))
         .join(Event, Event.id == ReplyDraft.event_id)
         .where(Event.source == source.source,
                or_(Event.id == origin_id, Event.data['source_event_id'].as_integer() == origin_id),
-               DeliveryRecord.result['write_status'].as_string().in_(['succeeded', 'unknown'])).limit(1))
-    return previous is None
+               DeliveryRecord.result['write_status'].as_string().in_(['succeeded', 'unknown', 'claimed', 'dispatching'])))
+    if action_id is not None:
+        previous = previous.where(DeliveryRecord.action_id != action_id)
+    return session.scalar(previous.limit(1)) is None
 
 
 def create_draft(task_id, event_id, content, *, session_factory=None, settings=None, db_session=None):
@@ -336,40 +359,74 @@ class PersistentActionLedger:
     def __init__(self, session_factory=None, settings=None):
         self.sessions = session_factory or Session
         self.settings = settings or get_config
+        self.v2 = ledger_v2_enabled()
+        self.claims = {}
+
+    def _authorize(self, session, action_id, action_hash):
+        approval = session.get(Approval, int(action_id.removeprefix('reply-')))
+        if approval is None:
+            raise PermissionError('审批不存在')
+        task = session.get(Task, approval.task_id, with_for_update=True)
+        session.refresh(approval, with_for_update=True)
+        if (task is None or approval.status != 'approved' or approval.action_hash != action_hash
+                or not _valid(task, approval)):
+            raise PermissionError('发送授权无效或已过期')
+        from .event_rules import blocks_processing
+        draft = session.scalar(select(ReplyDraft).where(ReplyDraft.approval_id == approval.id))
+        if draft:
+            _check_automatic_authorization(session, draft, self.settings, action_id=action_id if self.v2 else None)
+            if blocks_processing(session, _get(session, Event, draft.event_id), task.project_id, task.kind):
+                raise PermissionError('当前交付暂不可用，请在工作台检查')
+        source = approval.action.get('source')
+        _check_delivery_policy(session, source, self.settings)
+        config = self.settings('connectors.' + source, {}) if source else {}
+        if self.v2:
+            _check_connector_target(approval.action, config, self.settings)
+        if source == 'redmine':
+            if not config.get('user_id'):
+                raise PermissionError('Redmine 发送需要明确账号 user_id')
+            return {'sender_actor_id': str(config['user_id'])}
+        return {}
 
     async def claim(self, action_id, action_hash):
+        if action_id in self.claims:
+            return False
+        token = str(uuid.uuid4()) if self.v2 else None
         try:
             with self.sessions.begin() as session:
-                if session.get(DeliveryRecord, action_id):
+                row = session.get(DeliveryRecord, action_id)
+                if row is not None and (not self.v2 or row.action_hash != action_hash or not _can_retry(row)):
                     return False
-                approval_id = int(action_id.removeprefix("reply-"))
-                approval = session.get(Approval, approval_id)
-                if approval is None:
-                    raise PermissionError("审批不存在")
-                task = session.get(Task, approval.task_id, with_for_update=True)
-                session.refresh(approval, with_for_update=True)
-                if approval.status != "approved" or approval.action_hash != action_hash or not _valid(task, approval):
-                    raise PermissionError("发送授权无效或已过期")
-                from .event_rules import blocks_processing
-                draft = session.scalar(select(ReplyDraft).where(ReplyDraft.approval_id == approval.id))
-                if draft:
-                    _check_automatic_authorization(session, draft, self.settings)
-                if draft and blocks_processing(session, _get(session, Event, draft.event_id), task.project_id, task.kind):
-                    raise PermissionError('当前交付暂不可用，请在工作台检查')
-                _check_delivery_policy(session, approval.action.get('source'), self.settings)
-                sender = {}
-                if approval.action.get("source") == "redmine":
-                    config = self.settings("connectors.redmine", {})
-                    if not config.get("user_id"):
-                        raise PermissionError("Redmine 发送需要明确账号 user_id")
-                    sender = {"sender_actor_id": str(config["user_id"])}
-                session.add(DeliveryRecord(action_id=action_id, action_hash=action_hash,
-                                           result={"action_id": action_id, "action_hash": action_hash,
-                                                   "write_status": "unknown", "reason": "claimed_outcome_pending_reconciliation", **sender}))
-                session.flush()
+                sender = self._authorize(session, action_id, action_hash)
+                result = {'action_id': action_id, 'action_hash': action_hash, **sender}
+                if self.v2:
+                    result.update(write_status='claimed', claimed_at=now())
+                else:
+                    result.update(write_status='unknown', reason='claimed_outcome_pending_reconciliation')
+                if row is None:
+                    session.add(DeliveryRecord(action_id=action_id, action_hash=action_hash,
+                                               claim_token=token, result=result))
+                elif not _change_delivery(session, row, result, claim_token=token):
+                    return False
+            if token:
+                self.claims[action_id] = token
             return True
         except IntegrityError:
             return False
+
+    async def mark_dispatching(self, action_id):
+        if not self.v2:
+            return True
+        token = self.claims.get(action_id)
+        with self.sessions.begin() as session:
+            row = session.get(DeliveryRecord, action_id)
+            if not token or not row or token != row.claim_token or row.result.get('write_status') != 'claimed':
+                return False
+            sender = self._authorize(session, action_id, row.action_hash)
+            if sender.get('sender_actor_id') != row.result.get('sender_actor_id'):
+                raise PermissionError('发送账号已变化，请重新核对发送授权')
+            result = {**row.result, 'write_status': 'dispatching', 'dispatching_at': now()}
+            return _change_delivery(session, row, result, claim_token=token)
 
     async def get(self, action_id):
         with self.sessions() as session:
@@ -383,7 +440,19 @@ class PersistentActionLedger:
                 raise ValueError("发送账本不存在")
             retained = {key: row.result[key] for key in ("sender_actor_id", "echo_evidence") if key in row.result}
             newly_sent = row.result.get("write_status") != "succeeded" and result.get("write_status") == "succeeded"
-            row.result = {**retained, **result}
+            if self.v2:
+                token = self.claims.get(action_id)
+                if not token or token != row.claim_token or row.result.get('write_status') != 'dispatching':
+                    return
+                if result.get('write_status') not in {'succeeded', 'failed', 'unknown'}:
+                    result = {'write_status': 'unknown', 'reason': 'invalid_connector_result'}
+                result = {**row.result, **result, **retained,
+                          'action_id': action_id, 'action_hash': row.action_hash}
+                result.pop('retryable', None)
+                if not _change_delivery(session, row, result, claim_token=None):
+                    return
+            else:
+                row.result = {**retained, **result}
             if newly_sent:
                 approval = session.get(Approval, int(action_id.removeprefix("reply-")))
                 task = session.get(Task, approval.task_id, with_for_update=True) if approval else None
@@ -394,17 +463,74 @@ class PersistentActionLedger:
                         data={'revision': task.revision, 'control_version': task.control_version, 'action_id': action_id}))
 
 
+def _can_retry(row):
+    status = row.result.get('write_status')
+    return bool((status == 'failed' and row.result.get('retryable') is True
+                 and row.result.get('reason') == 'claim_expired_before_dispatch')
+                or (status == 'claimed' and row.result.get('claimed_at')
+                    and row.result['claimed_at'] <= _cutoff(CLAIM_MAX_AGE)))
+
+
+def _dispatch_unknown(result):
+    return {**result, 'write_status': 'unknown', 'reason': 'dispatch_outcome_pending_reconciliation'}
+
+
+def _change_delivery(session, row, result, *, claim_token):
+    changed = session.execute(update(DeliveryRecord).where(
+        DeliveryRecord.action_id == row.action_id, DeliveryRecord.claim_token == row.claim_token,
+        DeliveryRecord.result['write_status'].as_string() == row.result['write_status'],
+    ).values(result=result, claim_token=claim_token).execution_options(synchronize_session=False))
+    return changed.rowcount == 1
+
+
+def recover_claimed(*, session_factory=None, exclusive=False):
+    """Release stale claims and freeze uncertain sends without issuing any writes to channels."""
+    if not ledger_v2_enabled():
+        return
+    status = DeliveryRecord.result['write_status'].as_string()
+    stale_claim = (status == 'claimed') & (DeliveryRecord.result['claimed_at'].as_string() <= _cutoff(CLAIM_MAX_AGE))
+    abandoned_dispatch = status == 'dispatching'
+    if not exclusive:
+        abandoned_dispatch &= DeliveryRecord.result['dispatching_at'].as_string() <= _cutoff(DISPATCH_MAX_AGE)
+    with (session_factory or Session).begin() as session:
+        for row in session.scalars(select(DeliveryRecord).where(stale_claim | abandoned_dispatch).with_for_update()):
+            result = dict(row.result)
+            if result['write_status'] == 'claimed':
+                result.update(write_status='failed', retryable=True, reason='claim_expired_before_dispatch')
+            else:
+                result = _dispatch_unknown(result)
+            _change_delivery(session, row, result, claim_token=None)
+
+
+def _check_connector_target(plan, config, settings):
+    if config.get('enabled') is not True or settings('external_delivery_enabled', False) is not True:
+        raise PermissionError('外部交付尚未明确启用')
+    target = plan['target']
+    if plan['source'] == 'redmine':
+        if str(config.get('base_url', '')).rstrip('/') != target['base_url']:
+            raise PermissionError('回复服务配置已变化，请重新生成草稿')
+    elif config.get('profile') != target['profile']:
+        raise PermissionError('回复账号配置已变化，请重新生成草稿')
+
+
 async def publish_draft(draft_id, *, session_factory=None, settings=None, client=None):
     factory, settings = session_factory or Session, settings or get_config
-    with factory() as session:
+    with factory.begin() as session:
         draft = _get(session, ReplyDraft, draft_id)
         approval = _get(session, Approval, draft.approval_id)
         plan = dict(approval.action)
         action_id = "reply-" + str(approval.id)
         record = session.get(DeliveryRecord, action_id)
-        if record:
+        if (record is not None and ledger_v2_enabled() and record.result.get('write_status') == 'dispatching'
+                and record.result.get('dispatching_at', '') <= _cutoff(DISPATCH_MAX_AGE)):
+            result = _dispatch_unknown(record.result)
+            if _change_delivery(session, record, result, claim_token=None):
+                return result
+            session.refresh(record)
+        retry = record is not None and ledger_v2_enabled() and _can_retry(record)
+        if record is not None and not retry:
             return dict(record.result)
-        _check_automatic_authorization(session, draft, settings)
+        _check_automatic_authorization(session, draft, settings, action_id=action_id if retry else None)
         if approval.status != "approved" or not _valid(_get(session, Task, draft.task_id), approval):
             raise PermissionError("需要有效的明确发送批准")
         from .event_rules import blocks_processing
@@ -416,12 +542,9 @@ async def publish_draft(draft_id, *, session_factory=None, settings=None, client
         authorization = AuthorizedAction(action_id, approval.action_hash)
     source, target = plan["source"], plan["target"]
     config = settings("connectors." + source, {})
-    if config.get("enabled") is not True or settings("external_delivery_enabled", False) is not True:
-        raise PermissionError("外部交付尚未明确启用")
+    _check_connector_target(plan, config, settings)
     owned = client is None
     if source == "redmine":
-        if str(config.get("base_url", "")).rstrip("/") != target["base_url"]:
-            raise PermissionError("回复服务配置已变化，请重新生成草稿")
         if client is None:
             from superagent.connectors.redmine import RedmineClient
             key = os.getenv(config.get("api_key_env", "HLZJ_REDMINE_API_KEY"))
@@ -429,8 +552,6 @@ async def publish_draft(draft_id, *, session_factory=None, settings=None, client
                 raise ValueError("缺少环境变量凭据")
             client = RedmineClient(target["base_url"], key)
     else:
-        if config.get("profile") != target["profile"]:
-            raise PermissionError("回复账号配置已变化，请重新生成草稿")
         if client is None:
             from superagent.connectors.dingtalk import DingTalkClient
             client = DingTalkClient(config.get("executable", "dws"), profile=target["profile"])
@@ -452,14 +573,18 @@ def reconcile_delivery(draft_id, outcome, evidence, *, session_factory=None):
         raise ValueError("请提供外部核验结果和证据")
     with (session_factory or Session).begin() as session:
         draft = _get(session, ReplyDraft, draft_id)
-        record = _get(session, DeliveryRecord, "reply-" + str(draft.approval_id))
+        record = session.get(DeliveryRecord, "reply-" + str(draft.approval_id), with_for_update=True)
+        if record is None:
+            raise ValueError('记录不存在')
         if record.result.get("write_status") != "unknown":
             raise ValueError("仅可对账结果未知的交付")
-        record.result = {**record.result, "write_status": outcome, "reconciliation_evidence": evidence,
-                         "reconciled_at": now()}
+        result = {**record.result, "write_status": outcome, "reconciliation_evidence": evidence,
+                  "reconciled_at": now()}
+        if not _change_delivery(session, record, result, claim_token=None):
+            raise ValueError('交付状态已变化，请刷新后重试')
         session.add(Event(task_id=draft.task_id, source="web", event_type="delivery.reconciled",
                           content=evidence, data={"action_id": record.action_id, "outcome": outcome}))
-        return dict(record.result)
+        return result
 
 
 async def deliver_automatically(*, session_factory=None, settings=None, client=None):
@@ -487,7 +612,11 @@ async def deliver_automatically(*, session_factory=None, settings=None, client=N
             if not draft or draft.task_id != task.id:
                 continue
             approval = session.get(Approval, draft.approval_id)
-            if not approval or not _valid(task, approval) or session.get(DeliveryRecord, 'reply-' + str(approval.id)):
+            if not approval or not _valid(task, approval):
+                continue
+            action_id = 'reply-' + str(approval.id)
+            record = session.get(DeliveryRecord, action_id)
+            if record is not None and (not ledger_v2_enabled() or not _can_retry(record)):
                 continue
             if approval.status != 'pending' and not (approval.status == 'approved' and session.scalar(
                 select(Event.id).where(Event.task_id == task.id, Event.event_type == 'delivery.auto_authorized',
@@ -501,7 +630,8 @@ async def deliver_automatically(*, session_factory=None, settings=None, client=N
                 continue
             if retire_automatic_draft(session, task, source, decision, approval, policy):
                 continue
-            if not automatic_reply_allowed(session, task, source, decision, settings):
+            if not automatic_reply_allowed(session, task, source, decision, settings,
+                                           action_id=action_id if record is not None else None):
                 continue
             if approval.status == 'pending':
                 approval.status = 'approved'
@@ -513,10 +643,35 @@ async def deliver_automatically(*, session_factory=None, settings=None, client=N
         try:
             await publish_draft(candidate, session_factory=factory, settings=settings, client=client)
         except Exception as exc:
-            # A claimed action remains in the ledger and cannot be sent twice.
             with factory.begin() as session:
                 draft = session.get(ReplyDraft, candidate)
                 approval = session.get(Approval, draft.approval_id)
+                record = session.get(DeliveryRecord, f'reply-{approval.id}')
+                if (ledger_v2_enabled() and record
+                        and record.result.get('write_status') in ('dispatching', 'unknown', 'succeeded')):
+                    return
                 approval.status = 'failed'
                 session.add(Event(task_id=draft.task_id, source='runtime', event_type='delivery.auto_failed',
                     content=type(exc).__name__, data={'draft_id': candidate}))
+
+
+async def delivery_loop(*, session_factory=None, lease=None):
+    """Run automatic delivery independently from the queue that starts Codex workers."""
+    factory = session_factory or Session
+    delay = 0.5
+    loop = asyncio.get_running_loop()
+    next_recovery = loop.time() + CLAIM_MAX_AGE
+    while not (lease and lease.lost):
+        try:
+            if lease:
+                with factory.begin() as session:
+                    lease.check(session)
+            if loop.time() >= next_recovery:
+                recover_claimed(session_factory=factory)
+                next_recovery = loop.time() + CLAIM_MAX_AGE
+            await deliver_automatically(session_factory=factory)
+            delay = 0.5
+        except Exception:
+            logging.exception('自动交付循环失败')
+            delay = min(delay * 2, 5)
+        await asyncio.sleep(delay)

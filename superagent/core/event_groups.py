@@ -19,7 +19,7 @@ def group_events(session, group_id):
 
 
 def visible_message(row):
-    return (row.external_id is not None and row.source in {'dingtalk', 'redmine'}) or (
+    return (row.external_id is not None and row.source in {'dingtalk', 'redmine', 'field'}) or (
         row.event_type in {'created', 'message', 'goal_changed', 'collaboration_result', 'project_rebound'}
         and row.source in {'web', 'coordination'})
 

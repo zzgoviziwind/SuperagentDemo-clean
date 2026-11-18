@@ -22,10 +22,10 @@ export async function request<T>(
         method: body === undefined ? "GET" : method,
         credentials: "same-origin",
         headers:
-          body === undefined
+          body === undefined || body instanceof FormData
             ? undefined
             : { "Content-Type": "application/json" },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: body === undefined || body instanceof FormData ? body : JSON.stringify(body),
         signal: controller.signal,
       },
     );

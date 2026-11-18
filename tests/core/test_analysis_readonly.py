@@ -27,6 +27,66 @@ def create(case, goal):
     return case.request('POST','/api/v1/tasks',{'title':'分析','goal':goal,'kind':'analysis','project_id':case.project['id']})
 
 
+def test_field_review_runs_readonly_then_approved_repair():
+    case = build_case()
+    start_analysis = case.start
+
+    def start_with_attachments():
+        case.environment['SUPERAGENT_ATTACHMENTS_ROOT'] = str(case.root / 'attachments')
+        case.environment['SUPERAGENT_FIELD_ORGANIZER'] = 'sample'
+        return start_analysis()
+
+    case.start = start_with_attachments
+    try:
+        case.setUp()
+        record = case.request('POST', '/api/v1/field-intake/records', {
+            'project_id': case.project['id'], 'title': '现场模拟',
+            'notes': 'Bug：预览缺项 [截图1]\n需求：导出增加审核时间',
+            'screenshots': [{'filename': 'preview.png', 'mime': 'image/png',
+                'base64': 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5+1ZYAAAAASUVORK5CYII='}],
+        })
+        first, second = record['candidates']
+        create_payload = {'action': 'create', 'title': '预览缺项', 'kind': 'bug', 'detail': '只读核对模拟代码'}
+        case.request('POST', f'/api/v1/field-intake/candidates/{first["id"]}/decision',
+                     create_payload, expected=401, authenticated=False)
+        decision = case.request('POST', f'/api/v1/field-intake/candidates/{first["id"]}/decision', create_payload)
+        ident = decision['decision']['task_id']
+        task = {'id': ident}
+        detail = case.wait_status(task, {'review_ready'})
+        assert detail['task']['kind'] == 'analysis'
+        assert not (Path(detail['task']['workspace_path']) / 'result.txt').exists()
+        linked = case.request('POST', f'/api/v1/field-intake/candidates/{second["id"]}/decision', {
+            'action': 'link', 'task_id': ident, 'expected_state_version': detail['task']['state_version'],
+            'title': '补充预览问题的验收依据', 'kind': 'requirement', 'detail': '核对字段对应关系',
+        })
+        assert linked['decision']['task_id'] == ident
+        ready = case.wait_status(task, {'review_ready'})
+        assert ready['task']['revision'] == detail['task']['revision'] + 1
+        assert len(case.request('GET', f'/api/v1/event-groups/{ident}')['events']) > 2
+
+        case.stop()
+        case.environment['SUPERAGENT_CODEX_EXECUTABLE'] = json.dumps([sys.executable, str(ROOT / 'tests/e2e/fake_codex.py')])
+        type(case).start(case)
+        implementation = case.request('POST', f'/api/v1/field-intake/analysis/{ident}/implement', {
+            'expected_state_version': ready['task']['state_version'], 'scope': '在隔离目录生成 result.txt',
+            'acceptance_criteria': '使用项目测试命令确认 result.txt 内容',
+        })
+        repair = {'id': implementation['task_id']}
+        waiting = case.wait_status(repair, {'waiting_approval'})
+        assert waiting['task']['kind'] == 'repair'
+        approval = waiting['approvals'][-1]
+        case.request('POST', f'/api/v1/approvals/{approval["id"]}/decision', {
+            'decision': 'approve', 'action_hash': approval['action_hash'],
+        })
+        result = case.wait_status(repair, {'review_ready'})
+        validation = json.loads([a for a in result['artifacts'] if a['kind'] == 'verification'][-1]['content'])
+        assert validation['repair_verified'] and validation['exit_code'] == 0
+        assert (Path(result['task']['workspace_path']) / 'result.txt').exists()
+        assert not (case.repo / 'result.txt').exists()
+    finally:
+        case.doCleanups()
+
+
 def test_analysis_is_read_only_and_omits_test_command():
     case=build_case()
     try:

@@ -75,7 +75,38 @@ def attach_self_message(session, event):
 
 def timeline(session, task_id, limit=24):
     rows = [row for row in group_events(session, task_id) if visible_message(row)]
-    return sorted(rows, key=lambda row: (time_key(row), row.id))[-limit:]
+    rows.sort(key=lambda row: (time_key(row), row.id))
+    return rows if limit is None else rows[-limit:]
+
+
+def scoped_timeline(session, task):
+    """Restrict historical context to this project's current task scope."""
+    from .governance import task_owner
+
+    rebound = session.scalar(select(db.Event).where(
+        db.Event.task_id == task.id, db.Event.event_type == 'project_rebound',
+    ).order_by(db.Event.id.desc()).limit(1))
+    owner = task_owner(task.id, session)
+    permitted = {None: True, task.id: True}
+    rows = []
+    for row in timeline(session, task.id, limit=None):
+        if rebound and row.id < rebound.id:
+            continue
+        if row.task_id not in permitted:
+            origin = session.get(db.Task, row.task_id)
+            permitted[row.task_id] = bool(origin and origin.project_id == task.project_id and
+                                          owner and task_owner(row.task_id, session) == owner)
+        if permitted[row.task_id]:
+            rows.append(row)
+    return rows, rebound
+
+
+def active_decisions(session, task, event_ids):
+    rows = session.scalars(select(db.Decision).where(
+        db.Decision.project_id == task.project_id, db.Decision.status == 'active',
+        (db.Decision.task_id.is_(None)) | (db.Decision.task_id == task.id),
+    ).order_by((db.Decision.kind == 'constraint').desc(), db.Decision.id))
+    return [row for row in rows if row.event_id is None or row.event_id in event_ids]
 
 
 def _audience(session, task):
@@ -87,7 +118,7 @@ def _audience(session, task):
     }
 
 
-def recent_work(session, task):
+def recent_work(session, task, *, summary_limit=1500, include_summary_id=False):
     """Only share prior work with the same project, owner and external audience."""
 
     from .governance import task_owner
@@ -105,12 +136,18 @@ def recent_work(session, task):
     for previous in candidates:
         if task_owner(previous.id, session) != owner or _audience(session, previous) != audience:
             continue
+        if audience and session.scalar(select(db.Event.id).where(db.Event.task_id == previous.id,
+                                         db.Event.source == 'field').limit(1)):
+            continue
         result = session.scalar(select(db.Artifact).where(
             db.Artifact.task_id == previous.id, db.Artifact.revision == previous.revision,
             db.Artifact.kind == 'summary',
         ).order_by(db.Artifact.id.desc()))
-        work.append({'task_id': previous.id, 'title': previous.title, 'status': previous.status,
-                     'updated_at': previous.updated_at, 'summary': result.content[:1500] if result else None})
+        item = {'task_id': previous.id, 'title': previous.title, 'status': previous.status,
+                'updated_at': previous.updated_at, 'summary': result.content[:summary_limit] if result else None}
+        if include_summary_id:
+            item['summary_id'] = result.id if result else None
+        work.append(item)
         if len(work) == 4:
             break
     return work

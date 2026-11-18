@@ -27,8 +27,8 @@ class StateStore(Protocol):
 class ActionLedger(Protocol):
     """claim atomically inserts a durable pending row, including across processes.
 
-    Existing pending rows count as unknown after a crash and cannot be reclaimed.
-    get returns the stored result or a pending record. finish durably stores result.
+    If available, mark_dispatching must durably authorize the same claim before I/O.
+    get returns the stored result or a pending record. finish durably stores the result.
     """
 
     async def claim(self, action_id: str, action_hash: str) -> bool: ...
@@ -83,6 +83,9 @@ async def execute_write(plan, authorization, ledger, operation):
         if existing.get("action_hash") != authorization.action_hash:
             raise PermissionError("Action ID belongs to a different payload")
         return existing
+    enter_dispatch = getattr(ledger, "mark_dispatching", None)
+    if enter_dispatch is not None and not await enter_dispatch(authorization.action_id):
+        return await ledger.get(authorization.action_id)
     result = {"action_id": authorization.action_id, "action_hash": plan["action_hash"]}
     try:
         response = await operation()
