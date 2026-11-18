@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "transcript": [
+    {
+      "start_ms": 8000,
+      "end_ms": 17000,
+      "speaker": "演示人员",
+      "text": "详情已经录入科室小结，但报告预览里仍未显示。"
+    }
+  ],
+  "keyframes": [
+    {
+      "filename": "preview.png",
+      "at_ms": 11800,
+      "ocr": [
+        { "text": "科室小结：暂无内容" }
+      ]
+    }
+  ]
+}

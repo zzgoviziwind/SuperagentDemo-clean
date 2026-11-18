@@ -1,0 +1,15 @@
+(node:5732) Warning: Failed to load the ES module: C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\deploy\windows-ts\.artifacts\stage4\ts-life-d2325081a116\Test 用户\releases\stage4-ts-failed-start\payload\apps\server\dist\main.js. Make sure to set "type": "module" in the nearest package.json file or use the .mjs extension.
+(Use `node --trace-warnings ...` to show where the warning was created)
+C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\deploy\windows-ts\.artifacts\stage4\ts-life-d2325081a116\Test 用户\releases\stage4-ts-failed-start\payload\apps\server\dist\main.js:2
+import Fastify from "fastify";
+^^^^^^
+
+SyntaxError: Cannot use import statement outside a module
+    at wrapSafe (node:internal/modules/cjs/loader:1861:18)
+    at Module._compile (node:internal/modules/cjs/loader:1903:20)
+    at Object..js (node:internal/modules/cjs/loader:2060:10)
+    at Module.load (node:internal/modules/cjs/loader:1651:32)
+    at Module._load (node:internal/modules/cjs/loader:1443:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47

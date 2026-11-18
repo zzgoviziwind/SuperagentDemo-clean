@@ -1,0 +1,98 @@
+import type { FastifyInstance } from 'fastify';
+import type { Lease, Storage } from '../../../../packages/storage/index.ts';
+import { mkdtemp } from 'node:fs/promises';
+import { join } from 'node:path';
+import { z } from 'zod';
+import type { Attachment } from '../../../../packages/channels/resources.ts';
+import { directory, discard } from '../../../../packages/channels/resources.ts';
+import { Redmine } from '../../../../packages/channels/redmine.ts';
+import { downloadDws } from '../../../../packages/channels/dingtalk.ts';
+import { admin, audit, serialize, tx, utc, type Row } from '../sql.js';
+import { fail } from '../auth.js';
+import { background,checkController } from './background.ts';
+
+export function registerAttachments(app:FastifyInstance,store:Storage,lease:Lease,root:string,env:NodeJS.ProcessEnv,
+  configFor:(name:'redmine'|'dingtalk')=>any,available:(name:'redmine'|'dingtalk')=>boolean) {
+  const db=store.db,base=env.SUPERAGENT_ATTACHMENTS_ROOT??join(root,'attachments');
+  const jobSql=`SELECT j.*,e.source,e.data,p.redmine_project_ids,t.project_id,t.revision current_revision,t.control_version current_control,
+    p.enabled,p.archived,t.outcome_unknown,t.status task_status FROM event_attachment_jobs j JOIN events e ON e.id=j.event_id AND e.task_id=j.task_id
+    JOIN tasks t ON t.id=j.task_id JOIN projects p ON p.id=t.project_id`;
+  function settle(job:Row,results:Attachment[],error:string|null) {
+    const {task_id:task,event_id:id,revision,control_version:control}=job,now=utc();
+    const status=error?'failed':'completed';
+    if(!db.prepare("UPDATE event_attachment_jobs SET status=?,results=? WHERE event_id=? AND revision=? AND control_version=? AND status='processing'")
+      .run(status,JSON.stringify(results),id,revision,control).changes) return;
+    db.prepare("UPDATE events SET data=json_set(data,'$.attachments_status',?,'$.attachments_error',?) WHERE id=?").run(status,error,id);
+    if(!error){
+      const add=db.prepare("INSERT INTO artifacts(task_id,revision,kind,content,created_at) VALUES(?,?,'source_attachment',?,?)");
+      for(const r of results)add.run(task,revision,JSON.stringify(r),now);
+      db.prepare("INSERT INTO events(task_id,event_type,source,data,content,created_at) VALUES(?,'message','runtime',?,?,?)")
+        .run(task,JSON.stringify({source_event_id:id,attachments:results}),'来源附件已核验。\n'+results.map(r=>r.local_path).join('\n'),now);
+    }
+    const siblings=db.prepare("SELECT status FROM event_attachment_jobs WHERE task_id=? AND revision=? AND control_version=?").all(task,revision,control);
+    if(siblings.some(s=>['pending','processing'].includes(String(s.status)))) return;
+    const failed=siblings.some(s=>s.status==='failed');
+    db.prepare(`UPDATE tasks SET status=?,last_error=?,state_version=state_version+1,updated_at=? WHERE id=? AND revision=? AND control_version=?
+      AND status='waiting_resource' AND last_error='正在准备来源附件'`).run(failed?'waiting_input':'queued',failed?'附件获取或校验失败，请核验来源后重试':null,now,task,revision,control);
+  }
+  app.addHook('onReady',async()=>{
+    tx(db,()=>{
+      checkController(store,lease,new AbortController().signal);
+      for(const job of db.prepare("SELECT * FROM event_attachment_jobs WHERE status='processing'").all()) settle(job,[],'服务重启，附件结果未知，请核验后重试');
+    });
+  });
+  background(app,'channel-attachments',async signal=>{
+    checkController(store,lease,signal);
+    const job=db.prepare(jobSql+" WHERE j.status='pending' ORDER BY j.event_id LIMIT 1").get();
+    if(!job) return;
+    const id=Number(job.event_id),task=Number(job.task_id),name=job.source;
+    if(!db.prepare("UPDATE event_attachment_jobs SET status='processing' WHERE event_id=? AND status='pending'").run(id).changes) return;
+    let batchDir='',parent='',retained=false;
+    try{
+      if(name!=='redmine'&&name!=='dingtalk') throw new Error();
+      const cfg=configFor(name),snapshot=JSON.stringify(cfg);
+      const recheck=()=>{
+        checkController(store,lease,signal);
+        const fresh=db.prepare(jobSql+' WHERE j.event_id=?').get(id);
+        if(!fresh || fresh.status!=='processing'||!fresh.enabled || fresh.archived || fresh.outcome_unknown ||
+          ['running','waiting_approval','cancelled','completed'].includes(String(fresh.task_status)) ||
+          fresh.current_revision!==job.revision || fresh.current_control!==job.control_version ||
+          fresh.project_id!==job.project_id || fresh.redmine_project_ids!==job.redmine_project_ids || fresh.data!==job.data ||
+          !available(name as 'redmine'|'dingtalk') || !cfg?.enabled || JSON.stringify(configFor(name as 'redmine'|'dingtalk'))!==snapshot) throw new Error();
+      }
+      recheck();
+      const data=JSON.parse(String(job.data)),m=data.metadata??{};
+      parent=await directory(join(base,String(task),String(id)));
+      batchDir=await mkdtemp(join(parent,'batch-'));
+      const bounded=AbortSignal.any([signal,AbortSignal.timeout(45000)]);
+      let results:Attachment[];
+      if(name==='redmine'){
+        const client=new Redmine(cfg,env[cfg.api_key_env??'HLZJ_REDMINE_API_KEY']??'');
+        if(m.redmine_endpoint!==client.base || (m.external_user_id!=null && String(m.external_user_id)!==String(cfg.user_id))) throw new Error();
+        const requested=z.array(z.object({id:z.coerce.number().int().positive()})).min(1).max(10).parse(data.attachments);
+        results=await client.attachments(Number(data.issue_id),requested.map(i=>i.id),JSON.parse(String(job.redmine_project_ids)).map(Number),batchDir,bounded);
+      } else {
+        if(cfg.profile!==m.profile || !Array.isArray(cfg.self_ids) || (m.source_account_ids &&
+          JSON.stringify(m.source_account_ids)!==JSON.stringify([...new Set(cfg.self_ids)].sort()))) throw new Error();
+        results=await downloadDws(cfg,data.thread_id,m.message_id,batchDir,env,bounded);
+      }
+      tx(db,()=>{recheck();settle(job,results,null);retained=true;});
+    }catch{
+      if(!signal.aborted) tx(db,()=>{checkController(store,lease,signal);settle(job,[],'附件获取或校验失败，请核验来源、权限及下载限制后重试');});
+    }finally{if(batchDir && !retained) await discard(parent,batchDir);}
+  });
+  app.post('/api/v1/events/:id/retry-attachments',async req=>{
+    admin(req.principal);
+    const {id}=z.object({id:z.coerce.number().int().positive()}).parse(req.params);
+    return tx(db,()=>{
+      checkController(store,lease,new AbortController().signal);
+      const j=db.prepare(jobSql+' WHERE j.event_id=?').get(id);
+      if(!j || j.status!=='failed' || j.outcome_unknown || ['running','waiting_approval','completed','cancelled'].includes(String(j.task_status))) return fail(409,'附件状态不支持重试');
+      db.prepare("UPDATE event_attachment_jobs SET revision=?,control_version=?,status='pending',results='[]' WHERE event_id=?").run(j.current_revision,j.current_control,id);
+      db.prepare("UPDATE events SET data=json_set(data,'$.attachments_status','pending','$.attachments_error',null) WHERE id=?").run(id);
+      db.prepare("UPDATE tasks SET status='waiting_resource',last_error='正在准备来源附件',state_version=state_version+1,updated_at=? WHERE id=? AND status IN ('queued','waiting_input')").run(utc(),j.task_id);
+      audit(db,req.principal.user_id,'event.retry_attachments',id,{task_id:j.task_id});
+      return {...serialize(db.prepare('SELECT * FROM events WHERE id=?').get(id)!),duplicate:false};
+    });
+  });
+}

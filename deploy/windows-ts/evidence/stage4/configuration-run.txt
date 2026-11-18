@@ -1,0 +1,12 @@
+Evidence directory: C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\deploy\windows-ts\.artifacts\stage4\superagent-ts-d5d2098571f248f1928a0650a38994cd
+Temporary port: 52191
+Installed stage4-ts-b at http://127.0.0.1:52191
+{"status":"ok","version":"0.2.0-dev.1","implementation":"typescript"}
+PASS actual TypeScript health, index, /assets/index-BUYJECyf.js, /assets/index-nguacDrZ.css, timeline example and isolated SQLite
+PASS default optional media dependency hint: 后台语音识别模型尚未配置。可直接导入已有转写时间轴。
+PASS restart from PID 32420 to 18704 using the same SQLite directory
+Configuration saved. Use Diagnose to inspect it and Restart to apply it.
+Configuration saved. Use Diagnose to inspect it and Restart to apply it.
+Saved redmine settings on the local server. Check the connector status in the workbench.
+PASS opt-in Codex paths, process-only authentication, redacted diagnostics and disabled synthetic channel configuration
+PASS stop and released listener

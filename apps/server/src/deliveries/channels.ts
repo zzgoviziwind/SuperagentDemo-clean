@@ -1,0 +1,256 @@
+import type { FastifyInstance } from 'fastify';
+import type { DatabaseSync } from 'node:sqlite';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { z } from 'zod';
+import { ChannelError, CursorStore } from '../../../../packages/channels/common.ts';
+import type { Incoming } from '../../../../packages/channels/common.ts';
+import { Redmine, RedminePoller, redmineAccountMap } from '../../../../packages/channels/redmine.ts';
+import { listenDws, readOwnDingTalk, replyDws, verifyDws } from '../../../../packages/channels/dingtalk.ts';
+import type { Scope, DwsConfig } from '../../../../packages/channels/dingtalk.ts';
+import { cardConfig, cardReceiver, decodeCard } from '../../../../packages/channels/feishu.ts';
+import { notifyCard,upgradeNoticeTable } from '../../../../packages/channels/feishu-notices.ts';
+import { background } from './background.ts';
+import { registerAttachments } from './attachments.ts';
+import type { DeliveryPlan, Lease, Storage } from '../../../../packages/storage/index.ts';
+import { ingestChannelEvent } from './echo.ts';
+import { fail, roleOf } from '../auth.js';
+import { admin } from '../sql.js';
+import { configureWorkbenchRuntime, workbenchRuntime } from '../workbench/runtime.ts';
+import type { DingTalkHistoryBinding } from '../workbench/runtime.ts';
+
+type Name='redmine'|'dingtalk';
+const names=['dingtalk','redmine'] as const;
+const positive=z.int().positive(), nonempty=z.string().trim().min(1);
+const red=z.object({enabled:z.boolean(),base_url:z.url(),user_id:positive,project_ids:z.array(positive).default([]),
+  account_map:redmineAccountMap.optional(),poll_seconds:z.number().min(1).max(86400).default(60),
+  api_key_env:z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,127}$/).default('HLZJ_REDMINE_API_KEY'),initial_since:z.string().optional()});
+const ding=z.object({enabled:z.boolean(),profile:nonempty,self_ids:z.array(nonempty).nonempty(),executable:z.union([nonempty,z.array(nonempty).nonempty()]),
+  kind:z.enum(['group','at-me','all-direct']).optional(),chat_id:nonempty.optional(),history:z.object({chat_ids:z.array(nonempty).nonempty(),
+  initial_since:nonempty,history_timezone:nonempty,page_limit:positive.max(40).optional(),timeout:positive.max(300).optional(),sender_map:z.record(z.string(),z.string()).optional()}).optional()});
+function saved(db:DatabaseSync,key:string) {
+  const r=db.prepare('SELECT value FROM governance_settings WHERE key=?').get(key);
+  return r?JSON.parse(String(r.value)):null;
+}
+export function channelConfig(db:DatabaseSync,env:NodeJS.ProcessEnv,name:Name) {
+  const stored=saved(db,'connectors.'+name);
+  if(stored!==null) return stored;
+  try{return JSON.parse(env['SUPERAGENT_'+name.toUpperCase()+'_CONFIG']??'{"enabled":false}');}catch{return {};}
+}
+function headers(env:NodeJS.ProcessEnv,owner?:string) {
+  const users:{role:string;user_id:string;token:string}[]=JSON.parse(env.SUPERAGENT_USERS_JSON??'[]');
+  const user=users.find(u=>owner?u.user_id===owner:u.role==='admin');
+  const token=user?.token??((!owner||owner==='admin')?env.SUPERAGENT_API_TOKEN:undefined);
+  if(!token && (users.length || env.SUPERAGENT_API_TOKEN || (owner && owner!=='admin'))) throw new ChannelError('channel_principal_unavailable');
+  return token?{host:'127.0.0.1',authorization:'Bearer '+token}:{host:'127.0.0.1'};
+}
+function scopes(c:DwsConfig,policy:Record<string,any>|null):Scope[] {
+  if(!policy) return [{kind:c.kind??'at-me',chatId:c.kind==='group'?c.chat_id:undefined}];
+  const enabled:Scope[]=[];
+  if(policy.direct_messages==='reply') enabled.push({kind:'all-direct'});
+  if(policy.group_messages==='mentions') enabled.push({kind:'at-me'});
+  if(policy.group_messages==='requests') {
+    if(policy.group_scope==='selected') for(const chat of policy.group_chat_ids??[]) enabled.push({kind:'group',chatId:chat});
+    else enabled.push(c.kind==='group' && !policy.group_scope?{kind:'group',chatId:c.chat_id}:{kind:'all-group'});
+  }
+  return enabled;
+}
+interface ScopeStatus {kind:Scope['kind'];chat_id:string|null;status:string;last_error:string|null;last_seen:string|null;history_recovery:boolean}
+interface Run {abort:AbortController;done:Promise<void>;fingerprint:string;status:string;lastError:string|null;lastSeen:string|null;scopes:ScopeStatus[]}
+const registered=new WeakMap<FastifyInstance,ReturnType<typeof initialize>>();
+export function connectorStatuses(app:FastifyInstance) { return registered.get(app)?.statuses()??[]; }
+export async function reconcileChannels(app:FastifyInstance,changes:Record<string,unknown>={}) { await registered.get(app)?.reconcile(changes); }
+export function registerChannels(app:FastifyInstance,store:Storage,lease:Lease,root:string,env:NodeJS.ProcessEnv) {
+  const existing=registered.get(app);
+  if(existing) return existing;
+  const service=initialize(app,store,lease,root,env);
+  registered.set(app,service);
+  return service;
+}
+function initialize(app:FastifyInstance,store:Storage,lease:Lease,root:string,env:NodeJS.ProcessEnv) {
+  const db=store.db;
+  const native=env.SUPERAGENT_DRIVER!=='fixture' && env.SUPERAGENT_SERVICE_MODE!=='preview';
+  const cursor=new CursorStore(db), lifetime=new AbortController();
+  const runs=new Map<Name,Run>(), stopped=new Set<Name>();
+  db.exec('BEGIN IMMEDIATE');
+  try {upgradeNoticeTable(db);db.exec('COMMIT');} catch(err){db.exec('ROLLBACK');throw err;}
+  registerAttachments(app,store,lease,root,env,name=>channelConfig(db,env,name),name=>native && !stopped.has(name));
+  function guard(signal:AbortSignal) {
+    signal.throwIfAborted();lifetime.signal.throwIfAborted();
+    const row=db.prepare("SELECT expires_at FROM controller_leases WHERE id='controller' AND owner=? AND epoch=?").get(lease.owner,lease.epoch);
+    if(!row||Date.parse(String(row.expires_at))<=Date.now()) throw new ChannelError('channel_lease_lost');
+  }
+  function sender(name:Name) {
+    if(!native) return fail(409,'当前运行模式未启用本机渠道');
+    const config=channelConfig(db,env,name);
+    if(config?.enabled!==true || stopped.has(name)) return fail(409,'渠道尚未启用');
+    if(name==='redmine') {
+      const r=red.safeParse(config);
+      if(!r.success || !env[r.data.api_key_env]) return fail(409,'Redmine 服务、账号或凭据未就绪');
+      const transport=new Redmine(r.data,env[r.data.api_key_env]!);
+      return {verify:async(target:DeliveryPlan['target'])=>{
+        await transport.verify(lifetime.signal);
+        await transport.verifyIssue(Number(target.issue_id),lifetime.signal);
+      },send:(p:DeliveryPlan,_id:string)=>{
+        if(p.source!==name||p.target.base_url!==transport.base) return fail(409,'Redmine 目标已变化');
+        return transport.comment(Number(p.target.issue_id),p.payload.content,lifetime.signal);
+      }};
+    }
+    const d=ding.safeParse(config);
+    if(!d.success) return fail(409,'钉钉账号、程序或 Profile 未就绪');
+    const local={...d.data,cwd:root};
+    return {verify:()=>verifyDws(local,env,lifetime.signal),send:(p:DeliveryPlan,id:string)=>replyDws(local,p.target,p.payload.content,id,env,lifetime.signal)};
+  }
+  function prepare(name:Name) {
+    const transport=sender(name), config=JSON.stringify(channelConfig(db,env,name));
+    return {...transport,check(){
+      guard(lifetime.signal);
+      if(stopped.has(name)||JSON.stringify(channelConfig(db,env,name))!==config) fail(409,'发送账号或配置已变化');
+    }};
+  }
+  async function run(name:Name,r:Run) {
+    const signal=r.abort.signal, config=channelConfig(db,env,name);
+    const emit=async(e:Incoming)=>{
+      guard(signal);
+      ingestChannelEvent(db,e,env);
+      guard(signal);r.lastSeen=new Date().toISOString();
+    };
+    if(name==='redmine') {
+      const c=red.parse(config), client=new Redmine(c,env[c.api_key_env]??'');
+      const poller=new RedminePoller(client,cursor,emit);
+      while(!signal.aborted) {
+        try {guard(signal);await poller.pollOnce(signal);r.status='running';r.lastError=null;r.lastSeen=new Date().toISOString();}
+        catch(err){if(signal.aborted) return;r.status='degraded';r.lastError=err instanceof ChannelError?err.message:'redmine_poll_failed';}
+        await sleep(c.poll_seconds*1000,undefined,{signal});
+      }
+      return;
+    }
+    const c=ding.parse(config), slots=scopes(c,saved(db,'dingtalk_response_policy'));
+    if(!slots.length){r.status='disabled';return;}
+    r.scopes=slots.map(slot=>({kind:slot.kind,chat_id:slot.chatId??null,status:'connecting',last_error:null,last_seen:null,history_recovery:false}));
+    function update() {
+      if(signal.aborted) return;
+      const problem=r.scopes.find(s=>s.last_error);
+      r.lastError=problem?.last_error??null;
+      r.status=problem?'degraded':r.scopes.every(s=>s.status==='running')?'running':'connecting';
+    }
+    const jobs=slots.map(async (slot,i)=>{
+      const state=r.scopes[i];
+      if(slot.kind==='group' && !slot.chatId) throw new ChannelError('dws_chat_missing');
+      let history=c.history;
+      if(history && slot.kind!=='all-direct'){
+        const chats=history.chat_ids.filter(chat=>{
+          if(slot.chatId && slot.chatId!==chat) return false;
+          const bindings=db.prepare('SELECT id FROM projects WHERE enabled AND NOT archived AND EXISTS (SELECT 1 FROM json_each(dingtalk_chat_ids) WHERE value=?)').all(chat);
+          if(bindings.length>1) throw new ChannelError('dws_history_ambiguous_project');
+          return bindings.length===1;
+        });
+        history=chats.length?{...history,chat_ids:chats}:undefined;
+      }
+      state.history_recovery=!!history && slot.kind!=='all-direct';
+      await listenDws({...c,cwd:root,history},slot,cursor,async e=>{
+        await emit(e);state.last_seen=r.lastSeen;
+      },env,signal,()=>{state.status='running';update();});
+    });
+    await Promise.all(jobs.map((job,i)=>job.catch(err=>{
+      if(signal.aborted) return;
+      r.scopes[i].status='waiting_recovery';
+      r.scopes[i].last_error=err instanceof ChannelError?err.message:'dws_listener_failed';
+      update();
+    })));
+  }
+  function launch(name:Name,fingerprint:string) {
+    const r:Run={abort:new AbortController(),done:Promise.resolve(),fingerprint,status:'connecting',lastError:null,lastSeen:null,scopes:[]};
+    runs.set(name,r);
+    r.done=run(name,r).catch(err=>{if(r.status!=='stopped'){r.status='degraded';r.lastError=err instanceof ChannelError?err.message:'channel_not_ready';}});
+  }
+  let pending=Promise.resolve();
+  function refresh() {
+    pending=pending.catch(()=>{}).then(async()=>{
+      for(const name of names) {
+        const config=channelConfig(db,env,name), fingerprint=JSON.stringify([config,name==='dingtalk'?saved(db,'dingtalk_response_policy'):null]);
+        const old=runs.get(name),enabled=native&&!lifetime.signal.aborted && config?.enabled===true && !stopped.has(name);
+        if(old && (!enabled||old.fingerprint!==fingerprint)) {
+          old.status='stopped';old.abort.abort();await old.done;runs.delete(name);
+        }
+        if(enabled&&!runs.has(name)&&!lifetime.signal.aborted) launch(name,fingerprint);
+      }
+    });
+    return pending;
+  }
+  function statuses() {
+    return names.map(name=>{
+      const c=channelConfig(db,env,name)??{}, r=runs.get(name);
+      const configured=name==='redmine'?red.safeParse(c).success && !!env[c.api_key_env??'HLZJ_REDMINE_API_KEY'] && !!c.project_ids?.length:ding.safeParse(c).success;
+      const fields=name==='redmine' ? [['base_url','Redmine 服务地址'],['project_ids','Redmine 接收项目范围'],['user_id','Redmine 当前账号']]
+        : [['profile','DWS 组织 Profile'],['self_ids','自身账号 ID'],['executable','DWS 程序']];
+      const missing=fields.filter(([key])=>Array.isArray(c[key])?!c[key].length:!c[key]).map(([,label])=>label);
+      if(name==='redmine'&&!env[c.api_key_env??'HLZJ_REDMINE_API_KEY']) missing.push('API Key 环境变量');
+      return {id:name,name,configured,enabled:c.enabled===true,status:r?.status??(c.enabled?(native?'stopped':'unavailable'):'disabled'),
+        missing_configuration:missing,warnings:[],...(name==='dingtalk'?{scopes:r?.scopes??[]}:{}),
+        last_error:r?.lastError??null,last_seen:r?.lastSeen??null};
+    });
+  }
+  app.addHook('onReady',async()=>{setImmediate(()=>{if(!lifetime.signal.aborted) void refresh().catch(()=>{});});});
+  function reconcile(changes:Record<string,unknown>={}) {
+    for(const name of names) if('connectors.'+name in changes || name+'_enabled' in changes) stopped.delete(name);
+    return refresh();
+  }
+  app.get('/api/v1/connectors',async()=>statuses());
+  app.post('/api/v1/connectors/:name/:action',async req=>{
+    admin(req.principal);
+    const {name,action}=z.object({name:z.enum(names),action:z.enum(['start','stop'])}).parse(req.params);
+    if(action==='stop') stopped.add(name);
+    else {
+      if(channelConfig(db,env,name)?.enabled!==true) fail(409,'请先明确启用连接器配置');
+      stopped.delete(name);
+      const r=runs.get(name);
+      if(r?.status==='degraded') r.fingerprint='';
+    }
+    await refresh();return statuses();
+  });
+  app.addHook('preClose',async()=>{
+    lifetime.abort();for(const r of runs.values()){r.status='stopped';r.abort.abort();}
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    try {await Promise.race([Promise.allSettled([pending,...[...runs.values()].map(r=>r.done)]),
+      new Promise<void>(resolve=>{timer=setTimeout(resolve,2500);})]);}finally {clearTimeout(timer);}
+  });
+  const card=native?cardConfig(env):null;
+  if(card) {
+    const secret=env.SUPERAGENT_FEISHU_APP_SECRET;
+    if(secret) background(app,'feishu-notices',async signal=>{
+      if(!['member','admin'].includes(roleOf(env,card.owner)??'')) return;
+      await notifyCard(db,lease.owner,card,secret,signal,()=>guard(signal));
+    },1500);
+    const receive=cardReceiver(db,card,async(owner,aid,decision,hash)=>{
+      guard(lifetime.signal);
+      if(!['member','admin'].includes(roleOf(env,owner)??'')) throw new ChannelError('feishu_owner_unavailable');
+      const r=await app.inject({method:'POST',url:'/api/v1/approvals/'+aid+'/decision',headers:headers(env,owner),payload:{decision,action_hash:hash}});
+      if(r.statusCode!==200) throw new ChannelError('feishu_worker_decision_rejected');
+      return String(r.json().status);
+    });
+    app.register(async plugin=>{
+      plugin.removeContentTypeParser('application/json');
+      plugin.addContentTypeParser('application/json',{parseAs:'buffer',bodyLimit:128*1024},(_r,body,done)=>done(null,body));
+      plugin.post('/callbacks/feishu/card',async req=>{
+        let payload:unknown;
+        try {payload=decodeCard(card,req.body as Buffer,String(req.headers['x-lark-request-timestamp']??''),
+          String(req.headers['x-lark-request-nonce']??''),String(req.headers['x-lark-signature']??''));}
+        catch {return fail(403,'飞书回调认证失败');}
+        try{return await receive(payload);}catch{return fail(403,'飞书回调身份或卡片无效');}
+      });
+    });
+  }
+  const readOwn=async(binding:DingTalkHistoryBinding,signal:AbortSignal)=>{
+    if(!native || stopped.has('dingtalk')) throw new ChannelError('dws_disabled');
+    const current=()=>channelConfig(db,env,'dingtalk'),config=ding.parse(current());
+    if(!config.enabled) throw new ChannelError('dws_disabled');
+    const before=JSON.stringify(current()), active=AbortSignal.any([signal,lifetime.signal]);
+    guard(active);
+    const page=await readOwnDingTalk({...config,cwd:root},binding,env,active);
+    guard(active);
+    if(stopped.has('dingtalk') || JSON.stringify(current())!==before) throw new ChannelError('dws_configuration_changed');
+    return page;
+  };
+  if(native) configureWorkbenchRuntime(app,{...workbenchRuntime(app),readOwnDingTalk:readOwn});
+  return {prepare,statuses,reconcile,readOwnDingTalk:readOwn};
+}

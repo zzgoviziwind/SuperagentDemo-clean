@@ -1,0 +1,19 @@
+﻿SuperAgent-stage4-ts-failed-start-win-x64.exe : Startup failed: Process exited with code 1. Logs: C:\Users\examp\.codex
+\worktrees\6333\SuperAgentDemo\deploy\windows-ts
+At C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\deploy\windows-ts\Test-TSLifecycle.ps1:38 char:15
++     $result = & $Command @Arguments 2>&1 | Out-String
++               ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Startup failed:...ploy\windows-ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+\.artifacts\stage4\ts-life-d2325081a116\Test 用户\logs\20261118-103929-495-stage4-ts-failed-start-c367676e
+At C:\Users\examp\.codex\worktrees\6333\SuperAgentDemo\deploy\windows-ts\.artifacts\superagent-setup-c6ea88d56498463e90
+a28911f8269d5c\kit\SuperAgent.ps1:301 char:9
++         throw "Startup failed: $failure Logs: $logs"
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Startup failed:...-start-c367676e:String) [], RuntimeException
+    + FullyQualifiedErrorId : Startup failed: Process exited with code 1. Logs: C:\Users\examp\.codex\worktrees\6333\S 
+   uperAgentDemo\deploy\windows-ts\.artifacts\stage4\ts-life-d2325081a116\Test 用户\logs\20261118-103929-495-stage4-ts-  
+  failed-start-c367676e
+ 
+

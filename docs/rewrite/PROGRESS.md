@@ -5,15 +5,15 @@
 | 关口 | 状态 | 接续工作 |
 | --- | --- | --- |
 | 0 行为冻结 | 通过 | 两轮各 44 次进程内 HTTP，35 张旧表迁至 43 张表，附件和账本非空。另用真实 uvicorn 进程分别跑默认与 WP 模式，重启保留 unknown。见 `tests/rewrite-acceptance/RESULTS.md`、`uvicorn-results.json`。静态清单与 OpenAPI 同为 119 项 |
-| 1 安装和业务闭环 | 执行中 | Fastify 实际处理已授权 Redmine 来信，进程内 HTTP 重放只建一条任务，关闭重开后工作台组索引可读。待浏览器、进程强杀、独立收件计数及安装验证 |
-| 2 行为移植 | 待完成 | 按清单逐项联通，保持默认模式与历史数据可读 |
-| 3 差分与故障 | 待完成 | 两端复跑、抽查落库与副作用次数 |
-| 4 交付 | 待完成 | 干净机、同库回滚、候选包签收 |
+| 1 业务闭环 | 隔离进程两轮通过 | [阶段 1](../../tests/rewrite-acceptance/PHASE1.md) 从非空旧库接入 → 自动 Worker → 工具审批和人工验收 → 模拟发送后强杀 → 浏览器核验 → Python 同库读取。四身份验证。每轮独立收件数 1 |
+| 2 行为移植 | 集成中 | 已接入项目、工作台、渠道、现场记录与执行调度。官方 Node 24 运行过包含多仓 Git 隔离、审批占槽、续接与超时的 46 项 Host 测试。新接线需重跑 |
+| 3 差分与故障 | 执行中 | [119 项矩阵](../../tests/rewrite-acceptance/ROUTES-119.md) 独立区分业务断言与仅鉴权观测。仍在扩展真实请求与逐项差分 |
+| 4 安装与交付 | 安装生命周期已在现有 Windows 用户实测 | [安装复验](../../deploy/windows-ts/STAGE4.md) 安装、升级、故障恢复、回滚、卸载重试、保留数据库后重装。最终集成物仍需重新封装；全新系统及签名待核 |
 
 总控负责 HTTP、鉴权、集成及发布判断。执行存储、运行时渠道、工作台分发、独立验收分别维护指定模块。工作台读写接口与 Windows 进程安全复核单独并行。只使用隔离端口和合成数据。首次核查发现旧方案中“WP2 暂停”已经过时，WP1–3 的模式与交接已纳入基准。历史测试报告中的结果只用于定位场景。
 
 ### 集成记录
 
-- 初次独立进程树复核在 Node 22、24 均发现三种路径留下末级工具进程，见 `tests/rewrite-runtime-review/REVIEW.md`。Windows Job helper 已加入开发构建，待同一套负例与 Host 层复测。此问题阻断分发。
+- 初次独立进程树复核在 Node 22、24 均发现三种路径留下末级工具进程，见 `tests/rewrite-runtime-review/REVIEW.md`。Windows Job helper 已集成，同一套独立复测在两个版本均为 15/15，见 `tests/rewrite-acceptance/windows-runtime-results.json`。
 - 工作台任务详情与产物历史访问按当前真实 owner 检查。安全裁决为 admin 或归属 member 可读，旧 local-admin 行沿用已保存的治理归属；viewer 及其他成员禁止跨用户浏览。验收方已收到该变更。
 - 可重建的 Python 对照包为 `.deps/rewrite-oracle-abf0a692.zip`，SHA-256 为 `8d4998ae4c48b255b0963a2139b54fb7b8bdea6924f31ce35da6432e2c243229`。用 `python deploy/rewrite/oracle_bundle.py restore <zip>` 可逐文件验证并恢复。安装试样位于 `deploy/windows-ts/.artifacts/actual/packages/`，正式发布判断待全部关口证据。

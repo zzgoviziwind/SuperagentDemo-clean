@@ -1,0 +1,12 @@
+{
+  "name": "@superagent/runtime",
+  "private": true,
+  "type": "module",
+  "exports": "./index.ts",
+  "dependencies": {
+    "@superagent/windows-job": "file:../windows-job"
+  },
+  "scripts": {
+    "test": "node --import ./test/register-windows-job.mjs --test test/runtime.test.ts"
+  }
+}
