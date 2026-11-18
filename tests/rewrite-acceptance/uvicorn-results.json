@@ -1,0 +1,139 @@
+{
+  "profiles": {
+    "default": {
+      "boots": [
+        {
+          "channels": {
+            "dingtalk": "disabled",
+            "redmine": "disabled"
+          },
+          "health": {
+            "status": "ok",
+            "version": "0.1.0"
+          },
+          "lifespan_log": [
+            "INFO:     Started server process [36328]",
+            "INFO:     Waiting for application startup.",
+            "INFO:     Application startup complete.",
+            "INFO:     Shutting down",
+            "INFO:     Waiting for application shutdown.",
+            "INFO:     Application shutdown complete.",
+            "INFO:     Finished server process [36328]"
+          ],
+          "old_approval": "pending",
+          "old_delivery": "unknown",
+          "old_task": "waiting_resource",
+          "pid": 36328,
+          "port": 62486,
+          "task_2": "queued",
+          "task_2_unknown": false,
+          "task_2_version": 1
+        },
+        {
+          "channels": {
+            "dingtalk": "disabled",
+            "redmine": "disabled"
+          },
+          "health": {
+            "status": "ok",
+            "version": "0.1.0"
+          },
+          "lifespan_log": [
+            "INFO:     Started server process [18956]",
+            "INFO:     Waiting for application startup.",
+            "INFO:     Application startup complete.",
+            "INFO:     Shutting down",
+            "INFO:     Waiting for application shutdown.",
+            "INFO:     Application shutdown complete.",
+            "INFO:     Finished server process [18956]"
+          ],
+          "old_approval": "pending",
+          "old_delivery": "unknown",
+          "old_task": "waiting_resource",
+          "pid": 18956,
+          "port": 61707,
+          "task_2": "waiting_resource",
+          "task_2_unknown": true,
+          "task_2_version": 2
+        }
+      ],
+      "post_restart_attempts": [],
+      "post_restart_epoch": []
+    },
+    "wp": {
+      "boots": [
+        {
+          "channels": {
+            "dingtalk": "disabled",
+            "redmine": "disabled"
+          },
+          "health": {
+            "status": "ok",
+            "version": "0.1.0"
+          },
+          "lifespan_log": [
+            "INFO:     Started server process [11912]",
+            "INFO:     Waiting for application startup.",
+            "INFO:     Application startup complete.",
+            "INFO:     Shutting down",
+            "INFO:     Waiting for application shutdown.",
+            "INFO:     Application shutdown complete.",
+            "INFO:     Finished server process [11912]"
+          ],
+          "old_approval": "expired_on_restart",
+          "old_delivery": "unknown",
+          "old_task": "waiting_resource",
+          "pid": 11912,
+          "port": 59916,
+          "task_2": "queued",
+          "task_2_unknown": false,
+          "task_2_version": 1
+        },
+        {
+          "channels": {
+            "dingtalk": "disabled",
+            "redmine": "disabled"
+          },
+          "health": {
+            "status": "ok",
+            "version": "0.1.0"
+          },
+          "lifespan_log": [
+            "INFO:     Started server process [50016]",
+            "INFO:     Waiting for application startup.",
+            "INFO:     Application startup complete.",
+            "INFO:     Shutting down",
+            "INFO:     Waiting for application shutdown.",
+            "INFO:     Application shutdown complete.",
+            "INFO:     Finished server process [50016]"
+          ],
+          "old_approval": "expired_on_restart",
+          "old_delivery": "unknown",
+          "old_task": "waiting_resource",
+          "pid": 50016,
+          "port": 49721,
+          "task_2": "waiting_resource",
+          "task_2_unknown": true,
+          "task_2_version": 2
+        }
+      ],
+      "post_restart_attempts": [
+        [
+          "unknown"
+        ]
+      ],
+      "post_restart_epoch": [
+        [
+          2
+        ]
+      ]
+    }
+  },
+  "source": {
+    "commit": "7b7587d14399659d7951d3e195af863514fbf118",
+    "contract_sha256": "f5718d78f6e5b64a8c23c1b37b8100084511420bc588a5ba9aa0b7f28d84811c",
+    "files_checked": 346,
+    "fingerprint": "abf0a6922e8da03d65cd53458df256a509d824c3fbf276f58943cc800201b091",
+    "input_sha256": "7ddc38cd2088781c96d99ad63d5c264f13111636d7eaf17a8ea0b49dcc8fc03b"
+  }
+}

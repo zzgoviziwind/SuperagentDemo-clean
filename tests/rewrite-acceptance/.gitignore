@@ -1,0 +1,5 @@
+/stage0-*/
+/phase1-input-*/
+/phase1-run-*/
+!/runtime-v*.log
+!/evidence/phase1-*/*.log

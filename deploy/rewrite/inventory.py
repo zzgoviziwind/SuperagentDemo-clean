@@ -22,8 +22,11 @@ def collect(root):
                 for dec in node.decorator_list:
                     if isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute):
                         method = dec.func.attr.upper()
-                        if method in {"GET", "POST", "PATCH", "PUT", "DELETE"}:
-                            route = f"{method} {prefix}{ast.literal_eval(dec.args[0])}"
+                        verbs = [method] if method in {"GET", "POST", "PATCH", "PUT", "DELETE"} else []
+                        if method == "API_ROUTE":
+                            verbs = next(ast.literal_eval(k.value) for k in dec.keywords if k.arg == "methods")
+                        for verb in verbs:
+                            route = f"{verb} {prefix}{ast.literal_eval(dec.args[0])}"
                             routes[route] = source + ":" + str(node.lineno)
             if isinstance(node, ast.ClassDef):
                 for item in node.body:

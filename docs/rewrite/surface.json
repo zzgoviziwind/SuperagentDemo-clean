@@ -47,6 +47,7 @@
     "SUPERAGENT_WORKSPACES_ROOT"
   ],
   "routes": {
+    "DELETE /api/v1/conversation-providers/mcp": "superagent/api/conversation_providers.py:199",
     "DELETE /api/v1/identities/{identity_id}": "superagent/api/governance.py:122",
     "DELETE /api/v1/projects/{ident}": "superagent/main.py:259",
     "DELETE /api/v1/subscriptions/{subscription_id}": "superagent/api/routing.py:110",
@@ -69,6 +70,7 @@
     "GET /api/v1/conversation-providers/bridge/sessions": "superagent/api/conversation_providers.py:39",
     "GET /api/v1/conversation-providers/bridge/sessions/{ident}": "superagent/api/conversation_providers.py:45",
     "GET /api/v1/conversation-providers/bridge/status": "superagent/api/conversation_providers.py:34",
+    "GET /api/v1/conversation-providers/mcp": "superagent/api/conversation_providers.py:199",
     "GET /api/v1/decisions": "superagent/api/context.py:132",
     "GET /api/v1/event-groups": "superagent/api/event_groups.py:260",
     "GET /api/v1/event-groups/index": "superagent/api/event_groups.py:24",

@@ -1,0 +1,13 @@
+{
+  "baseline": "7b7587d14399659d7951d3e195af863514fbf118",
+  "oracle_fingerprint": "abf0a6922e8da03d65cd53458df256a509d824c3fbf276f58943cc800201b091",
+  "oracle_file_map_sha256": "3dfa19b2a899fb13df3d751a549f977305b6029b3bf89732d00da0963282ecb9",
+  "project": {"name":"离线验收项目","base_branch":"main","redmine_project_ids":["7"]},
+  "identity": {"source":"redmine","actor_id":"9","user_id":"admin","enabled":true,"permissions":["request"]},
+  "event": {"source":"redmine","external_id":"oracle-issue-42","event_type":"issue.comment","actor_id":"9","project_external_id":"7","issue_id":"42","content":"请修复离线样本的显示问题","occurred_at":"2026-11-17T08:00:00Z","attachments":[],"metadata":{"redmine_endpoint":"https://fixture.invalid"}},
+  "reply": "离线样本已核对",
+  "attachment": {"filename":"核验 证据.txt","content_type":"text/plain","text":"合成样本 A\n第二行\n"},
+  "redmine": {"enabled":false,"base_url":"https://fixture.invalid","project_ids":[7],"user_id":5},
+  "enabled_modes": {"EXECUTION_MODE":"attempt","CONTEXT_MODE":"decisions","DELIVERY_MODE":"worker","LEDGER_MODE":"v2"},
+  "default_false": ["dingtalk_enabled","redmine_enabled","dingtalk_route_all_mentions","external_delivery_enabled","scheduler_enabled","router_agent_enabled","semantic_routing_enabled","watchdog_enabled"]
+}
