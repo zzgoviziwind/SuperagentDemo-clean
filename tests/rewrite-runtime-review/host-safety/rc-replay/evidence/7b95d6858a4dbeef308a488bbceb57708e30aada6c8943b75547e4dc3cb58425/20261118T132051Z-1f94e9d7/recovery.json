@@ -1,0 +1,679 @@
+{
+  "candidate": {
+    "source": "C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-runtime-review\\host-safety\\prepare-candidate.zip",
+    "dependency_source": "workspace",
+    "manifest_version": null,
+    "zip_sha256": "8f7bc94c298696fa99542039ef08405364490363316caa9f4e1a413e37967efb",
+    "files": {
+      "bin/windows-job-x64.exe": "425cd705d1fb3b5e2d47aba00c50145a890a9f664861a0274f2682ac60efe1bc",
+      "fixtures/environment.ts": "ecceb3cfe9c9abb0b013a2ceb465c1f991577e6a1eba4b2903796d0de8b019e2",
+      "fixtures/fake-app-server.ts": "3e6c1f1bafb71c663c3dc0284a5552d8a0098db47eb43516e8c596c7f4cc3622",
+      "fixtures/fake-channel-sender.ts": "087a70439b4088ac0d0d971d182b830c65a093561fc989a2d45ef7037160330b",
+      "main.js": "b3289b3be6299c3d9157b0b9f62f38901696cad4c708152542f3385788f9a8f3"
+    },
+    "dist_sha256": "7b95d6858a4dbeef308a488bbceb57708e30aada6c8943b75547e4dc3cb58425",
+    "main_sha256": "b3289b3be6299c3d9157b0b9f62f38901696cad4c708152542f3385788f9a8f3",
+    "node_sha256": "05012037a68886c9d60c9aaeee833d221e2fbaee8b80a243a69b46679c38a539"
+  },
+  "utc": "2026-11-18T13:20:51.998244+00:00",
+  "node": "v24.22.3",
+  "python": "3.12.10",
+  "seed_sha256": "57637fcc70bbbb90a6cbd9194665d1c7c928916c696ad0749914844ece2c5828",
+  "seed_storage_commit": "30bceacbf141cfb143bc0eab9d004761f23201ba",
+  "runner_files": {
+    "replay.py": "650374849a6878ab5f1016e648da90456f7aef35ad6544d626b31dee3cce7bbb",
+    "candidate.py": "054a52f5ee5cb51e523ee8cc928e8f57daa522827f1de86cad01f098df747a16",
+    "stock.py": "aec0f050322a883aefdd0920b6c0a2262d53714e51c434124a79f719a62f52b8",
+    "prepare-guard.cjs": "2d4b1d6737af7ac0cc8d686d939f736e6a4d1ec61722208a92b03bb367f43f4d"
+  },
+  "cases": {
+    "reported_119": {
+      "checks": {
+        "backup_before_recovery": true,
+        "dispatched_approval": false,
+        "pending_bridge": false,
+        "delivery": true,
+        "python_stock_same_db": true,
+        "repeat_stable": true,
+        "no_external_receipts": true,
+        "sqlite_integrity": true,
+        "workbench_run": false
+      },
+      "before": {
+        "integrity": "ok",
+        "task": {
+          "id": 1,
+          "status": "waiting_approval",
+          "outcome_unknown": 0
+        },
+        "attempt": {
+          "id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0",
+          "status": "waiting_approval"
+        },
+        "tool": {
+          "id": 2,
+          "status": "dispatching",
+          "action_hash": "8b31dc545fbff17076e8d20a4b50428aab0eb9cf4a925c09cac4655e26504bc3"
+        },
+        "decision": [
+          {
+            "content": "approve",
+            "approval_id": 2,
+            "attempt_id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0"
+          }
+        ],
+        "unknown_events": [],
+        "bridge": [
+          {
+            "request_key": "completed-control",
+            "status": "completed",
+            "result": "{\"sample\":true}",
+            "payload_hash": "fixture"
+          },
+          {
+            "request_key": "recovery-sample",
+            "status": "pending",
+            "result": null,
+            "payload_hash": "fixture"
+          }
+        ],
+        "runs": [
+          {
+            "id": "completed-control",
+            "kind": "watchdog",
+            "scope_id": 15,
+            "phase": "finished",
+            "status": "completed",
+            "tree_exited": 1
+          },
+          {
+            "id": "recovery-sample",
+            "kind": "watchdog",
+            "scope_id": 15,
+            "phase": "turn_intent",
+            "status": "running",
+            "tree_exited": 0
+          }
+        ],
+        "ledger": {
+          "action_id": "reply-1",
+          "status": "dispatching"
+        }
+      },
+      "backup": {
+        "integrity": "ok",
+        "task": {
+          "id": 1,
+          "status": "waiting_approval",
+          "outcome_unknown": 0
+        },
+        "attempt": {
+          "id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0",
+          "status": "waiting_approval"
+        },
+        "tool": {
+          "id": 2,
+          "status": "dispatching",
+          "action_hash": "8b31dc545fbff17076e8d20a4b50428aab0eb9cf4a925c09cac4655e26504bc3"
+        },
+        "decision": [
+          {
+            "content": "approve",
+            "approval_id": 2,
+            "attempt_id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0"
+          }
+        ],
+        "unknown_events": [],
+        "bridge": [
+          {
+            "request_key": "completed-control",
+            "status": "completed",
+            "result": "{\"sample\":true}",
+            "payload_hash": "fixture"
+          },
+          {
+            "request_key": "recovery-sample",
+            "status": "pending",
+            "result": null,
+            "payload_hash": "fixture"
+          }
+        ],
+        "runs": [
+          {
+            "id": "completed-control",
+            "kind": "watchdog",
+            "scope_id": 15,
+            "phase": "finished",
+            "status": "completed",
+            "tree_exited": 1
+          },
+          {
+            "id": "recovery-sample",
+            "kind": "watchdog",
+            "scope_id": 15,
+            "phase": "turn_intent",
+            "status": "running",
+            "tree_exited": 0
+          }
+        ],
+        "ledger": {
+          "action_id": "reply-1",
+          "status": "dispatching"
+        }
+      },
+      "after": {
+        "integrity": "ok",
+        "task": {
+          "id": 1,
+          "status": "waiting_resource",
+          "outcome_unknown": 1
+        },
+        "attempt": {
+          "id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0",
+          "status": "unknown"
+        },
+        "tool": {
+          "id": 2,
+          "status": "expired_on_restart",
+          "action_hash": "8b31dc545fbff17076e8d20a4b50428aab0eb9cf4a925c09cac4655e26504bc3"
+        },
+        "decision": [
+          {
+            "content": "approve",
+            "approval_id": 2,
+            "attempt_id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0"
+          }
+        ],
+        "unknown_events": [],
+        "bridge": [
+          {
+            "request_key": "completed-control",
+            "status": "completed",
+            "result": "{\"sample\":true}",
+            "payload_hash": "fixture"
+          },
+          {
+            "request_key": "recovery-sample",
+            "status": "pending",
+            "result": null,
+            "payload_hash": "fixture"
+          }
+        ],
+        "runs": [
+          {
+            "id": "completed-control",
+            "kind": "watchdog",
+            "scope_id": 15,
+            "phase": "finished",
+            "status": "completed",
+            "tree_exited": 1
+          },
+          {
+            "id": "recovery-sample",
+            "kind": "watchdog",
+            "scope_id": 15,
+            "phase": "turn_intent",
+            "status": "running",
+            "tree_exited": 0
+          }
+        ],
+        "ledger": {
+          "action_id": "reply-1",
+          "status": "unknown"
+        }
+      },
+      "python_stock": {
+        "approval": "expired_on_restart",
+        "bridge": "pending",
+        "attempt": "unknown",
+        "task_unknown": true,
+        "read_file_id": "5348024558737047"
+      },
+      "readback": {
+        "integrity": "ok",
+        "task": {
+          "id": 1,
+          "status": "waiting_resource",
+          "outcome_unknown": 1
+        },
+        "attempt": {
+          "id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0",
+          "status": "unknown"
+        },
+        "tool": {
+          "id": 2,
+          "status": "expired_on_restart",
+          "action_hash": "8b31dc545fbff17076e8d20a4b50428aab0eb9cf4a925c09cac4655e26504bc3"
+        },
+        "decision": [
+          {
+            "content": "approve",
+            "approval_id": 2,
+            "attempt_id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0"
+          }
+        ],
+        "unknown_events": [],
+        "bridge": [
+          {
+            "request_key": "completed-control",
+            "status": "completed",
+            "result": "{\"sample\":true}",
+            "payload_hash": "fixture"
+          },
+          {
+            "request_key": "recovery-sample",
+            "status": "pending",
+            "result": null,
+            "payload_hash": "fixture"
+          }
+        ],
+        "runs": [
+          {
+            "id": "completed-control",
+            "kind": "watchdog",
+            "scope_id": 15,
+            "phase": "finished",
+            "status": "completed",
+            "tree_exited": 1
+          },
+          {
+            "id": "recovery-sample",
+            "kind": "watchdog",
+            "scope_id": 15,
+            "phase": "turn_intent",
+            "status": "running",
+            "tree_exited": 0
+          }
+        ],
+        "ledger": {
+          "action_id": "reply-1",
+          "status": "unknown"
+        }
+      },
+      "after_repeat": {
+        "integrity": "ok",
+        "task": {
+          "id": 1,
+          "status": "waiting_resource",
+          "outcome_unknown": 1
+        },
+        "attempt": {
+          "id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0",
+          "status": "unknown"
+        },
+        "tool": {
+          "id": 2,
+          "status": "expired_on_restart",
+          "action_hash": "8b31dc545fbff17076e8d20a4b50428aab0eb9cf4a925c09cac4655e26504bc3"
+        },
+        "decision": [
+          {
+            "content": "approve",
+            "approval_id": 2,
+            "attempt_id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0"
+          }
+        ],
+        "unknown_events": [],
+        "bridge": [
+          {
+            "request_key": "completed-control",
+            "status": "completed",
+            "result": "{\"sample\":true}",
+            "payload_hash": "fixture"
+          },
+          {
+            "request_key": "recovery-sample",
+            "status": "pending",
+            "result": null,
+            "payload_hash": "fixture"
+          }
+        ],
+        "runs": [
+          {
+            "id": "completed-control",
+            "kind": "watchdog",
+            "scope_id": 15,
+            "phase": "finished",
+            "status": "completed",
+            "tree_exited": 1
+          },
+          {
+            "id": "recovery-sample",
+            "kind": "watchdog",
+            "scope_id": 15,
+            "phase": "turn_intent",
+            "status": "running",
+            "tree_exited": 0
+          }
+        ],
+        "ledger": {
+          "action_id": "reply-1",
+          "status": "unknown"
+        }
+      },
+      "cli": {
+        "prepared": true,
+        "database": "superagent.db",
+        "backup": "rollback-backups/ef777ed6-5488-42d3-80ea-63ff9323646b.db",
+        "recovery": {
+          "abandoned": 0,
+          "unknown": 1,
+          "legacy_unknown": 0,
+          "approvals_expired": 1,
+          "claims_expired": 0,
+          "dispatches_unknown": 1
+        },
+        "unknown_delivery_ids": [
+          "reply-1"
+        ],
+        "unknown_task_ids": [
+          1
+        ]
+      },
+      "repeat_cli": {
+        "prepared": true,
+        "database": "superagent.db",
+        "backup": "rollback-backups/bc212740-c0d4-4557-8f12-76d6a68311aa.db",
+        "recovery": {
+          "abandoned": 0,
+          "unknown": 0,
+          "legacy_unknown": 0,
+          "approvals_expired": 0,
+          "claims_expired": 0,
+          "dispatches_unknown": 0
+        },
+        "unknown_delivery_ids": [
+          "reply-1"
+        ],
+        "unknown_task_ids": [
+          1
+        ]
+      },
+      "database_file_id": "5348024558737047",
+      "initial_backup_sha256": "cccbb10bf407d1bbc0b68b817c738b01a38f359b9075ea649e869c2be40f4708",
+      "pass": false
+    },
+    "bridge_without_model_table": {
+      "checks": {
+        "backup_before_recovery": true,
+        "dispatched_approval": false,
+        "pending_bridge": false,
+        "delivery": true,
+        "python_stock_same_db": true,
+        "repeat_stable": true,
+        "no_external_receipts": true,
+        "sqlite_integrity": true
+      },
+      "before": {
+        "integrity": "ok",
+        "task": {
+          "id": 1,
+          "status": "waiting_approval",
+          "outcome_unknown": 0
+        },
+        "attempt": {
+          "id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0",
+          "status": "waiting_approval"
+        },
+        "tool": {
+          "id": 2,
+          "status": "dispatching",
+          "action_hash": "8b31dc545fbff17076e8d20a4b50428aab0eb9cf4a925c09cac4655e26504bc3"
+        },
+        "decision": [
+          {
+            "content": "approve",
+            "approval_id": 2,
+            "attempt_id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0"
+          }
+        ],
+        "unknown_events": [],
+        "bridge": [
+          {
+            "request_key": "completed-control",
+            "status": "completed",
+            "result": "{\"sample\":true}",
+            "payload_hash": "fixture"
+          },
+          {
+            "request_key": "recovery-sample",
+            "status": "pending",
+            "result": null,
+            "payload_hash": "fixture"
+          }
+        ],
+        "runs": [],
+        "ledger": {
+          "action_id": "reply-1",
+          "status": "dispatching"
+        }
+      },
+      "backup": {
+        "integrity": "ok",
+        "task": {
+          "id": 1,
+          "status": "waiting_approval",
+          "outcome_unknown": 0
+        },
+        "attempt": {
+          "id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0",
+          "status": "waiting_approval"
+        },
+        "tool": {
+          "id": 2,
+          "status": "dispatching",
+          "action_hash": "8b31dc545fbff17076e8d20a4b50428aab0eb9cf4a925c09cac4655e26504bc3"
+        },
+        "decision": [
+          {
+            "content": "approve",
+            "approval_id": 2,
+            "attempt_id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0"
+          }
+        ],
+        "unknown_events": [],
+        "bridge": [
+          {
+            "request_key": "completed-control",
+            "status": "completed",
+            "result": "{\"sample\":true}",
+            "payload_hash": "fixture"
+          },
+          {
+            "request_key": "recovery-sample",
+            "status": "pending",
+            "result": null,
+            "payload_hash": "fixture"
+          }
+        ],
+        "runs": [],
+        "ledger": {
+          "action_id": "reply-1",
+          "status": "dispatching"
+        }
+      },
+      "after": {
+        "integrity": "ok",
+        "task": {
+          "id": 1,
+          "status": "waiting_resource",
+          "outcome_unknown": 1
+        },
+        "attempt": {
+          "id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0",
+          "status": "unknown"
+        },
+        "tool": {
+          "id": 2,
+          "status": "expired_on_restart",
+          "action_hash": "8b31dc545fbff17076e8d20a4b50428aab0eb9cf4a925c09cac4655e26504bc3"
+        },
+        "decision": [
+          {
+            "content": "approve",
+            "approval_id": 2,
+            "attempt_id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0"
+          }
+        ],
+        "unknown_events": [],
+        "bridge": [
+          {
+            "request_key": "completed-control",
+            "status": "completed",
+            "result": "{\"sample\":true}",
+            "payload_hash": "fixture"
+          },
+          {
+            "request_key": "recovery-sample",
+            "status": "pending",
+            "result": null,
+            "payload_hash": "fixture"
+          }
+        ],
+        "runs": [],
+        "ledger": {
+          "action_id": "reply-1",
+          "status": "unknown"
+        }
+      },
+      "python_stock": {
+        "approval": "expired_on_restart",
+        "bridge": "pending",
+        "attempt": "unknown",
+        "task_unknown": true,
+        "read_file_id": "5066549582031365"
+      },
+      "readback": {
+        "integrity": "ok",
+        "task": {
+          "id": 1,
+          "status": "waiting_resource",
+          "outcome_unknown": 1
+        },
+        "attempt": {
+          "id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0",
+          "status": "unknown"
+        },
+        "tool": {
+          "id": 2,
+          "status": "expired_on_restart",
+          "action_hash": "8b31dc545fbff17076e8d20a4b50428aab0eb9cf4a925c09cac4655e26504bc3"
+        },
+        "decision": [
+          {
+            "content": "approve",
+            "approval_id": 2,
+            "attempt_id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0"
+          }
+        ],
+        "unknown_events": [],
+        "bridge": [
+          {
+            "request_key": "completed-control",
+            "status": "completed",
+            "result": "{\"sample\":true}",
+            "payload_hash": "fixture"
+          },
+          {
+            "request_key": "recovery-sample",
+            "status": "pending",
+            "result": null,
+            "payload_hash": "fixture"
+          }
+        ],
+        "runs": [],
+        "ledger": {
+          "action_id": "reply-1",
+          "status": "unknown"
+        }
+      },
+      "after_repeat": {
+        "integrity": "ok",
+        "task": {
+          "id": 1,
+          "status": "waiting_resource",
+          "outcome_unknown": 1
+        },
+        "attempt": {
+          "id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0",
+          "status": "unknown"
+        },
+        "tool": {
+          "id": 2,
+          "status": "expired_on_restart",
+          "action_hash": "8b31dc545fbff17076e8d20a4b50428aab0eb9cf4a925c09cac4655e26504bc3"
+        },
+        "decision": [
+          {
+            "content": "approve",
+            "approval_id": 2,
+            "attempt_id": "13bbebe1-f80b-4db6-9531-71c6b9ba17d0"
+          }
+        ],
+        "unknown_events": [],
+        "bridge": [
+          {
+            "request_key": "completed-control",
+            "status": "completed",
+            "result": "{\"sample\":true}",
+            "payload_hash": "fixture"
+          },
+          {
+            "request_key": "recovery-sample",
+            "status": "pending",
+            "result": null,
+            "payload_hash": "fixture"
+          }
+        ],
+        "runs": [],
+        "ledger": {
+          "action_id": "reply-1",
+          "status": "unknown"
+        }
+      },
+      "cli": {
+        "prepared": true,
+        "database": "superagent.db",
+        "backup": "rollback-backups/681c3166-6962-4f32-a458-ad6f230936e3.db",
+        "recovery": {
+          "abandoned": 0,
+          "unknown": 1,
+          "legacy_unknown": 0,
+          "approvals_expired": 1,
+          "claims_expired": 0,
+          "dispatches_unknown": 1
+        },
+        "unknown_delivery_ids": [
+          "reply-1"
+        ],
+        "unknown_task_ids": [
+          1
+        ]
+      },
+      "repeat_cli": {
+        "prepared": true,
+        "database": "superagent.db",
+        "backup": "rollback-backups/55fcaf17-bbf7-414c-9f61-512c81b60159.db",
+        "recovery": {
+          "abandoned": 0,
+          "unknown": 0,
+          "legacy_unknown": 0,
+          "approvals_expired": 0,
+          "claims_expired": 0,
+          "dispatches_unknown": 0
+        },
+        "unknown_delivery_ids": [
+          "reply-1"
+        ],
+        "unknown_task_ids": [
+          1
+        ]
+      },
+      "database_file_id": "5066549582031365",
+      "initial_backup_sha256": "010dcecee1bb2e70b5f96e3351adac8b3a7d51d4f964c5ffab9d7c25141efdd4",
+      "pass": false
+    }
+  },
+  "dist_unchanged": true,
+  "pass": false
+}

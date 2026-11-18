@@ -1,0 +1,11 @@
+{
+  "files": {
+    "main.js": "b3289b3be6299c3d9157b0b9f62f38901696cad4c708152542f3385788f9a8f3",
+    "bin/windows-job-x64.exe": "425cd705d1fb3b5e2d47aba00c50145a890a9f664861a0274f2682ac60efe1bc",
+    "fixtures/environment.ts": "ecceb3cfe9c9abb0b013a2ceb465c1f991577e6a1eba4b2903796d0de8b019e2",
+    "fixtures/fake-app-server.ts": "3e6c1f1bafb71c663c3dc0284a5552d8a0098db47eb43516e8c596c7f4cc3622",
+    "fixtures/fake-channel-sender.ts": "087a70439b4088ac0d0d971d182b830c65a093561fc989a2d45ef7037160330b"
+  },
+  "dist_sha256": "7b95d6858a4dbeef308a488bbceb57708e30aada6c8943b75547e4dc3cb58425",
+  "private_dist": "phase1-input-replay-h38b56tl/dist"
+}

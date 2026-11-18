@@ -1,6 +1,14 @@
 # Windows TypeScript 重写验收矩阵（阶段 0–4）
 
+RC2 C397 的[双端 119、并发与工作台回切结果](evidence/candidates/c397cf1b5c2dc12221167f9052f9f5402eb08bbcf140da35577b972d483a8b78/phase1-run-119-xzh9xl08/ACCEPTANCE.md)记录原十个缺口的实际行为、daemon 同库承接和回切失败分支。
+
+新候选使用[按 SHA 与运行轮次隔离的复验入口](RC-REPLAY.md)。B328 的字段类差异已展开为[32 项逐接口裁决表](B328-32.md)。
+
+B328 固定包的 119 项双端 HTTP、逐路由并发、四角色权限、工作台定时器及 Python 回切实测见[本轮独立验收交接](HANDOFF-119.md)。下文早期矩阵中的覆盖计数按其原构建保留。
+
 判定依据为同一份输入在固定 Python 源上产生的可观察结果，以及《接口契约》约定的行为。阶段编号沿用总控 docs/rewrite/PROGRESS.md。阶段 0 建立对照，阶段 1–4 的通过均需候选实现自己的证据。Python 与文字契约发生分歧时，分别保留原响应、契约条款和待裁决项。
+
+阶段 3、4 的 [119 项逐路由矩阵](ROUTES-119.md) 列出每个 HTTP 方法与路径的差分输入、预期、安装与回切条件、最终 TS 实测边界。可用 `python -IB -X utf8 tests/rewrite-acceptance/route_matrix.py --check` 从两轮记录验证矩阵与冻结路由集一致。逐项证据索引见[机器清单](route-matrix.json)。
 
 |编号|输入与操作|应采集的结果及失败条件|Python 依据（相对源码根）|
 |---|---|---|---|

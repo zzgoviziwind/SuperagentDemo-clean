@@ -1,0 +1,28 @@
+{
+  "exit": 1,
+  "mode": "installed TS",
+  "assertions": [],
+  "kits": {
+    "SuperAgent-stage4-ts-a-win-x64.zip": {
+      "zip": "994cc4c2236762e27e17398ef99bca85a3b2aa52382f002bff3e9599947ccf01",
+      "exe": "ff4c2d27a0bf0779ff5c0f5278331dabd8180c183d242028e9a643b360143991",
+      "manager": "d4db54bccbe721e78c44802cc56acd1941bb01c8fc6ac4288c3f8a2517e2e899",
+      "fixture_server": "539219645bbba36a469940ab847af22539418d2779047208e242ddd0ece3467c"
+    },
+    "SuperAgent-stage4-ts-b-win-x64.zip": {
+      "zip": "4b9f06390f77179e4ec2e21afc5c2ad6b51f5ea29b6f20c4a7bb0dd8303779b3",
+      "exe": "2db69a5b1e5397e8b5068632d749cce793b01a5aad7272abec9482e7c5a32184",
+      "manager": "d4db54bccbe721e78c44802cc56acd1941bb01c8fc6ac4288c3f8a2517e2e899",
+      "fixture_server": "67cd629891ab831b57df4229b23741d9fc827bbe51231705fb0fb554431d70d0"
+    },
+    "SuperAgent-stage4-ts-failed-start-win-x64.zip": {
+      "zip": "8ff98c0e8308b46667e604a68ff9574e340e040299edacf1aab4351eddb0aa1b",
+      "exe": "0fce2311d71699488bc62415b9f86f48b3da625e9472021bec0c2e48d79b5abf",
+      "manager": "d4db54bccbe721e78c44802cc56acd1941bb01c8fc6ac4288c3f8a2517e2e899",
+      "fixture_server": "67cd629891ab831b57df4229b23741d9fc827bbe51231705fb0fb554431d70d0"
+    }
+  },
+  "test_script": "8761c777e79ea2629f778b4db64f66a0ef3bad29ff03ea4bdc21502c9316eb4a",
+  "current_manager": "d4db54bccbe721e78c44802cc56acd1941bb01c8fc6ac4288c3f8a2517e2e899",
+  "diagnostic": "+     $result = & $Command @Arguments 2>&1 | Out-String\n+               ~~~~~~~~~~~~~~~~~~~~~~~~~~\n    + CategoryInfo          : NotSpecified: (SuperAgent setu...\u5f55\u540d\u5fc5\u987b\u5c11\u4e8e 248 \u4e2a\u5b57\u7b26\u3002:String) [], RemoteException\n    + FullyQualifiedErrorId : NativeCommandError\n \nAt C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\deploy\\windows-ts\\Test-TSLifecycle.ps1:42 char:30\n+ ...  elseif ($code -ne 0) { throw \"Command failed, exit $code. $result\" }\n+                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n    + CategoryInfo          : OperationStopped: (Command failed,...mmandError\n \n:String) [], RuntimeException\n    + FullyQualifiedErrorId : Command failed, exit 1. SuperAgent-stage4-ts-a-win-x64.exe : SuperAgent setup: \u6307\u5b9a\u7684\u8def\u5f84\u6216\u6587\u4ef6\u540d \n   \u592a\u957f\uff0c\u6216\u8005\u4e24\u8005\u90fd\u592a\u957f\u3002\u5b8c\u5168\u9650\u5b9a\u6587\u4ef6\u540d\u5fc5\u987b\u5c11\u4e8e 260 \u4e2a\u5b57\u7b26\uff0c\u5e76\u4e14\u76ee\u5f55\u540d\u5fc5\u987b\u5c11\u4e8e 248 \u4e2a\u5b57\u7b26\u3002\nAt C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\deploy\\windows-ts\\Test-TSLifecycle.ps1:38 char:15\n+     $result = & $Command @Arguments 2>&1 | Out-String\n+               ~~~~~~~~~~~~~~~~~~~~~~~~~~\n    + CategoryInfo          : NotSpecified: (SuperAgent setu...\u5f55\u540d\u5fc5\u987b\u5c11\u4e8e 248 \u4e2a\u5b57\u7b26\u3002:String) [], RemoteException\n    + FullyQualifiedErrorId : NativeCommandError\n \n "
+}

@@ -1,0 +1,79 @@
+{
+  "calls": 36,
+  "changed_tables": {
+    "event_targets": 1,
+    "events": 1,
+    "governance_task_owners": 1,
+    "task_routes": 2,
+    "tasks": 1
+  },
+  "clients": 6,
+  "duplicate_write_calls": 12,
+  "duplicates": 11,
+  "external_receipts": 0,
+  "ids": [
+    [
+      109,
+      16
+    ],
+    [
+      109,
+      16
+    ],
+    [
+      109,
+      16
+    ],
+    [
+      109,
+      16
+    ],
+    [
+      109,
+      16
+    ],
+    [
+      109,
+      16
+    ],
+    [
+      109,
+      16
+    ],
+    [
+      109,
+      16
+    ],
+    [
+      109,
+      16
+    ],
+    [
+      109,
+      16
+    ],
+    [
+      109,
+      16
+    ],
+    [
+      109,
+      16
+    ]
+  ],
+  "integrity": "ok",
+  "max_ms": 83.87,
+  "originals": [
+    [
+      109,
+      16
+    ]
+  ],
+  "p50_ms": 22.28,
+  "p95_ms": 82.18,
+  "passed": true,
+  "read_calls": 24,
+  "statuses": {
+    "200": 36
+  }
+}

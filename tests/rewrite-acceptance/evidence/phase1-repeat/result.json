@@ -1,0 +1,183 @@
+{
+  "browser_reconciled": true,
+  "candidate_signoff": false,
+  "crash": {
+    "before_restart": "dispatching",
+    "expires_at": "2026-11-18T09:54:00.773000+00:00",
+    "lease_epoch": 1,
+    "receipt": {
+      "actionHash": "a9cec8f54c2b40015d7e006cbf2a9305fa3cb5696582a7f131e0df37ab528ec2",
+      "actionId": "reply-3",
+      "content": "离线人工草稿，核对收到",
+      "evidenceSource": "offline-channel-fixture",
+      "id": "e909043d-7468-4fac-a2b6-afe60bdae3a3",
+      "target": {
+        "messageId": "crash-001",
+        "source": "dingtalk",
+        "threadId": "fixture-thread"
+      }
+    },
+    "wait_seconds": 29.671
+  },
+  "crash-host": {
+    "exit_after_receipt": true,
+    "health": {
+      "implementation": "typescript",
+      "status": "ok",
+      "version": "0.2.0-dev.1"
+    },
+    "pid": 1352,
+    "port": 1111,
+    "returncode": 1
+  },
+  "crash_ui_rollback_passed": true,
+  "delivery_visibility": {
+    "admin": {
+      "meets_visibility_rule": true,
+      "rows": 1,
+      "status": 200
+    },
+    "alice": {
+      "meets_visibility_rule": false,
+      "rows": 1,
+      "status": 200
+    },
+    "bob": {
+      "meets_visibility_rule": true,
+      "rows": 1,
+      "status": 200
+    },
+    "viewer": {
+      "meets_visibility_rule": false,
+      "rows": 1,
+      "status": 200
+    }
+  },
+  "dist_sha256": {
+    "bin/windows-job-x64.exe": "425cd705d1fb3b5e2d47aba00c50145a890a9f664861a0274f2682ac60efe1bc",
+    "fixtures/fake-app-server.ts": "460086b44eac5f604cd71b56c5baa2f691d04786afc55dcbe9493c0b6a42517e",
+    "main.js": "c3d8f2011f561384fa15e267f2e561b851363aa3a89b6a064141a289aaff7606"
+  },
+  "entry_sha256": "c3d8f2011f561384fa15e267f2e561b851363aa3a89b6a064141a289aaff7606",
+  "manual_draft": true,
+  "node": "v24.22.3",
+  "python_rollback": {
+    "integrity": "ok",
+    "ledger": "succeeded",
+    "port": 52475,
+    "receipt_count": 1,
+    "same_file_id": "16888498603600083",
+    "status": "queued",
+    "task": 2
+  },
+  "recovered": {
+    "after_reconcile": {
+      "action_hash": "a9cec8f54c2b40015d7e006cbf2a9305fa3cb5696582a7f131e0df37ab528ec2",
+      "action_id": "reply-3",
+      "claimed_at": "2026-11-18T09:53:31.064000+00:00",
+      "dispatching_at": "2026-11-18T09:53:31.069000+00:00",
+      "reason": "dispatch_outcome_pending_reconciliation",
+      "reconciled_at": "2026-11-18T09:54:04.665000+00:00",
+      "reconciliation_evidence": "独立假渠道回执 e909043d-7468-4fac-a2b6-afe60bdae3a3",
+      "write_status": "succeeded"
+    },
+    "before_reconcile": "unknown",
+    "receipt_count": 1
+  },
+  "restarted-host": {
+    "exit_after_receipt": false,
+    "health": {
+      "implementation": "typescript",
+      "status": "ok",
+      "version": "0.2.0-dev.1"
+    },
+    "pid": 41972,
+    "port": 2361,
+    "returncode": 0
+  },
+  "source": {
+    "commit": "7b7587d14399659d7951d3e195af863514fbf118",
+    "contract_sha256": "f5718d78f6e5b64a8c23c1b37b8100084511420bc588a5ba9aa0b7f28d84811c",
+    "files_checked": 346,
+    "fingerprint": "abf0a6922e8da03d65cd53458df256a509d824c3fbf276f58943cc800201b091",
+    "input_sha256": "7ddc38cd2088781c96d99ad63d5c264f13111636d7eaf17a8ea0b49dcc8fc03b"
+  },
+  "visibility": {
+    "admin": {
+      "counts": {
+        "queued": 1,
+        "waiting_resource": 1
+      },
+      "detail_checks": {
+        "/artifacts/1": 200,
+        "/artifacts/1/download": 200,
+        "/tasks/1": 200,
+        "/tasks/1/export": 200,
+        "/tasks/2": 200,
+        "/tasks/2/export": 200
+      },
+      "pending_approval_ids": [
+        3
+      ],
+      "task_ids": [
+        1,
+        2
+      ]
+    },
+    "alice": {
+      "counts": {
+        "waiting_resource": 1
+      },
+      "detail_checks": {
+        "/artifacts/1": 200,
+        "/artifacts/1/download": 200,
+        "/tasks/1": 200,
+        "/tasks/1/export": 200,
+        "/tasks/2": 404,
+        "/tasks/2/export": 404
+      },
+      "pending_approval_ids": [],
+      "task_ids": [
+        1
+      ]
+    },
+    "bob": {
+      "counts": {
+        "queued": 1
+      },
+      "detail_checks": {
+        "/artifacts/1": 404,
+        "/artifacts/1/download": 404,
+        "/tasks/1": 404,
+        "/tasks/1/export": 404,
+        "/tasks/2": 200,
+        "/tasks/2/export": 200
+      },
+      "pending_approval_ids": [
+        3
+      ],
+      "task_ids": [
+        2
+      ]
+    },
+    "viewer": {
+      "counts": {},
+      "detail_checks": {
+        "/artifacts/1": 404,
+        "/artifacts/1/download": 404,
+        "/tasks/1": 404,
+        "/tasks/1/export": 404,
+        "/tasks/2": 404,
+        "/tasks/2/export": 404
+      },
+      "pending_approval_ids": [],
+      "task_ids": []
+    }
+  },
+  "web_dist_sha256": {
+    "assets/index-CqVVRaUm.js": "6c39c1674bb770d72f0c31ef4294ac64a6bae5f8955f3c7fa32ecfaada4b82ae",
+    "assets/index-nguacDrZ.css": "269ce983286ac9499f1259bc9377d5a5ca246d60501cf3d55ba75f92116e9f3b",
+    "field-timeline.example.json": "be5742be6be88cd92ff3336336a52f3b28c056f8bb9be59dfa42213a52ec00c3",
+    "index.html": "7629e262eda3d4c2a08ddaa708591d1326a357dfe2e26b8b896fb51a84e6e734"
+  }
+}

@@ -1,0 +1,7 @@
+# Generated evidence is fingerprinted byte for byte.
+evidence/** -text whitespace=trailing-space,cr-at-eol
+runtime-v*.log -text whitespace=trailing-space,cr-at-eol
+windows-runtime-results.json -text whitespace=trailing-space,cr-at-eol
+*.py text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf

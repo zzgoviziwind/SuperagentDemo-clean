@@ -1,0 +1,16 @@
+# 运行中的隔离夹具和本地预验构建
+/阶段1 样本 */
+/离线 样本 */
+/host-safety/approval-*/
+/host-safety/install-*/
+/host-safety/p-*/
+/host-safety/run-*/
+/host-safety/rc-replay/preflight-*/
+/host-safety/rc-replay/l-*/
+/host-safety/rc-replay/r-*/
+/host-safety/rc-replay/s-*/
+
+# README 中固定指纹的离线输入
+!/host-safety/rc-replay/seed.sqlite.gz
+!/host-safety/prepare-candidate.zip
+!/host-safety/rc-replay/inputs/640df38b462a224aede86c02984a99253ac5b2000e5441686db0347617b70215.zip

@@ -1,0 +1,19 @@
+{
+  "exit": 0,
+  "mode": "handoff installer at long path",
+  "assertions": [
+    "PASS actual TypeScript health, index, /assets/index-BUYJECyf.js, /assets/index-nguacDrZ.css, timeline example and isolated SQLite",
+    "PASS restart from PID 13792 to 51772 using the same SQLite directory",
+    "PASS stop and released listener"
+  ],
+  "kits": {
+    "SuperAgent-stage4-python-handoff-win-x64.zip": {
+      "zip": "8c8b2f0050194fdab0a9efcf750d796a721f52616f4ac2171738333c129c8d30",
+      "exe": "5724ba7147be621c08c8583370b8e38f4c989305787c7c8d048ffa35888017fb",
+      "manager": "8a815d93cf91c80a339b598c4af31327b4844e230754d40432a259ff73dcf44e",
+      "fixture_server": "b3289b3be6299c3d9157b0b9f62f38901696cad4c708152542f3385788f9a8f3"
+    }
+  },
+  "test_script": "19e21aeffe334e8d4633ae36142af911a0e8a75b57e9c258bc6a06d7a6f08b92",
+  "current_manager": "8a815d93cf91c80a339b598c4af31327b4844e230754d40432a259ff73dcf44e"
+}

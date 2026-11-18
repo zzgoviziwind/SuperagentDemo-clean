@@ -1,0 +1,134 @@
+{
+  "dist_sha256": "640df38b462a224aede86c02984a99253ac5b2000e5441686db0347617b70215",
+  "entry_sha256": "c397cf1b5c2dc12221167f9052f9f5402eb08bbcf140da35577b972d483a8b78",
+  "exit": 0,
+  "file_id": "2814749768378899",
+  "pid": 12444,
+  "port": 62282,
+  "python": {
+    "exchange": {
+      "body": {
+        "accepted": true
+      },
+      "headers": {},
+      "milliseconds": 6.9,
+      "mime": "application/json",
+      "status": 200
+    },
+    "poll": {
+      "body": {
+        "active_sessions": [],
+        "operation": null
+      },
+      "headers": {},
+      "milliseconds": 38.53,
+      "mime": "application/json",
+      "status": 200
+    }
+  },
+  "python_db_changes": {
+    "execution_nodes": [
+      {
+        "after": {
+          "boot_id": "postcheck-synthetic-boot",
+          "id": "sample-node",
+          "seen": 1795008569.4709089
+        },
+        "before": null,
+        "rowid": 1,
+        "type": "insert"
+      }
+    ],
+    "execution_nonces": [
+      {
+        "after": {
+          "expires": 1795008689.4645143,
+          "id": "sample-node:8d02bbd473a244a1b0820a225e4bed8c"
+        },
+        "before": null,
+        "rowid": 1,
+        "type": "insert"
+      },
+      {
+        "after": {
+          "expires": 1795008689.4789295,
+          "id": "sample-node:bb88b09f1a1e4d849403ab4361188584"
+        },
+        "before": null,
+        "rowid": 2,
+        "type": "insert"
+      }
+    ]
+  },
+  "receipts": 0,
+  "repaired": {
+    "bridge_state": "unknown",
+    "cli_exit": 0,
+    "output": {
+      "backup": "C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-acceptance\\phase1-run-119-postcheck-ly3uujyw\\python\\rollback-backups\\24765d2e-fa00-4fde-8ca4-9d8e57b1adad.db",
+      "database": "C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-acceptance\\phase1-run-119-postcheck-ly3uujyw\\python\\superagent.db",
+      "prepared": true,
+      "recovery": {
+        "abandoned": 0,
+        "approvals_expired": 0,
+        "approvals_unknown": 0,
+        "claims_expired": 0,
+        "dispatches_unknown": 0,
+        "legacy_unknown": 0,
+        "unknown": 0
+      },
+      "unknown_delivery_ids": [
+        "reply-2"
+      ],
+      "unknown_task_ids": [
+        1,
+        12
+      ]
+    }
+  },
+  "residual": {
+    "bridge_state": "pending",
+    "cli_exit": 1,
+    "reason": "仍有未完成恢复的派发记录",
+    "success_output": false
+  },
+  "restarted-host": {
+    "exit_after_receipt": false,
+    "health": {
+      "implementation": "typescript",
+      "status": "ok",
+      "version": "0.2.0-dev.1"
+    },
+    "pid": 53964,
+    "port": 5407,
+    "returncode": 0
+  },
+  "root": "C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-acceptance\\phase1-run-119-postcheck-ly3uujyw\\python",
+  "ts": {
+    "exchange": {
+      "body": {
+        "detail": "远端执行设备由原 Python 控制器承载。请完成同库回切后连接原控制器。",
+        "execution_host": "python"
+      },
+      "headers": {
+        "cache-control": "no-store"
+      },
+      "milliseconds": 3.54,
+      "mime": "application/json",
+      "status": 503
+    },
+    "poll": {
+      "body": {
+        "detail": "远端执行设备由原 Python 控制器承载。请完成同库回切后连接原控制器。",
+        "execution_host": "python"
+      },
+      "headers": {
+        "cache-control": "no-store"
+      },
+      "milliseconds": 7.23,
+      "mime": "application/json",
+      "status": 503
+    }
+  },
+  "ts_db_changes": {}
+}

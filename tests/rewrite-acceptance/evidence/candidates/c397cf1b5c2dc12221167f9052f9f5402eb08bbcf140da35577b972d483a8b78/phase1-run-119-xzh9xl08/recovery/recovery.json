@@ -1,0 +1,195 @@
+{
+  "dist_sha256": "640df38b462a224aede86c02984a99253ac5b2000e5441686db0347617b70215",
+  "entry_sha256": "c397cf1b5c2dc12221167f9052f9f5402eb08bbcf140da35577b972d483a8b78",
+  "exit": 0,
+  "external_receipts": 0,
+  "live_rollback": {
+    "backup_files": 0,
+    "exit": 1,
+    "reason": "原控制器的租约仍有效"
+  },
+  "owners": {
+    "admin": {
+      "counts": {
+        "completed": 1,
+        "paused": 1,
+        "queued": 1,
+        "review_ready": 1,
+        "waiting_resource": 3
+      },
+      "statuses": {
+        "/artifacts/1": 200,
+        "/artifacts/1/download": 200,
+        "/tasks/1": 200,
+        "/tasks/1/export": 200,
+        "/tasks/15": 200,
+        "/tasks/15/export": 200
+      },
+      "tasks": [
+        1,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ]
+    },
+    "alice": {
+      "counts": {
+        "waiting_resource": 1
+      },
+      "statuses": {
+        "/artifacts/1": 200,
+        "/artifacts/1/download": 200,
+        "/tasks/1": 200,
+        "/tasks/1/export": 200,
+        "/tasks/15": 404,
+        "/tasks/15/export": 404
+      },
+      "tasks": [
+        1
+      ]
+    },
+    "bob": {
+      "counts": {
+        "waiting_resource": 1
+      },
+      "statuses": {
+        "/artifacts/1": 404,
+        "/artifacts/1/download": 404,
+        "/tasks/1": 404,
+        "/tasks/1/export": 404,
+        "/tasks/15": 200,
+        "/tasks/15/export": 200
+      },
+      "tasks": [
+        15
+      ]
+    },
+    "viewer": {
+      "counts": {},
+      "statuses": {
+        "/artifacts/1": 404,
+        "/artifacts/1/download": 404,
+        "/tasks/1": 404,
+        "/tasks/1/export": 404,
+        "/tasks/15": 404,
+        "/tasks/15/export": 404
+      },
+      "tasks": []
+    }
+  },
+  "pid": 132,
+  "port": 61274,
+  "python_readback": {
+    "file_id": "4222124651920024",
+    "integrity": "ok",
+    "task_id": 15,
+    "watchdog_id": "1033fb28-3879-4f9f-b3e1-c4e2ba89210c"
+  },
+  "restarted-host": {
+    "exit_after_receipt": false,
+    "health": {
+      "implementation": "typescript",
+      "status": "ok",
+      "version": "0.2.0-dev.1"
+    },
+    "pid": 1736,
+    "port": 2186,
+    "returncode": 0
+  },
+  "rollback": {
+    "backup_sha256": "a2e1c3899bbe4d8d5bb9f2e4271d293975361f138d9f83b330b9b1350d7c4cd3",
+    "expected": {
+      "backup": [
+        "running",
+        "turn_intent",
+        "pending"
+      ],
+      "live": [
+        "unknown",
+        "turn_intent",
+        "unknown"
+      ]
+    },
+    "frozen": true,
+    "output": {
+      "backup": "C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-acceptance\\phase1-run-119-recovery-clvvwj1n\\python\\rollback-backups\\1c085564-0e3f-4141-bb5d-f20178dc1860.db",
+      "database": "C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-acceptance\\phase1-run-119-recovery-clvvwj1n\\python\\superagent.db",
+      "prepared": true,
+      "recovery": {
+        "abandoned": 0,
+        "approvals_expired": 0,
+        "approvals_unknown": 0,
+        "claims_expired": 0,
+        "dispatches_unknown": 0,
+        "legacy_unknown": 0,
+        "unknown": 0
+      },
+      "unknown_delivery_ids": [
+        "reply-2"
+      ],
+      "unknown_task_ids": [
+        1,
+        12
+      ]
+    },
+    "states": {
+      "backup": [
+        "running",
+        "turn_intent",
+        "pending"
+      ],
+      "live": [
+        "unknown",
+        "turn_intent",
+        "unknown"
+      ]
+    }
+  },
+  "root": "C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-acceptance\\phase1-run-119-recovery-clvvwj1n\\python",
+  "seed_sha256": "caa2e7e36f6427fdb81593527b0b37107d783e16da550db7dd6e3752e797fde8",
+  "timer": {
+    "manual_run_calls": 0,
+    "model_run": [
+      "1033fb28-3879-4f9f-b3e1-c4e2ba89210c",
+      "completed",
+      1,
+      "offline-codex-fixture",
+      "7ed23677-3407-4516-a2ee-2cae5e0e5f67",
+      "58a05190-3b26-4ccc-9a45-90c865523559"
+    ],
+    "watchdog": {
+      "conclusion": {
+        "action": "observe",
+        "applied": "observe",
+        "evidence_source": "offline-codex-fixture",
+        "invocation_id": "1033fb28-3879-4f9f-b3e1-c4e2ba89210c",
+        "reason": "独立离线协议进程已返回合成结果",
+        "status": "completed",
+        "thread_id": "7ed23677-3407-4516-a2ee-2cae5e0e5f67",
+        "turn_id": "58a05190-3b26-4ccc-9a45-90c865523559"
+      },
+      "correction": "",
+      "created_at": "2026-11-18T13:25:33.644000+00:00",
+      "evidence": {
+        "artifacts": [],
+        "corrections": [],
+        "events": [],
+        "task": {
+          "goal": "离线演练",
+          "id": 15,
+          "state_version": 1,
+          "status": "waiting_resource"
+        }
+      },
+      "id": "1033fb28-3879-4f9f-b3e1-c4e2ba89210c",
+      "state_version": 1,
+      "status": "completed",
+      "task_id": 15,
+      "thread_id": "7ed23677-3407-4516-a2ee-2cae5e0e5f67",
+      "turn_id": "58a05190-3b26-4ccc-9a45-90c865523559"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "node": "v24.22.3",
+  "pin": {
+    "dist_sha256": "7b95d6858a4dbeef308a488bbceb57708e30aada6c8943b75547e4dc3cb58425",
+    "files": {
+      "bin/windows-job-x64.exe": "425cd705d1fb3b5e2d47aba00c50145a890a9f664861a0274f2682ac60efe1bc",
+      "fixtures/environment.ts": "ecceb3cfe9c9abb0b013a2ceb465c1f991577e6a1eba4b2903796d0de8b019e2",
+      "fixtures/fake-app-server.ts": "3e6c1f1bafb71c663c3dc0284a5552d8a0098db47eb43516e8c596c7f4cc3622",
+      "fixtures/fake-channel-sender.ts": "087a70439b4088ac0d0d971d182b830c65a093561fc989a2d45ef7037160330b",
+      "main.js": "b3289b3be6299c3d9157b0b9f62f38901696cad4c708152542f3385788f9a8f3"
+    },
+    "private_dist": "phase1-input-replay-h38b56tl/dist"
+  },
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "seed_sha256": "5bc2b8435c673c4ebd74ae918e17ae2f72077ba6f1e725304f8ecfe9e067e93e",
+  "source": {
+    "commit": "7b7587d14399659d7951d3e195af863514fbf118",
+    "contract_sha256": "f5718d78f6e5b64a8c23c1b37b8100084511420bc588a5ba9aa0b7f28d84811c",
+    "files_checked": 346,
+    "fingerprint": "abf0a6922e8da03d65cd53458df256a509d824c3fbf276f58943cc800201b091",
+    "input_sha256": "7ddc38cd2088781c96d99ad63d5c264f13111636d7eaf17a8ea0b49dcc8fc03b"
+  }
+}

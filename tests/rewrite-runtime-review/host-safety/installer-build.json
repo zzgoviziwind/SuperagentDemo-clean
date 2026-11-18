@@ -1,0 +1,38 @@
+{
+  "exit": 0,
+  "mode": "fresh",
+  "assertions": [
+    "PASS install, diagnostics, bundled v24.22.1, React and Field Intake asset",
+    "PASS repeat install, restart, persistence, stop, foreign listener and concurrent lock",
+    "PASS upgrade, downgrade, roll forward, corrupt package and incompatible data generation",
+    "PASS failed activation, restored previous health, retained diagnostic log and data"
+  ],
+  "kits": {
+    "SuperAgent-fixture-broken-win-x64.zip": {
+      "zip": "da2b9796045e097ee7ee7c2db83a8be3d53753c7c8228a37c28ca268e40aa1c8",
+      "exe": "547394e700d1422f9dc7be08eefe4a054ce6a115a11b8864b55105cc00535440",
+      "manager": "d4db54bccbe721e78c44802cc56acd1941bb01c8fc6ac4288c3f8a2517e2e899",
+      "fixture_server": "09fc256276f6b501888f114417119ec67257aebd92e74fce5ce53d850f399245"
+    },
+    "SuperAgent-fixture-next-epoch-win-x64.zip": {
+      "zip": "4b2c828e1092a1cb9d6a5b8121bce0d51aed61017d06b1b65809b0f37979d844",
+      "exe": "12a6481fe29b0ac91e410b3edb18f75757ef0c70df66bbadb35a4d42c7d63db0",
+      "manager": "d4db54bccbe721e78c44802cc56acd1941bb01c8fc6ac4288c3f8a2517e2e899",
+      "fixture_server": "09fc256276f6b501888f114417119ec67257aebd92e74fce5ce53d850f399245"
+    },
+    "SuperAgent-fixture-v1-win-x64.zip": {
+      "zip": "342656dd096e1da81b5cb862b9bd76f0baa3f03380ec5c121d05981352a4ab2f",
+      "exe": "bf7815caebd4d8d4391f85ab501047a8c40c4f252864ab7354fcfd20b3672aaf",
+      "manager": "d4db54bccbe721e78c44802cc56acd1941bb01c8fc6ac4288c3f8a2517e2e899",
+      "fixture_server": "09fc256276f6b501888f114417119ec67257aebd92e74fce5ce53d850f399245"
+    },
+    "SuperAgent-fixture-v2-win-x64.zip": {
+      "zip": "689d3eebf60338ad3aba3c03f616ab923354edc56b1c7e9a2a9bcbe7770b1811",
+      "exe": "d7f417610dfdc919388a9a8392a57e5b8ae90ec66b522e66a849b9f9f850e98f",
+      "manager": "d4db54bccbe721e78c44802cc56acd1941bb01c8fc6ac4288c3f8a2517e2e899",
+      "fixture_server": "09fc256276f6b501888f114417119ec67257aebd92e74fce5ce53d850f399245"
+    }
+  },
+  "test_script": "a8113a4783678959de8a56e5abcb1e6b2ed3f439fd5ca2eb23f24123b479c154",
+  "current_manager": "d4db54bccbe721e78c44802cc56acd1941bb01c8fc6ac4288c3f8a2517e2e899"
+}

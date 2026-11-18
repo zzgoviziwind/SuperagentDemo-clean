@@ -1,0 +1,5 @@
+# The independent replay records fingerprints of its scripts and output.
+*.py text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json -text whitespace=trailing-space,cr-at-eol

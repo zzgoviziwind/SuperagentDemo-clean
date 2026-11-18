@@ -1,0 +1,70 @@
+[
+  {
+    "entry_sha256": "a02dd4d0748207f045d7b6dae562cc2570953f4727e63f391faf195bd29d60d5",
+    "diagnostic_fixture_added": null,
+    "task": {
+      "id": 2,
+      "status": "failed",
+      "last_error": "执行连接、版本或结果未确认 [offline-codex-fixture]",
+      "outcome_unknown": 0,
+      "codex_thread_id": null,
+      "codex_turn_id": null
+    },
+    "attempts": [
+      {
+        "id": "25c3e1b3-f62d-40b1-88ca-b267abd7876c",
+        "phase": "workspace",
+        "status": "failed",
+        "last_error": "执行连接、版本或结果未确认 [offline-codex-fixture]"
+      }
+    ]
+  },
+  {
+    "entry_sha256": "b182fe360d0022a136733f031748938d4edcb0fcf58b1b12f7bb5f606f023c42",
+    "diagnostic_fixture_added": {
+      "fixtures/environment.ts": "060c8ec088f8e08b364cf5e07daedeab17f730995b178297fa550190c66811dc"
+    },
+    "task": {
+      "id": 2,
+      "status": "waiting_resource",
+      "last_error": "执行进程树退出未确认，须人工核对 [offline-codex-fixture]",
+      "outcome_unknown": 1,
+      "codex_thread_id": "c68cf8e2-7c47-4161-9e68-40bd260abc7e",
+      "codex_turn_id": "9c970714-9717-4ccd-839b-ab742ba7e897"
+    },
+    "attempts": [
+      {
+        "id": "9f2230a2-10cb-44a9-810b-6bc41df8851f",
+        "phase": "turn",
+        "status": "unknown",
+        "last_error": "执行进程树退出未确认，须人工核对 [offline-codex-fixture]"
+      }
+    ]
+  },
+  {
+    "entry_sha256": "c3d8f2011f561384fa15e267f2e561b851363aa3a89b6a064141a289aaff7606",
+    "dist_sha256": {
+      "bin/windows-job-x64.exe": "425cd705d1fb3b5e2d47aba00c50145a890a9f664861a0274f2682ac60efe1bc",
+      "fixtures/fake-app-server.ts": "460086b44eac5f604cd71b56c5baa2f691d04786afc55dcbe9493c0b6a42517e",
+      "main.js": "c3d8f2011f561384fa15e267f2e561b851363aa3a89b6a064141a289aaff7606"
+    },
+    "diagnostic_fixture_added": null,
+    "task": {
+      "id": 2,
+      "status": "failed",
+      "last_error": "假 Codex 握手失败（initialize: process disconnected） [offline-codex-fixture]",
+      "outcome_unknown": 0,
+      "codex_thread_id": null,
+      "codex_turn_id": null
+    },
+    "attempts": [
+      {
+        "id": "17983b46-e548-4de0-a128-80fe78c95f0e",
+        "phase": "workspace",
+        "status": "failed",
+        "last_error": "假 Codex 握手失败（initialize: process disconnected） [offline-codex-fixture]"
+      }
+    ],
+    "fake_receipt_count": 0
+  }
+]

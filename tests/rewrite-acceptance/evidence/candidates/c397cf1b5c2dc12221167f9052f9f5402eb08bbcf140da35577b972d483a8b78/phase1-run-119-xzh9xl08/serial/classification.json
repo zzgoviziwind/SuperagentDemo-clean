@@ -1,0 +1,4630 @@
+{
+  "counts": {
+    "业务抽查通过": 4,
+    "业务抽查通过，响应头有差异": 67,
+    "前置条件拒绝": 4,
+    "副作用不符": 1,
+    "协议拒绝通过": 2,
+    "字段或持久记录差异": 31,
+    "按约定由 Python 承载": 2,
+    "服务错误": 1,
+    "行为差异": 7
+  },
+  "routes": {
+    "DELETE /conversation-providers/mcp": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "协议拒绝通过",
+      "fixture_boundary": "contract-405",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 405,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": false,
+      "ts_db_tables": [],
+      "ts_status": 405
+    },
+    "DELETE /identities/{identity_id}": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        404,
+        404
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "governance_audit",
+        "governance_identities"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "governance_audit",
+        "governance_identities"
+      ],
+      "ts_status": 200
+    },
+    "DELETE /projects/{ident}": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        404,
+        404
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "governance_audit",
+        "projects"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "governance_audit",
+        "projects"
+      ],
+      "ts_status": 200
+    },
+    "DELETE /subscriptions/{subscription_id}": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        404,
+        404
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "governance_audit",
+        "worker_subscriptions"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "governance_audit",
+        "worker_subscriptions"
+      ],
+      "ts_status": 200
+    },
+    "GET /agents/local": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /approvals": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/0/status"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /architecture": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /artifacts/{ident}": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /artifacts/{ident}/download": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {},
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /attempts/{attempt_id}/context": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /audit": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /auth/me": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /budget-reservations": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /budgets": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /codex-prompts": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/analysis/0/text",
+          "body/analysis/0/title",
+          "body/repair/0/text",
+          "body/repair/0/title",
+          "body/reply (条数)",
+          "body/reply/0/text",
+          "body/router/0/text",
+          "body/semantic_routing (条数)",
+          "body/semantic_routing/0/text",
+          "body/semantic_routing/1/text",
+          "body/semantic_routing/1/title",
+          "body/watchdog/0/text"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /connectors": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /connectors/dingtalk/group": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "行为差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/detail (仅 TS)",
+          "body/id (仅 Python)",
+          "body/name (仅 Python)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ],
+        "status": [
+          "status"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": false,
+      "ts_db_tables": [],
+      "ts_status": 409
+    },
+    "GET /connectors/dingtalk/groups": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "行为差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/complete (仅 Python)",
+          "body/detail (仅 TS)",
+          "body/has_more (仅 Python)",
+          "body/items (仅 Python)",
+          "body/next_cursor (仅 Python)",
+          "body/stop_reason (仅 Python)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ],
+        "status": [
+          "status"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": false,
+      "ts_db_tables": [],
+      "ts_status": 409
+    },
+    "GET /conversation-providers": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/items/1/reason",
+          "body/items/2/reason",
+          "body/items/2/transports (条数)",
+          "body/items/2/transports/0"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /conversation-providers/bridge/operations/{request_key}": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /conversation-providers/bridge/sessions": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /conversation-providers/bridge/sessions/{ident}": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /conversation-providers/bridge/status": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/items/1/reason",
+          "body/items/2/reason",
+          "body/items/2/transports (条数)",
+          "body/items/2/transports/0"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /conversation-providers/mcp": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "协议拒绝通过",
+      "fixture_boundary": "contract-405",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 405,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": false,
+      "ts_db_tables": [],
+      "ts_status": 405
+    },
+    "GET /decisions": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /event-groups": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /event-groups/index": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /event-groups/triage-options": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /event-groups/{ident}": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /event-rules": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /events": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /events/stream": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /events/{event_id}/trace": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /field-intake/media-jobs": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/reason (仅 TS)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /field-intake/organizer": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/ocr (仅 TS)",
+          "body/timeline (仅 TS)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /field-intake/records": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /field-intake/records/{ident}": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /field-intake/records/{ident}/media": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/content-disposition"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /field-intake/records/{ident}/screenshots/{number}": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {},
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /field-intake/records/{ident}/targets": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /field-intake/records/{ident}/transcript/{segment_id}": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /health": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/implementation (仅 TS)",
+          "body/version"
+        ]
+      },
+      "negative_status": [
+        200,
+        200
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {},
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /identities": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /operations/nodes": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/items/0/execution_host (仅 TS)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /operations/tasks/{task_id}/attempts": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /operations/watchdog": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /overview": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/pending_approvals (条数)",
+          "body/pending_approvals/0/action/action_hash (仅 TS)",
+          "body/pending_approvals/0/action/kind (仅 TS)",
+          "body/pending_approvals/0/action/method (仅 Python)",
+          "body/pending_approvals/0/action/params (仅 Python)",
+          "body/pending_approvals/0/action/payload (仅 TS)",
+          "body/pending_approvals/0/action/request_id (仅 Python)",
+          "body/pending_approvals/0/action/source (仅 TS)",
+          "body/pending_approvals/0/action/target (仅 TS)",
+          "body/pending_approvals/0/action/write_status (仅 TS)",
+          "body/pending_approvals/0/action_hash",
+          "body/pending_approvals/0/id"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /project-workspace": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /project-workspace/codex-projects": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /projects": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /routing/jobs": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /sessions": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /sessions/{ident}": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /sessions/{ident}/coordination": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /sessions/{ident}/transcript": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /settings": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /subscriptions": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /tasks": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /tasks/{ident}": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /tasks/{ident}/export": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {},
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /tasks/{task_id}/context": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /tasks/{task_id}/decisions": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "GET /tasks/{task_id}/deliveries": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "PATCH /budgets/{account_id}": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "governance_audit",
+        "governance_budget_accounts",
+        "governance_settings"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "governance_audit",
+        "governance_budget_accounts",
+        "governance_settings"
+      ],
+      "ts_status": 200
+    },
+    "PATCH /identities": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "governance_audit",
+        "governance_identities"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "governance_audit",
+        "governance_identities"
+      ],
+      "ts_status": 200
+    },
+    "PATCH /operations/projects/{project_id}/execution-node": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "governance_audit",
+        "project_execution_nodes"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "governance_audit",
+        "project_execution_nodes"
+      ],
+      "ts_status": 200
+    },
+    "PATCH /projects/{ident}": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "服务错误",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ],
+        "mime": [
+          "mime"
+        ],
+        "status": [
+          "status"
+        ]
+      },
+      "negative_status": [
+        500,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "governance_audit",
+        "projects"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "governance_audit",
+        "projects"
+      ],
+      "ts_status": 200
+    },
+    "PATCH /settings": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "governance_audit",
+        "governance_settings"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "governance_audit",
+        "governance_settings"
+      ],
+      "ts_status": 200
+    },
+    "POST /agents/local/connect": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "前置条件拒绝",
+      "fixture_boundary": "no-account",
+      "negative_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 409,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": false,
+      "ts_db_tables": [],
+      "ts_status": 409
+    },
+    "POST /approvals/{ident}/decision": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "前置条件拒绝",
+      "fixture_boundary": "historical-no-live-worker",
+      "negative_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        409,
+        409
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 409,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": false,
+      "ts_db_tables": [],
+      "ts_status": 409
+    },
+    "POST /auth/login": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/set-cookie"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "POST /auth/logout": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "cookie",
+      "negative_differences": {},
+      "negative_status": [
+        403,
+        403
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/set-cookie"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "POST /budget-reservations/{reservation_id}/reconcile": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "governance_audit",
+        "governance_budget_accounts",
+        "governance_budget_reservations"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "governance_audit",
+        "governance_budget_accounts",
+        "governance_budget_reservations"
+      ],
+      "ts_status": 200
+    },
+    "POST /connectors/{name}/{action}": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "stop-disabled",
+      "negative_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "POST /conversation-providers/bridge/operations": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/events/0/after/id",
+          "db/events/0/rowid",
+          "db/governance_audit/0/after/action",
+          "db/governance_audit/0/after/details/$serialized_json/user_id (仅 Python)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "conversation_bridge_operations",
+        "events",
+        "governance_audit",
+        "governance_task_owners",
+        "tasks"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "conversation_bridge_operations",
+        "events",
+        "governance_audit",
+        "governance_task_owners",
+        "tasks"
+      ],
+      "ts_status": 200
+    },
+    "POST /conversation-providers/mcp": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        200,
+        200
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/result/tools/0/description",
+          "body/result/tools/1/description",
+          "body/result/tools/2/description",
+          "body/result/tools/3/description",
+          "body/result/tools/3/inputSchema/$schema (仅 TS)",
+          "body/result/tools/3/inputSchema/properties/action/title (仅 Python)",
+          "body/result/tools/3/inputSchema/properties/change_goal/title (仅 Python)",
+          "body/result/tools/3/inputSchema/properties/content/title (仅 Python)",
+          "body/result/tools/3/inputSchema/properties/control/title (仅 Python)",
+          "body/result/tools/3/inputSchema/properties/expected_state_version/anyOf/0/exclusiveMinimum (仅 TS)",
+          "body/result/tools/3/inputSchema/properties/expected_state_version/anyOf/0/maximum (仅 TS)",
+          "body/result/tools/3/inputSchema/properties/expected_state_version/anyOf/0/minimum (仅 Python)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "POST /decisions": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "decisions",
+        "governance_audit"
+      ],
+      "python_status": 201,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "decisions",
+        "governance_audit"
+      ],
+      "ts_status": 201
+    },
+    "POST /decisions/{decision_id}/revoke": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "decisions",
+        "governance_audit"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "decisions",
+        "governance_audit"
+      ],
+      "ts_status": 200
+    },
+    "POST /deliveries/{draft_id}/decision": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        409,
+        409
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/events/0/after/id",
+          "db/events/0/rowid"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "approvals",
+        "events"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "approvals",
+        "events"
+      ],
+      "ts_status": 200
+    },
+    "POST /deliveries/{draft_id}/publish": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "existing-unknown-ledger",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        404,
+        404
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "POST /deliveries/{draft_id}/reconcile": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/events/0/after/id",
+          "db/events/0/rowid"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "delivery_records",
+        "events"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "delivery_records",
+        "events"
+      ],
+      "ts_status": 200
+    },
+    "POST /event-groups/triage": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "events",
+        "governance_audit"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "events",
+        "governance_audit"
+      ],
+      "ts_status": 200
+    },
+    "POST /event-groups/{ident}/delegations": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/id"
+        ],
+        "db": [
+          "db/events/0/after/id",
+          "db/events/0/rowid",
+          "db/events/1/after/id",
+          "db/events/1/rowid"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "events",
+        "tasks"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "events",
+        "tasks"
+      ],
+      "ts_status": 200
+    },
+    "POST /event-groups/{ident}/events/{event_id}/resolution": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/events/0/after/id",
+          "db/events/0/rowid"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "events",
+        "tasks"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "events",
+        "tasks"
+      ],
+      "ts_status": 200
+    },
+    "POST /event-groups/{ident}/following/{subscription_id}": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        409,
+        409
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/events/0/after/id",
+          "db/events/0/rowid"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "events",
+        "tasks",
+        "worker_subscriptions"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "events",
+        "tasks",
+        "worker_subscriptions"
+      ],
+      "ts_status": 200
+    },
+    "POST /event-groups/{ident}/rename": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        409,
+        409
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/events/0/after/id",
+          "db/events/0/rowid"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "events",
+        "tasks"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "events",
+        "tasks"
+      ],
+      "ts_status": 200
+    },
+    "POST /event-groups/{ident}/sync-own-dingtalk": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "行为差异",
+      "fixture_boundary": "no-dingtalk-account",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        401,
+        401
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/added (仅 Python)",
+          "body/detail (仅 TS)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ],
+        "status": [
+          "status"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": false,
+      "ts_db_tables": [],
+      "ts_status": 409
+    },
+    "POST /events": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/data/_lifecycle/0/steps/1/detail/checks/delivery_echo (仅 Python)",
+          "body/data/_lifecycle/0/steps/1/detail/checks/event_type (仅 Python)",
+          "body/data/_lifecycle/0/steps/1/detail/checks/message_content (仅 Python)",
+          "body/data/_lifecycle/0/steps/1/detail/checks/request_kind (仅 Python)",
+          "body/data/_lifecycle/0/steps/1/detail/conversation_type (仅 Python)",
+          "body/data/_lifecycle/0/steps/1/detail/default_project_fallback (仅 Python)",
+          "body/data/_lifecycle/0/steps/1/detail/default_project_match (仅 Python)",
+          "body/data/_lifecycle/0/steps/1/detail/evidence_scope (仅 Python)",
+          "body/data/_lifecycle/0/steps/1/detail/external_project_candidates (仅 Python)",
+          "body/data/_lifecycle/0/steps/1/detail/input/conversation_type (仅 Python)",
+          "body/data/_lifecycle/0/steps/1/detail/persisted_settings (仅 Python)",
+          "body/data/_lifecycle/0/steps/1/detail/project_candidates/0/name (仅 Python)"
+        ],
+        "db": [
+          "db/event_targets/0/after/event_id",
+          "db/event_targets/0/after/message_event_id",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/checks/delivery_echo (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/checks/event_type (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/checks/message_content (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/checks/request_kind (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/conversation_type (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/default_project_fallback (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/default_project_match (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/evidence_scope (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/external_project_candidates (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/input/conversation_type (仅 Python)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "event_targets",
+        "events",
+        "governance_task_owners",
+        "task_routes",
+        "tasks"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "event_targets",
+        "events",
+        "governance_task_owners",
+        "task_routes",
+        "tasks"
+      ],
+      "ts_status": 200
+    },
+    "POST /events/{event_id}/retry-attachments": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "副作用不符",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        409,
+        409
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/data/attachments_error (类型)",
+          "body/data/attachments_error_code (仅 TS)",
+          "body/data/attachments_status"
+        ],
+        "db": [
+          "db/events/0/after/data/$serialized_json/attachments_error",
+          "db/events/0/after/data/$serialized_json/attachments_error_code (仅 TS)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "events",
+        "governance_audit"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [
+          "event_attachment_jobs"
+        ],
+        "ts": [
+          "event_attachment_jobs"
+        ]
+      },
+      "ts_business_observed": false,
+      "ts_db_tables": [
+        "events",
+        "governance_audit"
+      ],
+      "ts_status": 200
+    },
+    "POST /events/{event_id}/retry-routing": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "routed-idempotent",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        409,
+        409
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "POST /field-intake/analysis/{ident}/implement": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/events/0/after/id",
+          "db/events/0/rowid"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "events",
+        "governance_audit",
+        "governance_task_owners",
+        "tasks"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "events",
+        "governance_audit",
+        "governance_task_owners",
+        "tasks"
+      ],
+      "ts_status": 200
+    },
+    "POST /field-intake/candidates/{ident}/decision": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "field_candidates",
+        "governance_audit"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "field_candidates",
+        "governance_audit"
+      ],
+      "ts_status": 200
+    },
+    "POST /field-intake/media-jobs": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "前置条件拒绝",
+      "fixture_boundary": "optional-media-off",
+      "negative_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        409,
+        409
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 409,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": false,
+      "ts_db_tables": [],
+      "ts_status": 409
+    },
+    "POST /field-intake/media-jobs/{ident}/retry": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "前置条件拒绝",
+      "fixture_boundary": "optional-media-off",
+      "negative_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        409,
+        409
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 409,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": false,
+      "ts_db_tables": [],
+      "ts_status": 409
+    },
+    "POST /field-intake/records": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "field_candidates",
+        "field_records"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "field_candidates",
+        "field_records"
+      ],
+      "ts_status": 200
+    },
+    "POST /identities": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "governance_audit",
+        "governance_identities",
+        "governance_identity_grants"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "governance_audit",
+        "governance_identities",
+        "governance_identity_grants"
+      ],
+      "ts_status": 200
+    },
+    "POST /operations/daemon/exchange": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "按约定由 Python 承载",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail",
+          "body/execution_host (仅 TS)"
+        ],
+        "db": [
+          "db/execution_nonces (仅 Python)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ],
+        "status": [
+          "status"
+        ]
+      },
+      "negative_status": [
+        422,
+        503
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/accepted (仅 Python)",
+          "body/detail (仅 TS)",
+          "body/execution_host (仅 TS)"
+        ],
+        "db": [
+          "db/execution_nonces (仅 Python)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ],
+        "status": [
+          "status"
+        ]
+      },
+      "python_db_tables": [
+        "execution_nonces"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": [
+          "execution_nonces"
+        ]
+      },
+      "ts_business_observed": false,
+      "ts_db_tables": [],
+      "ts_status": 503
+    },
+    "POST /operations/daemon/poll": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "按约定由 Python 承载",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail",
+          "body/execution_host (仅 TS)"
+        ],
+        "db": [
+          "db/execution_nonces (仅 Python)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ],
+        "status": [
+          "status"
+        ]
+      },
+      "negative_status": [
+        422,
+        503
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/active_sessions (仅 Python)",
+          "body/detail (仅 TS)",
+          "body/execution_host (仅 TS)",
+          "body/operation (仅 Python)"
+        ],
+        "db": [
+          "db/execution_nodes (仅 Python)",
+          "db/execution_nonces (仅 Python)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ],
+        "status": [
+          "status"
+        ]
+      },
+      "python_db_tables": [
+        "execution_nodes",
+        "execution_nonces"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": [
+          "execution_nonces"
+        ]
+      },
+      "ts_business_observed": false,
+      "ts_db_tables": [],
+      "ts_status": 503
+    },
+    "POST /operations/watchdog/tasks/{task_id}/run": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "行为差异",
+      "fixture_boundary": "no-model",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ],
+        "status": [
+          "status"
+        ]
+      },
+      "negative_status": [
+        409,
+        404
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 409,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": false,
+      "ts_db_tables": [],
+      "ts_status": 409
+    },
+    "POST /operations/watchdog/{run_id}/messages": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "行为差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/conclusion (仅 Python)",
+          "body/correction (仅 Python)",
+          "body/created_at (仅 Python)",
+          "body/detail (仅 TS)",
+          "body/evidence (仅 Python)",
+          "body/id (仅 Python)",
+          "body/state_version (仅 Python)",
+          "body/status (仅 Python)",
+          "body/task_id (仅 Python)",
+          "body/thread_id (仅 Python)",
+          "body/turn_id (仅 Python)"
+        ],
+        "db": [
+          "db/events (仅 Python)",
+          "db/watchdog_runs (仅 Python)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ],
+        "status": [
+          "status"
+        ]
+      },
+      "python_db_tables": [
+        "events",
+        "watchdog_runs"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": [
+          "events",
+          "watchdog_runs"
+        ]
+      },
+      "ts_business_observed": false,
+      "ts_db_tables": [],
+      "ts_status": 409
+    },
+    "POST /project-workspace/select-directory": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "native-picker-fixture",
+      "negative_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [],
+      "ts_status": 200
+    },
+    "POST /projects": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "governance_audit",
+        "projects"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "governance_audit",
+        "projects"
+      ],
+      "ts_status": 200
+    },
+    "POST /routing/assessments": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "no-model",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/assessment_id",
+          "body/decision (仅 TS)",
+          "body/error",
+          "body/evidence (条数)",
+          "body/thread_id (类型)",
+          "body/turn_id (类型)"
+        ],
+        "db": [
+          "db/governance_audit/0/after/details/$serialized_json/assessment_id",
+          "db/governance_audit/0/after/details/$serialized_json/decision (仅 TS)",
+          "db/governance_audit/0/after/details/$serialized_json/error",
+          "db/governance_audit/0/after/details/$serialized_json/evidence (条数)",
+          "db/governance_audit/0/after/details/$serialized_json/thread_id (类型)",
+          "db/governance_audit/0/after/details/$serialized_json/turn_id (类型)",
+          "db/governance_audit/0/after/resource",
+          "db/workbench_model_runs (仅 TS)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "governance_audit"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "governance_audit",
+        "workbench_model_runs"
+      ],
+      "ts_status": 200
+    },
+    "POST /routing/jobs/{event_id}/correction": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/semantic_routing_jobs (仅 Python)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "event_routing_messages",
+        "event_routing_sessions",
+        "semantic_routing_jobs"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "event_routing_messages",
+        "event_routing_sessions"
+      ],
+      "ts_status": 200
+    },
+    "POST /routing/schedule": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/checks/delivery_echo (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/checks/event_type (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/checks/message_content (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/checks/request_kind (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/conversation_type (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/default_project_fallback (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/default_project_match (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/evidence_scope (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/external_project_candidates (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/input/conversation_type (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/persisted_settings (仅 Python)",
+          "db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/project_candidates/0/name (仅 Python)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "event_targets",
+        "events",
+        "governance_task_owners",
+        "task_routes",
+        "tasks"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "event_targets",
+        "events",
+        "governance_audit",
+        "governance_task_owners",
+        "task_routes",
+        "tasks"
+      ],
+      "ts_status": 200
+    },
+    "POST /sessions/{ident}/coordination": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/id"
+        ],
+        "db": [
+          "db/events/0/after/id",
+          "db/events/0/rowid"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "events"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "events"
+      ],
+      "ts_status": 200
+    },
+    "POST /sessions/{ident}/coordination/{request_id}/apply": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        404,
+        404
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/event_targets/0/after/message_event_id",
+          "db/events/1/after/id",
+          "db/events/1/rowid"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "event_targets",
+        "events",
+        "tasks"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "event_targets",
+        "events",
+        "tasks"
+      ],
+      "ts_status": 200
+    },
+    "POST /sessions/{ident}/handoff": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        404,
+        404
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/events/0/after/data/$serialized_json/actor (仅 TS)",
+          "db/events/0/after/data/$serialized_json/control_version (仅 TS)",
+          "db/events/0/after/data/$serialized_json/state_version (仅 TS)",
+          "db/events/0/after/id",
+          "db/events/0/rowid",
+          "db/tasks/0/after/updated_at (仅 TS)",
+          "db/tasks/0/before/updated_at (仅 TS)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "approvals",
+        "events",
+        "tasks"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "approvals",
+        "events",
+        "tasks"
+      ],
+      "ts_status": 200
+    },
+    "POST /sessions/{ident}/messages": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        409,
+        409
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/id"
+        ],
+        "db": [
+          "db/events/0/after/id",
+          "db/events/0/rowid",
+          "db/governance_audit/0/after/details/$serialized_json/revision (仅 Python)",
+          "db/governance_audit/0/after/details/$serialized_json/state_version (仅 Python)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "events",
+        "governance_audit",
+        "tasks"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "events",
+        "governance_audit",
+        "tasks"
+      ],
+      "ts_status": 200
+    },
+    "POST /sessions/{ident}/reconcile": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "行为差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/codex_thread_id (仅 Python)",
+          "body/codex_turn_id (仅 Python)",
+          "body/detail (仅 TS)",
+          "body/last_error (仅 Python)",
+          "body/outcome_unknown (仅 Python)",
+          "body/project_id (仅 Python)",
+          "body/state_version (仅 Python)",
+          "body/status (仅 Python)",
+          "body/updated_at (仅 Python)"
+        ],
+        "db": [
+          "db/governance_audit (仅 Python)",
+          "db/router_messages (仅 Python)",
+          "db/router_sessions (仅 Python)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ],
+        "status": [
+          "status"
+        ]
+      },
+      "python_db_tables": [
+        "governance_audit",
+        "router_messages",
+        "router_sessions"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": [
+          "router_sessions"
+        ]
+      },
+      "ts_business_observed": false,
+      "ts_db_tables": [],
+      "ts_status": 409
+    },
+    "POST /subscriptions": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "governance_audit",
+        "worker_subscriptions"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "governance_audit",
+        "worker_subscriptions"
+      ],
+      "ts_status": 200
+    },
+    "POST /tasks": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/events/0/after/id",
+          "db/events/0/rowid",
+          "db/governance_audit/0/after/action",
+          "db/governance_audit/0/after/details/$serialized_json/user_id (仅 Python)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "events",
+        "governance_audit",
+        "governance_task_owners",
+        "tasks"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "events",
+        "governance_audit",
+        "governance_task_owners",
+        "tasks"
+      ],
+      "ts_status": 200
+    },
+    "POST /tasks/{ident}/acceptance": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        409,
+        409
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/events/0/after/id",
+          "db/events/0/rowid"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "events",
+        "governance_audit",
+        "tasks"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "events",
+        "governance_audit",
+        "tasks"
+      ],
+      "ts_status": 200
+    },
+    "POST /tasks/{ident}/controls": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "行为差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ],
+        "status": [
+          "status"
+        ]
+      },
+      "negative_status": [
+        409,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/events/0/after/id",
+          "db/events/0/rowid"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "events",
+        "governance_audit",
+        "tasks"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "events",
+        "governance_audit",
+        "tasks"
+      ],
+      "ts_status": 200
+    },
+    "POST /tasks/{ident}/messages": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        409,
+        409
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "body": [
+          "body/id"
+        ],
+        "db": [
+          "db/events/0/after/id",
+          "db/events/0/rowid",
+          "db/governance_audit/0/after/details/$serialized_json/revision (仅 Python)",
+          "db/governance_audit/0/after/details/$serialized_json/state_version (仅 Python)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "events",
+        "governance_audit",
+        "tasks"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "events",
+        "governance_audit",
+        "tasks"
+      ],
+      "ts_status": 200
+    },
+    "POST /tasks/{ident}/project": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        409,
+        409
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/events/0/after/id",
+          "db/events/0/rowid"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "approvals",
+        "events",
+        "governance_audit",
+        "tasks",
+        "worker_subscriptions"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "approvals",
+        "events",
+        "governance_audit",
+        "tasks",
+        "worker_subscriptions"
+      ],
+      "ts_status": 200
+    },
+    "POST /tasks/{ident}/reconcile": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/events/0/after/id",
+          "db/events/0/rowid"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "events",
+        "governance_audit",
+        "tasks"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "events",
+        "governance_audit",
+        "tasks"
+      ],
+      "ts_status": 200
+    },
+    "POST /tasks/{task_id}/deliveries": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "业务抽查通过，响应头有差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "approvals",
+        "reply_drafts"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "approvals",
+        "reply_drafts"
+      ],
+      "ts_status": 200
+    },
+    "PUT /event-rules": {
+      "business_assertions_failed": {
+        "python": [],
+        "ts": []
+      },
+      "classification": "字段或持久记录差异",
+      "fixture_boundary": "",
+      "negative_differences": {
+        "body": [
+          "body/detail (类型)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "negative_status": [
+        422,
+        422
+      ],
+      "negative_unexpected_writes": false,
+      "positive_differences": {
+        "db": [
+          "db/governance_audit (仅 TS)",
+          "db/governance_settings/0/after/updated_at (仅 TS)",
+          "db/governance_settings/0/before/updated_at (仅 TS)"
+        ],
+        "headers": [
+          "headers/cache-control (仅 TS)"
+        ]
+      },
+      "python_db_tables": [
+        "governance_settings"
+      ],
+      "python_status": 200,
+      "required_tables_missing": {
+        "python": [],
+        "ts": []
+      },
+      "ts_business_observed": true,
+      "ts_db_tables": [
+        "governance_audit",
+        "governance_settings"
+      ],
+      "ts_status": 200
+    }
+  }
+}

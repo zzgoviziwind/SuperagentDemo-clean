@@ -1,0 +1,357 @@
+{
+  "at_utc": "2026-11-18T11:09:59.851756+00:00",
+  "python": "3.12.10",
+  "checks": {
+    "attachments": {
+      "pass": true,
+      "observed": {
+        "valid": 200,
+        "other_role": 403,
+        "denied": {
+          "other_record": 404,
+          "outside_root": 404,
+          "wrong_digest": 404,
+          "wrong_size": 404
+        },
+        "draft_list_visibility": {
+          "admin": 200,
+          "owner": 200,
+          "peer": 404,
+          "reader": 404
+        }
+      }
+    },
+    "channel-files": {
+      "pass": true,
+      "observed": {
+        "body_requests": 1,
+        "accepted_sha256": "0dc3366cffe4af3a54a3e803344293572f7546b88693036a5d13330d41a33444",
+        "denied_before_body": [
+          "unlisted_id",
+          "other_project",
+          "other_origin"
+        ],
+        "denied_output_files": 0
+      }
+    },
+    "cursor": {
+      "pass": true,
+      "observed": {
+        "after_interruption": 3,
+        "distinct_events": 4,
+        "raw_emits": 9,
+        "initial_watermark": null,
+        "final_watermark": "2026-11-18T11:10:04.761000Z",
+        "overlap_seconds": 120
+      }
+    },
+    "positive": {
+      "pass": true,
+      "observed": {
+        "workspace": "fixture",
+        "wrong_users": [
+          403,
+          403
+        ],
+        "concurrent": [
+          200,
+          409
+        ],
+        "verification_rows": 1,
+        "independent_test": "host-command",
+        "changed_file": 409,
+        "restored_file": 200,
+        "acceptance_events": 1
+      }
+    },
+    "project": {
+      "pass": true,
+      "observed": {
+        "workspace": "project",
+        "wrong_users": [
+          403,
+          403
+        ],
+        "concurrent": [
+          200,
+          409
+        ],
+        "verification_rows": 1,
+        "independent_test": "host-command",
+        "changed_file": 409,
+        "restored_file": 200,
+        "acceptance_events": 1
+      }
+    },
+    "failed-command": {
+      "pass": true,
+      "observed": {
+        "workspace_changed": true,
+        "source_untouched": true,
+        "configured_exit": 9,
+        "verification_rows": 0,
+        "status": "waiting_resource",
+        "acceptance": 409
+      }
+    },
+    "report-only": {
+      "pass": true,
+      "observed": {
+        "claims_received": "same-turn reported exit 0",
+        "decision": [
+          200,
+          409
+        ],
+        "status": "waiting_resource",
+        "unknown": 1,
+        "verification_rows": 0,
+        "acceptance": 409
+      }
+    },
+    "ts-python-v2-ts": {
+      "pass": true,
+      "observed": {
+        "crash_exit": 73,
+        "durable_before": [
+          "waiting_approval",
+          0,
+          "waiting_approval",
+          "dispatching",
+          "dispatching"
+        ],
+        "python": {
+          "task": "waiting_resource",
+          "unknown": true,
+          "attempt": "unknown",
+          "approval": "expired_on_restart",
+          "ledger": "unknown",
+          "token_cleared": true,
+          "counts": {
+            "abandoned": 0,
+            "unknown": 1,
+            "legacy_unknown": 0,
+            "approvals_expired": 1
+          },
+          "mode": "v2"
+        },
+        "ts": {
+          "task": "waiting_resource",
+          "unknown": 1,
+          "attempt": "unknown",
+          "approval": "unknown",
+          "ledger": "unknown",
+          "reclaim": false
+        },
+        "receipt_lines": 1,
+        "durable_after": [
+          "waiting_resource",
+          1,
+          "unknown",
+          "unknown",
+          "unknown"
+        ]
+      }
+    },
+    "ts-python-default-ts": {
+      "pass": false,
+      "observed": {
+        "crash_exit": 73,
+        "durable_before": [
+          "waiting_approval",
+          0,
+          "waiting_approval",
+          "dispatching",
+          "dispatching"
+        ],
+        "python": {
+          "task": "waiting_resource",
+          "unknown": true,
+          "attempt": "unknown",
+          "approval": "expired_on_restart",
+          "ledger": "dispatching",
+          "token_cleared": false,
+          "counts": {
+            "abandoned": 0,
+            "unknown": 1,
+            "legacy_unknown": 0,
+            "approvals_expired": 1
+          },
+          "mode": "default",
+          "manual_reconciliation": "仅可对账结果未知的交付"
+        },
+        "ts": {
+          "task": "waiting_resource",
+          "unknown": 1,
+          "attempt": "unknown",
+          "approval": "unknown",
+          "ledger": "unknown",
+          "reclaim": false
+        },
+        "receipt_lines": 1,
+        "durable_after": [
+          "waiting_resource",
+          1,
+          "unknown",
+          "unknown",
+          "unknown"
+        ]
+      }
+    },
+    "ts-python-stock-ts": {
+      "pass": false,
+      "observed": {
+        "crash_exit": 73,
+        "durable_before": [
+          "waiting_approval",
+          0,
+          "waiting_approval",
+          "dispatching",
+          "dispatching"
+        ],
+        "python": {
+          "task": "waiting_resource",
+          "unknown": true,
+          "attempt": "waiting_approval",
+          "approval": "dispatching",
+          "ledger": "dispatching",
+          "token_cleared": false,
+          "counts": null,
+          "mode": "stock",
+          "manual_reconciliation": "仅可对账结果未知的交付"
+        },
+        "ts": {
+          "task": "waiting_resource",
+          "unknown": 1,
+          "attempt": "unknown",
+          "approval": "unknown",
+          "ledger": "unknown",
+          "reclaim": false
+        },
+        "receipt_lines": 1,
+        "durable_after": [
+          "waiting_resource",
+          1,
+          "unknown",
+          "unknown",
+          "unknown"
+        ]
+      }
+    },
+    "python-v2-ts": {
+      "pass": true,
+      "observed": {
+        "crash_exit": 73,
+        "durable_before": [
+          "waiting_approval",
+          0,
+          "waiting_approval",
+          "dispatching",
+          "dispatching"
+        ],
+        "ts": {
+          "task": "waiting_resource",
+          "unknown": 1,
+          "attempt": "unknown",
+          "approval": "unknown",
+          "ledger": "unknown",
+          "reclaim": false
+        },
+        "receipt_lines": 1,
+        "durable_after": [
+          "waiting_resource",
+          1,
+          "unknown",
+          "unknown",
+          "unknown"
+        ]
+      }
+    }
+  },
+  "build": {
+    "node": "v24.22.3",
+    "bundle": "b962f50c24bd5ff621be7b6599dbbaecc95f370f2ef5b878e96420d2c67d6d98",
+    "inputs": {
+      "apps/server/src/admission.ts": "fe03fa83a564458453373257009c920c08ceddf73fbe9566dba1d96c64ea4636",
+      "apps/server/src/auth.ts": "07d3c845d90a5e0d1fe1973e7a4c36cd699042bc30489c0e16e3efd185e0125e",
+      "apps/server/src/browse.ts": "8373a2a847a7250c100a5f66312e8e7bee1b9bf721cf454b029a12e06c360c97",
+      "apps/server/src/budget.ts": "1722e65cd2518ffa08d4986275278d8d5ab9f0b7da421652b1c444c83ac20c82",
+      "apps/server/src/context.ts": "e282d7ce506f564cbef8da3eb82f38cd835699c67c4ed41d4eb8379a366474c9",
+      "apps/server/src/controls.ts": "e7eb2bc53251ad1a77f49bd5f0fb887360462e28bc5a9fb591a5a71a1aadc4dd",
+      "apps/server/src/deliveries/attachments.ts": "9eeb79576dbfa8be2329b4c695f73c1bf92572ef1fe13bc2fb8b62a652f44037",
+      "apps/server/src/deliveries/background.ts": "2b2e242a1312828a2f59f1d7bb4ca9bb50e665c4cbdeb093b79d430427e6099b",
+      "apps/server/src/deliveries/channels.ts": "d0248f3682cfdbe6b494897236aa1e38f69bd9fae253ba59ecdeea2e0959b662",
+      "apps/server/src/deliveries/echo.ts": "254545c4c45286bf86170f9dbd5770eeceb6af0ac9f3af2b14dbaa0aac52e9db",
+      "apps/server/src/deliveries/index.ts": "be763fd87761213bea9902272c88a05de1e2cc47251e6935ff5caef2d2f1c5e1",
+      "apps/server/src/deliveries/policy.ts": "396782dc7c23e61cf920973bff88074874d308a78531347ba6735ef74e68b0e1",
+      "apps/server/src/deliveries/replies.ts": "babf1ad63ab8b21f43121aa8f57e7a11221160f4fc6289973744aa3ad5e76669",
+      "apps/server/src/field/contracts.ts": "334e47a63054a1039dc0afee644470458891c98b35f72b0fd02ecb8d4d173988",
+      "apps/server/src/field/decisions.ts": "75bd998dfbcb644ea0f6468ac57ee594de0c01399812ca8b617a0ba105891a04",
+      "apps/server/src/field/files.ts": "adf130dc676ee6099ea51a894832fa811393cdc4b88a2d1035fef0793f05dc64",
+      "apps/server/src/field/index.ts": "8e6342e7edcd2682322706cb5d6fbd6be01fd048a24320d7992212cbaa5d5641",
+      "apps/server/src/field/media.ts": "82e43186ff679971452980381371e54ad3898eef234028246a0d905b46e415ab",
+      "apps/server/src/field/processor.ts": "757e76b5735b22b4e58ebdf12a3c7d67ea4aa05cbdc0ac06b6f5f99190edf759",
+      "apps/server/src/intake.ts": "684453e4b9a68a299389ef17b7c194610d1f887738f220b317d69d0bb41837ec",
+      "apps/server/src/lease.ts": "c6496cb4fe67698946a4413a346ceb5f450cd9cfcea1c53ae952ced6f942fed4",
+      "apps/server/src/nodes.ts": "669cc13ca2b0ba8de96aa670a5a41170a032ac90758c88324f7aa7d92cc94d2a",
+      "apps/server/src/projects.ts": "0c3ccee3006ac3562e1a38309950c4599e8366bf148ea3b5d330db769123a028",
+      "apps/server/src/rules.ts": "338ad818f9b4a6591d595493e39991a3d9069d794d491584b25fd73868f164ee",
+      "apps/server/src/server.ts": "632ebe688cf978857dfb5cd7b12965dacc443a6d1ca874af3a682e658b413df6",
+      "apps/server/src/settings.ts": "e3412a09072e7fe5067cf55237734aceca839a27fe422451345a848a3209183f",
+      "apps/server/src/sql.ts": "574864a05efcf40e2346471592d29196f9e77b1ae7358e0bc4a1893973643da5",
+      "apps/server/src/workbench/bridge.ts": "f035b2c0899fae6344bc22dcc5713e093044112bc4705ba476ba817584d9dd90",
+      "apps/server/src/workbench/canonical.ts": "af508236b4ce5cf784487191cb4422442246033e29d33c03ab9acf097db2939d",
+      "apps/server/src/workbench/dingtalk-history.ts": "bbf8dd595c5cc89bfce78e95c5c0e93d47fc3528951855e3abdf6834b3510b92",
+      "apps/server/src/workbench/event-groups.ts": "8f10f8e181e2092b6c6285133a1dd87301b62711b41b2513a8c040400753dd27",
+      "apps/server/src/workbench/event-stream.ts": "7681796b99bc66c7282fe2b487c679e71fbcf0b9684314a7df30abcef5aafd89",
+      "apps/server/src/workbench/index.ts": "505c29cb6937975a5720e0dbf94d1047c607c3a02d3e00c4dcd43ec29b61ceee",
+      "apps/server/src/workbench/model-driver.ts": "40a21c9609b311f716d90bdec47a0b627e9ec1e4393128a57b3634876a81cfc9",
+      "apps/server/src/workbench/prompts.ts": "6cef33903837440eb3ca19756fd346b97bb2034ecb72bdb5d3690861ecb51d5e",
+      "apps/server/src/workbench/receipts.ts": "aa7e5705b488f87ca2775087b52cd028b3d8a76275d70eaecefa30e447c72d68",
+      "apps/server/src/workbench/runtime.ts": "65c7e92788d591c82ca8f6f7996af0574a4346e94a05b23c7372eee471c19a54",
+      "apps/server/src/workbench/scheduler.ts": "8a0d120052f00631aac49cd8864dea84ed4de1a3a82de53c0e6daf9ec91f228b",
+      "apps/server/src/workbench/semantic-engine.ts": "085585de7182d1be107a137eec086b339e18d71c638a07d06a250e96bbd2489b",
+      "apps/server/src/workbench/session-writes.ts": "c44a0abae7f1bf3d068cd88978b3bba4c8f06e722fcb6eb8fa94e67436a246f5",
+      "apps/server/src/workbench/sessions.ts": "8b35326fe2e7bdc7f81029447057246a45f9579274bf18c625ddd40d9195ed56",
+      "apps/server/src/workbench/store.ts": "8fc33045d175ab423b0649f458f76e8cf800c75f4563664af6dd3a9a0df8aeed",
+      "apps/server/src/workbench/tasks.ts": "ba51d448c77f8918d8e0cc4f31e482bf660886c35680ee1fd2b60672d930e159",
+      "apps/server/src/workbench/thread-reader.ts": "d7aca3e19a595a2eabca7c040343cd5978b8ada08dd0aede4c7fd63f6707604c",
+      "apps/server/src/workbench/trace.ts": "82dfc68d0a00e0dad9d94b0f2b869d9924614b4a6f452e35695c69fa4abe4f4b",
+      "apps/server/src/workbench/watchdog.ts": "0ae49bc97473c4e6fa418e2c7ce070d41564f3ce980ab87187c40c98a0264220",
+      "apps/server/src/worker/acceptance.ts": "a974a1ca6f51096ff14971a2bb80f40830a111dc9d7df513d13f0511508de8b6",
+      "apps/server/src/worker/index.ts": "a4dd52a08ea5829d449817b8449a2f62a55b3caa791b539ce8b5beaa6ccc60f1",
+      "apps/server/src/worker/local-agents.ts": "26d9f57d7f9d1532e21af0f5edd1eca0875d6a693233ec131fce6f1b78c769fd",
+      "apps/server/src/worker/prompts.ts": "14c5c2df5eec77f9509ea674d02ec43a50e29ed05e6f9598f3124e9d2b830412",
+      "packages/channels/common.ts": "b11ec9e72672bebad14edc7d58125a63c36054b3528edbd27cb14323cb00c49c",
+      "packages/channels/dingtalk.ts": "b3fb82952dc3b7c2e747ded74f6283e1dcbbea4fc73047ae06f47f516d437471",
+      "packages/channels/feishu-notices.ts": "17f82291c00769b2251edf4f4709e04211571500d93a3a896a86b1a160baab57",
+      "packages/channels/feishu.ts": "3cf795612eb907336a6b55693ec11ed8430465a539163af92cbcad0476aa6b48",
+      "packages/channels/index.ts": "6771cce1866b308c7f7ad5ed524831f3d9d1fd66b573f62f78c818a529838196",
+      "packages/channels/redmine.ts": "6e47fc8a4380feda6576dc6bedd12d2b9693b5d5d8bbbd61b125e2730f60501e",
+      "packages/channels/resources.ts": "750cb683c45a677d5033526a1c1625d5d9e8a1bb4895b7afd9f6da4d60093abe",
+      "packages/runtime/driver.ts": "ea5bbd9b1d906c35dcaf7ef5dcd17c0555a62425d105efd98f3c56339541d66d",
+      "packages/runtime/fake-channel.ts": "a39f1098be52972793a2df1fcd0ff86b80bcd9cf75541b5c9367e152a7b41b09",
+      "packages/runtime/fake-codex.ts": "474fd1052a15e4bc182f7bef83437c3e5339d883bfaa7f30d7eb2676066d5ab5",
+      "packages/runtime/fixture-workspace.ts": "d39d8a7d07c5df908b6f0467b9c204803bbacf1fb57748fac7bde7b65fcdc253",
+      "packages/runtime/fixtures/environment.ts": "ecceb3cfe9c9abb0b013a2ceb465c1f991577e6a1eba4b2903796d0de8b019e2",
+      "packages/runtime/fixtures/fake-app-server.ts": "3e6c1f1bafb71c663c3dc0284a5552d8a0098db47eb43516e8c596c7f4cc3622",
+      "packages/runtime/index.ts": "2ec3e0243aca72d9942d7ca24661d92bd73d2d2c2b323e57e812d20d53856098",
+      "packages/runtime/project-workspace.ts": "4b0908888edff80d4038edda3a11c2f842da49363eead7593e8fc8bfd5010553",
+      "packages/storage/index.ts": "62e8bad0367465ff9baf1861ba23e51e2fe19feaea2fe298965f1b4d46a30ac8",
+      "packages/storage/src/approvals.ts": "0329568f47277f0a3d740b58b5f53f842d6a4a741ff4063baf8b8bb91822e699",
+      "packages/storage/src/controller.ts": "4a0efdde5c24541c0aef948330dcf71c5d82b496d5984ca46c182900734c3fac",
+      "packages/storage/src/core.ts": "002bdbbdc42d9c4b14d65a384bc5e9db9ec7bc589233be6731ceec986f308289",
+      "packages/storage/src/delivery.ts": "db4d5a9d0994b0d099b9799e42d104c9acc95de16a10298d7f2f3b882feb5f8d",
+      "packages/storage/src/execution.ts": "a93ba1282b864890d02f81047d0ecee5c1cfeb59d8163ba1a04211635857a8c8",
+      "packages/storage/src/index.ts": "91c7b220ca4d41e86ffa9feeb5aebc4742ad536466b4921e9559f99c78afb03e",
+      "packages/storage/src/schema.ts": "9eb13850ab26968ee92f83863c83a12ceaa9c92d9534a8c10b759c070b4e90d4",
+      "packages/windows-job/bin/windows-job-x64.exe": "425cd705d1fb3b5e2d47aba00c50145a890a9f664861a0274f2682ac60efe1bc",
+      "packages/windows-job/index.mjs": "137c011f0e094365b31c6afb446bbe14abdb06e86dc358b21bcfb265a8f189dd"
+    }
+  },
+  "oracle_inputs": {
+    ".rewrite-oracle/superagent/core/db.py": "ce700df91edc493766c1f8e9ea44385cefa0180382ae510913d5dbdf8a72a22e",
+    ".rewrite-oracle/superagent/core/delivery.py": "9d630b63417bce961364c5cd3cff8cade85462a5c3f2cd66f2a6f8c9d6bfdc5b",
+    ".rewrite-oracle/superagent/core/execution.py": "31f28133574ae54b538a6bb36623b2ea5705ae5e9d8e83b31fcb3c91992765de"
+  },
+  "oracle_commit": "7b7587d14399659d7951d3e195af863514fbf118"
+}

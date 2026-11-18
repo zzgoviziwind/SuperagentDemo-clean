@@ -1,0 +1,32 @@
+{
+  "exit": 1,
+  "mode": "installed TS",
+  "assertions": [
+    "PASS actual install stage4-ts-a: main=539219645BBBA36A469940AB847AF22539418D2779047208E242DDD0ECE3467C, PID 27996, SQLite task 1",
+    "PASS real TS upgrade stage4-ts-b: main=67CD629891AB831B57DF4229B23741D9FC827BBE51231705FB0FB554431D70D0, PID 48348, SQLite task 2",
+    "PASS failed real TS startup, automatic restoration, retained stderr and both tasks"
+  ],
+  "kits": {
+    "SuperAgent-stage4-ts-a-win-x64.zip": {
+      "zip": "994cc4c2236762e27e17398ef99bca85a3b2aa52382f002bff3e9599947ccf01",
+      "exe": "ff4c2d27a0bf0779ff5c0f5278331dabd8180c183d242028e9a643b360143991",
+      "manager": "d4db54bccbe721e78c44802cc56acd1941bb01c8fc6ac4288c3f8a2517e2e899",
+      "fixture_server": "539219645bbba36a469940ab847af22539418d2779047208e242ddd0ece3467c"
+    },
+    "SuperAgent-stage4-ts-b-win-x64.zip": {
+      "zip": "4b9f06390f77179e4ec2e21afc5c2ad6b51f5ea29b6f20c4a7bb0dd8303779b3",
+      "exe": "2db69a5b1e5397e8b5068632d749cce793b01a5aad7272abec9482e7c5a32184",
+      "manager": "d4db54bccbe721e78c44802cc56acd1941bb01c8fc6ac4288c3f8a2517e2e899",
+      "fixture_server": "67cd629891ab831b57df4229b23741d9fc827bbe51231705fb0fb554431d70d0"
+    },
+    "SuperAgent-stage4-ts-failed-start-win-x64.zip": {
+      "zip": "8ff98c0e8308b46667e604a68ff9574e340e040299edacf1aab4351eddb0aa1b",
+      "exe": "0fce2311d71699488bc62415b9f86f48b3da625e9472021bec0c2e48d79b5abf",
+      "manager": "d4db54bccbe721e78c44802cc56acd1941bb01c8fc6ac4288c3f8a2517e2e899",
+      "fixture_server": "67cd629891ab831b57df4229b23741d9fc827bbe51231705fb0fb554431d70d0"
+    }
+  },
+  "test_script": "8761c777e79ea2629f778b4db64f66a0ef3bad29ff03ea4bdc21502c9316eb4a",
+  "current_manager": "d4db54bccbe721e78c44802cc56acd1941bb01c8fc6ac4288c3f8a2517e2e899",
+  "diagnostic": "    + FullyQualifiedErrorId : NativeCommandError\n \n     <scratch>ts-life-ded9374298d6\\Test \u7528\u6237\\logs\\20261118-105755-390-stage4-ts-a-e2b17424 Previous release could not be resta \n   rted:\n     Startup failed: Process exited with code 1. Logs: <scratch>ts-life-ded9374298d6\\Test \u7528\u6237\\logs\\20261118-105757-921-stage4 \n   -ts-b\n-d076876b\nAt <scratch>ts-life-ded9374298d6\\Test \u7528\u6237\\SuperAgent.ps1:321 char:13\n+             throw \"Version change failed: $failure Previous release c ...\n+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n    + CategoryInfo          : OperationStopped: (Version change ...4-ts-b-d076876b:String) [], RuntimeException\n        + FullyQualifiedErrorId : Version change failed: Startup failed: Exception calling \".ctor\" with \"1\" argument(s \n   ): \" \n       Stream was not readable.\" Logs: <scratch>ts-life-ded9374298d6\\Test \u7528\u6237\\logs\\20261118-105755-390-stage4-ts-a-e2b17424 P \n   rev  \n      ious release could not be restarted: Startup failed: Process exited with code 1. Logs: <scratch>ts-life-ded9374298d6\\T \n   es   \n t \u7528\u6237\\logs\\20261118-105757-921-stage4-ts-b-d076876b\n \n "
+}

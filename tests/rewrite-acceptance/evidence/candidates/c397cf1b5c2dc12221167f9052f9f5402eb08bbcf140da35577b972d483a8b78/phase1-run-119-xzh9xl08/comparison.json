@@ -1,0 +1,2073 @@
+{
+  "b328_entry_sha256": "b3289b3be6299c3d9157b0b9f62f38901696cad4c708152542f3385788f9a8f3",
+  "rc2_entry_sha256": "c397cf1b5c2dc12221167f9052f9f5402eb08bbcf140da35577b972d483a8b78",
+  "recovery_file_id": "4222124651920024",
+  "residual_counts": {
+    "model_runs": 0,
+    "bridge_operations": 0,
+    "execution_attempts": 0,
+    "delivery_records": 0
+  },
+  "routes": {
+    "DELETE /conversation-providers/mcp": {
+      "b328": "协议拒绝通过",
+      "rc2": "协议拒绝通过",
+      "b328_status": [
+        405,
+        405
+      ],
+      "rc2_status": [
+        405,
+        405
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "DELETE /identities/{identity_id}": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "governance_audit",
+        "governance_identities"
+      ]
+    },
+    "DELETE /projects/{ident}": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "governance_audit",
+        "projects"
+      ]
+    },
+    "DELETE /subscriptions/{subscription_id}": {
+      "b328": "TS 路由缺失",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        404
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "governance_audit",
+        "worker_subscriptions"
+      ]
+    },
+    "GET /agents/local": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /approvals": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/body/0/status"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "GET /architecture": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /artifacts/{ident}": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /artifacts/{ident}/download": {
+      "b328": "业务抽查通过",
+      "rc2": "业务抽查通过",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /attempts/{attempt_id}/context": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /audit": {
+      "b328": "服务错误",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        500
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /auth/me": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /budget-reservations": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /budgets": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /codex-prompts": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/body/analysis/0/text",
+        "/body/analysis/0/title",
+        "/body/repair/0/text",
+        "/body/repair/0/title",
+        "/body/reply/0/text",
+        "/body/reply/1",
+        "/body/router/0/text",
+        "/body/semantic_routing/0/text",
+        "/body/semantic_routing/1/text",
+        "/body/semantic_routing/1/title",
+        "/body/watchdog/0/text"
+      ],
+      "new_positive_difference_paths": [
+        "/body/semantic_routing/2"
+      ]
+    },
+    "GET /connectors": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /connectors/dingtalk/group": {
+      "b328": "TS 路由缺失",
+      "rc2": "行为差异",
+      "b328_status": [
+        200,
+        404
+      ],
+      "rc2_status": [
+        200,
+        409
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /connectors/dingtalk/groups": {
+      "b328": "TS 路由缺失",
+      "rc2": "行为差异",
+      "b328_status": [
+        200,
+        404
+      ],
+      "rc2_status": [
+        200,
+        409
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /conversation-providers": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/body/items/1/reason",
+        "/body/items/2/reason",
+        "/body/items/2/transports/0",
+        "/body/items/2/transports/1"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "GET /conversation-providers/bridge/operations/{request_key}": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /conversation-providers/bridge/sessions": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /conversation-providers/bridge/sessions/{ident}": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /conversation-providers/bridge/status": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/body/items/1/reason",
+        "/body/items/2/reason",
+        "/body/items/2/transports/0",
+        "/body/items/2/transports/1"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "GET /conversation-providers/mcp": {
+      "b328": "协议拒绝通过",
+      "rc2": "协议拒绝通过",
+      "b328_status": [
+        405,
+        405
+      ],
+      "rc2_status": [
+        405,
+        405
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /decisions": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /event-groups": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /event-groups/index": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /event-groups/triage-options": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /event-groups/{ident}": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /event-rules": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /events": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /events/stream": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /events/{event_id}/trace": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /field-intake/media-jobs": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [],
+      "old_positive_fields_now_matching": [
+        "/body/jobs/0/id",
+        "/body/jobs/0/phase",
+        "/body/jobs/0/state",
+        "/body/jobs/0/title",
+        "/body/jobs/1/id",
+        "/body/jobs/1/phase",
+        "/body/jobs/1/state",
+        "/body/jobs/1/title"
+      ],
+      "remaining_positive_fields": [
+        "/body/reason"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "GET /field-intake/organizer": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [],
+      "old_positive_fields_now_matching": [
+        "/body/mode"
+      ],
+      "remaining_positive_fields": [
+        "/body/ocr",
+        "/body/timeline"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "GET /field-intake/records": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /field-intake/records/{ident}": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /field-intake/records/{ident}/media": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /field-intake/records/{ident}/screenshots/{number}": {
+      "b328": "业务抽查通过",
+      "rc2": "业务抽查通过",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /field-intake/records/{ident}/targets": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /field-intake/records/{ident}/transcript/{segment_id}": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /health": {
+      "b328": "业务抽查通过",
+      "rc2": "业务抽查通过",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /identities": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /operations/nodes": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/body/items/0/execution_host"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "GET /operations/tasks/{task_id}/attempts": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /operations/watchdog": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /overview": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/body/pending_approvals/0/action/action_hash",
+        "/body/pending_approvals/0/action/kind",
+        "/body/pending_approvals/0/action/method",
+        "/body/pending_approvals/0/action/params",
+        "/body/pending_approvals/0/action/payload",
+        "/body/pending_approvals/0/action/request_id",
+        "/body/pending_approvals/0/action/source",
+        "/body/pending_approvals/0/action/target",
+        "/body/pending_approvals/0/action/write_status",
+        "/body/pending_approvals/0/action_hash",
+        "/body/pending_approvals/0/id",
+        "/body/pending_approvals/0/task_id",
+        "/body/pending_approvals/1"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "GET /project-workspace": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /project-workspace/codex-projects": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /projects": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /routing/jobs": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /sessions": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /sessions/{ident}": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /sessions/{ident}/coordination": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /sessions/{ident}/transcript": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /settings": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /subscriptions": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /tasks": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /tasks/{ident}": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /tasks/{ident}/export": {
+      "b328": "业务抽查通过",
+      "rc2": "业务抽查通过",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /tasks/{task_id}/context": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /tasks/{task_id}/decisions": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "GET /tasks/{task_id}/deliveries": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "PATCH /budgets/{account_id}": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "governance_audit",
+        "governance_budget_accounts",
+        "governance_settings"
+      ]
+    },
+    "PATCH /identities": {
+      "b328": "字段或持久记录差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "governance_audit",
+        "governance_identities"
+      ],
+      "old_positive_fields_now_matching": [
+        "/db/governance_audit/0/after/details/$serialized_json/actor_id",
+        "/db/governance_audit/0/after/details/$serialized_json/enabled",
+        "/db/governance_audit/0/after/details/$serialized_json/permissions",
+        "/db/governance_audit/0/after/details/$serialized_json/project_ids",
+        "/db/governance_audit/0/after/details/$serialized_json/source",
+        "/db/governance_audit/0/after/details/$serialized_json/user_id"
+      ],
+      "remaining_positive_fields": [],
+      "new_positive_difference_paths": []
+    },
+    "PATCH /operations/projects/{project_id}/execution-node": {
+      "b328": "字段或持久记录差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "governance_audit",
+        "project_execution_nodes"
+      ],
+      "old_positive_fields_now_matching": [
+        "/db/governance_audit/0/after/action",
+        "/db/governance_audit/0/after/details/$serialized_json/node_id",
+        "/db/governance_audit/0/after/details/$serialized_json/source"
+      ],
+      "remaining_positive_fields": [],
+      "new_positive_difference_paths": []
+    },
+    "PATCH /projects/{ident}": {
+      "b328": "服务错误",
+      "rc2": "服务错误",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "governance_audit",
+        "projects"
+      ]
+    },
+    "PATCH /settings": {
+      "b328": "字段或持久记录差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "governance_audit",
+        "governance_settings"
+      ],
+      "old_positive_fields_now_matching": [
+        "/db/governance_audit/0/after/action",
+        "/db/governance_audit/0/after/details/$serialized_json/keys",
+        "/db/governance_audit/0/after/details/$serialized_json/value",
+        "/db/governance_audit/0/after/resource"
+      ],
+      "remaining_positive_fields": [],
+      "new_positive_difference_paths": []
+    },
+    "POST /agents/local/connect": {
+      "b328": "前置条件拒绝",
+      "rc2": "前置条件拒绝",
+      "b328_status": [
+        409,
+        409
+      ],
+      "rc2_status": [
+        409,
+        409
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "POST /approvals/{ident}/decision": {
+      "b328": "前置条件拒绝",
+      "rc2": "前置条件拒绝",
+      "b328_status": [
+        409,
+        409
+      ],
+      "rc2_status": [
+        409,
+        409
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "POST /auth/login": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "POST /auth/logout": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "POST /budget-reservations/{reservation_id}/reconcile": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "governance_audit",
+        "governance_budget_accounts",
+        "governance_budget_reservations"
+      ]
+    },
+    "POST /connectors/{name}/{action}": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "POST /conversation-providers/bridge/operations": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "conversation_bridge_operations",
+        "events",
+        "governance_audit",
+        "governance_task_owners",
+        "tasks"
+      ],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/db/events/0/after/id",
+        "/db/events/0/rowid",
+        "/db/governance_audit/0/after/action",
+        "/db/governance_audit/0/after/details/$serialized_json/user_id"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "POST /conversation-providers/mcp": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/body/result/tools/0/description",
+        "/body/result/tools/1/description",
+        "/body/result/tools/2/description",
+        "/body/result/tools/3/description",
+        "/body/result/tools/3/inputSchema/$schema",
+        "/body/result/tools/3/inputSchema/properties/action/title",
+        "/body/result/tools/3/inputSchema/properties/change_goal/title",
+        "/body/result/tools/3/inputSchema/properties/content/title",
+        "/body/result/tools/3/inputSchema/properties/control/title",
+        "/body/result/tools/3/inputSchema/properties/expected_state_version/anyOf/0/exclusiveMinimum",
+        "/body/result/tools/3/inputSchema/properties/expected_state_version/anyOf/0/maximum",
+        "/body/result/tools/3/inputSchema/properties/expected_state_version/anyOf/0/minimum",
+        "/body/result/tools/3/inputSchema/properties/expected_state_version/title",
+        "/body/result/tools/3/inputSchema/properties/kind/title",
+        "/body/result/tools/3/inputSchema/properties/project_id/anyOf/0/maximum",
+        "/body/result/tools/3/inputSchema/properties/project_id/title",
+        "/body/result/tools/3/inputSchema/properties/request_key/title",
+        "/body/result/tools/3/inputSchema/properties/session_id/anyOf",
+        "/body/result/tools/3/inputSchema/properties/session_id/title",
+        "/body/result/tools/3/inputSchema/properties/session_id/type",
+        "/body/result/tools/3/inputSchema/properties/title/title",
+        "/body/result/tools/3/inputSchema/title",
+        "/body/result/tools/4/description"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "POST /decisions": {
+      "b328": "字段或持久记录差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        201,
+        201
+      ],
+      "rc2_status": [
+        201,
+        201
+      ],
+      "rc2_ts_changed_tables": [
+        "decisions",
+        "governance_audit"
+      ],
+      "old_positive_fields_now_matching": [
+        "/db/governance_audit/0/after/details/$serialized_json/revision",
+        "/db/governance_audit/0/after/details/$serialized_json/status",
+        "/db/governance_audit/0/after/details/$serialized_json/task_id"
+      ],
+      "remaining_positive_fields": [],
+      "new_positive_difference_paths": []
+    },
+    "POST /decisions/{decision_id}/revoke": {
+      "b328": "字段或持久记录差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "decisions",
+        "governance_audit"
+      ],
+      "old_positive_fields_now_matching": [
+        "/db/governance_audit/0/after/details/$serialized_json/revision",
+        "/db/governance_audit/0/after/details/$serialized_json/status",
+        "/db/governance_audit/0/after/details/$serialized_json/task_id"
+      ],
+      "remaining_positive_fields": [],
+      "new_positive_difference_paths": []
+    },
+    "POST /deliveries/{draft_id}/decision": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "approvals",
+        "events"
+      ],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/db/events/0/after/id",
+        "/db/events/0/rowid"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "POST /deliveries/{draft_id}/publish": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "POST /deliveries/{draft_id}/reconcile": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "delivery_records",
+        "events"
+      ],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/db/events/0/after/id",
+        "/db/events/0/rowid"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "POST /event-groups/triage": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "events",
+        "governance_audit"
+      ]
+    },
+    "POST /event-groups/{ident}/delegations": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "events",
+        "tasks"
+      ],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/body/id",
+        "/db/events/0/after/id",
+        "/db/events/0/rowid",
+        "/db/events/1/after/id",
+        "/db/events/1/rowid"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "POST /event-groups/{ident}/events/{event_id}/resolution": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "events",
+        "tasks"
+      ],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/db/events/0/after/id",
+        "/db/events/0/rowid"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "POST /event-groups/{ident}/following/{subscription_id}": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "events",
+        "tasks",
+        "worker_subscriptions"
+      ],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/db/events/0/after/id",
+        "/db/events/0/rowid"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "POST /event-groups/{ident}/rename": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "events",
+        "tasks"
+      ],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/db/events/0/after/id",
+        "/db/events/0/rowid"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "POST /event-groups/{ident}/sync-own-dingtalk": {
+      "b328": "行为差异",
+      "rc2": "行为差异",
+      "b328_status": [
+        200,
+        409
+      ],
+      "rc2_status": [
+        200,
+        409
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "POST /events": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "event_targets",
+        "events",
+        "governance_task_owners",
+        "task_routes",
+        "tasks"
+      ],
+      "old_positive_fields_now_matching": [
+        "/body/data/_lifecycle/0/steps/1/detail/authorization",
+        "/body/data/_lifecycle/0/steps/1/detail/checks",
+        "/body/data/_lifecycle/0/steps/1/detail/effective_response_policy",
+        "/body/data/_lifecycle/0/steps/1/detail/policy_allowed",
+        "/body/data/_lifecycle/0/steps/1/detail/resolved_actor",
+        "/body/data/_lifecycle/0/steps/1/detail/settings_provider",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/authorization",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/checks",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/effective_response_policy",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/policy_allowed",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/resolved_actor",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/settings_provider"
+      ],
+      "remaining_positive_fields": [
+        "/body/data/_lifecycle/0/steps/1/detail/conversation_type",
+        "/body/data/_lifecycle/0/steps/1/detail/default_project_fallback",
+        "/body/data/_lifecycle/0/steps/1/detail/default_project_match",
+        "/body/data/_lifecycle/0/steps/1/detail/evidence_scope",
+        "/body/data/_lifecycle/0/steps/1/detail/external_project_candidates",
+        "/body/data/_lifecycle/0/steps/1/detail/input/conversation_type",
+        "/body/data/_lifecycle/0/steps/1/detail/persisted_settings",
+        "/body/data/_lifecycle/0/steps/1/detail/project_candidates/0/name",
+        "/body/data/_lifecycle/0/steps/1/detail/project_matches",
+        "/body/data/_lifecycle/0/steps/1/detail/project_selection_source",
+        "/body/data/_lifecycle/0/steps/2/detail",
+        "/body/data/_lifecycle/0/steps/3/detail/reference_types",
+        "/body/data/attachments",
+        "/body/data/routing_reason",
+        "/body/id",
+        "/db/event_targets/0/after/event_id",
+        "/db/event_targets/0/after/message_event_id",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/conversation_type",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/default_project_fallback",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/default_project_match",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/evidence_scope",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/external_project_candidates",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/input/conversation_type",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/persisted_settings",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/project_candidates/0/name",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/project_matches",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/project_selection_source",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/2/detail",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/3/detail/reference_types",
+        "/db/events/0/after/data/$serialized_json/attachments",
+        "/db/events/0/after/data/$serialized_json/routing_reason",
+        "/db/events/0/after/id",
+        "/db/events/0/rowid",
+        "/db/tasks/0/after/kind"
+      ],
+      "new_positive_difference_paths": [
+        "/body/data/_lifecycle/0/steps/1/detail/checks/delivery_echo",
+        "/body/data/_lifecycle/0/steps/1/detail/checks/event_type",
+        "/body/data/_lifecycle/0/steps/1/detail/checks/message_content",
+        "/body/data/_lifecycle/0/steps/1/detail/checks/request_kind",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/checks/delivery_echo",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/checks/event_type",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/checks/message_content",
+        "/db/events/0/after/data/$serialized_json/_lifecycle/0/steps/1/detail/checks/request_kind",
+        "/db/task_routes/0/after/route_key",
+        "/db/task_routes/1/after/route_key"
+      ]
+    },
+    "POST /events/{event_id}/retry-attachments": {
+      "b328": "副作用不符",
+      "rc2": "副作用不符",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "events",
+        "governance_audit"
+      ]
+    },
+    "POST /events/{event_id}/retry-routing": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "POST /field-intake/analysis/{ident}/implement": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "events",
+        "governance_audit",
+        "governance_task_owners",
+        "tasks"
+      ],
+      "old_positive_fields_now_matching": [
+        "/db/governance_audit/0/after/action",
+        "/db/governance_audit/0/after/details/$serialized_json/revision",
+        "/db/governance_audit/0/after/details/$serialized_json/source",
+        "/db/governance_audit/0/after/details/$serialized_json/task_id",
+        "/db/governance_audit/0/after/details/$serialized_json/user_id",
+        "/db/governance_audit/0/after/resource",
+        "/db/governance_audit/1",
+        "/db/tasks/0/after/acceptance_criteria",
+        "/db/tasks/0/after/control_version",
+        "/db/tasks/0/after/created_at",
+        "/db/tasks/0/after/goal",
+        "/db/tasks/0/after/id",
+        "/db/tasks/0/after/kind",
+        "/db/tasks/0/after/outcome_unknown",
+        "/db/tasks/0/after/owner_id",
+        "/db/tasks/0/after/project_id",
+        "/db/tasks/0/after/revision",
+        "/db/tasks/0/after/source",
+        "/db/tasks/0/after/state_version",
+        "/db/tasks/0/after/status",
+        "/db/tasks/0/after/title",
+        "/db/tasks/0/before",
+        "/db/tasks/0/rowid",
+        "/db/tasks/0/type",
+        "/db/tasks/1"
+      ],
+      "remaining_positive_fields": [
+        "/db/events/0/after/id",
+        "/db/events/0/rowid"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "POST /field-intake/candidates/{ident}/decision": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "field_candidates",
+        "governance_audit"
+      ]
+    },
+    "POST /field-intake/media-jobs": {
+      "b328": "前置条件拒绝",
+      "rc2": "前置条件拒绝",
+      "b328_status": [
+        409,
+        409
+      ],
+      "rc2_status": [
+        409,
+        409
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "POST /field-intake/media-jobs/{ident}/retry": {
+      "b328": "前置条件拒绝",
+      "rc2": "前置条件拒绝",
+      "b328_status": [
+        409,
+        409
+      ],
+      "rc2_status": [
+        409,
+        409
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "POST /field-intake/records": {
+      "b328": "字段或持久记录差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "field_candidates",
+        "field_records"
+      ],
+      "old_positive_fields_now_matching": [
+        "/body/candidates/0/draft/organizer",
+        "/body/organizer",
+        "/db/field_candidates/0/after/draft/$serialized_json/organizer"
+      ],
+      "remaining_positive_fields": [],
+      "new_positive_difference_paths": []
+    },
+    "POST /identities": {
+      "b328": "字段或持久记录差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "governance_audit",
+        "governance_identities",
+        "governance_identity_grants"
+      ],
+      "old_positive_fields_now_matching": [
+        "/db/governance_audit/0/after/details/$serialized_json/actor_id",
+        "/db/governance_audit/0/after/details/$serialized_json/enabled",
+        "/db/governance_audit/0/after/details/$serialized_json/permissions",
+        "/db/governance_audit/0/after/details/$serialized_json/project_ids",
+        "/db/governance_audit/0/after/details/$serialized_json/source",
+        "/db/governance_audit/0/after/details/$serialized_json/user_id"
+      ],
+      "remaining_positive_fields": [],
+      "new_positive_difference_paths": []
+    },
+    "POST /operations/daemon/exchange": {
+      "b328": "TS 路由缺失",
+      "rc2": "按约定由 Python 承载",
+      "b328_status": [
+        200,
+        404
+      ],
+      "rc2_status": [
+        200,
+        503
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "POST /operations/daemon/poll": {
+      "b328": "TS 路由缺失",
+      "rc2": "按约定由 Python 承载",
+      "b328_status": [
+        200,
+        404
+      ],
+      "rc2_status": [
+        200,
+        503
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "POST /operations/watchdog/tasks/{task_id}/run": {
+      "b328": "行为差异",
+      "rc2": "行为差异",
+      "b328_status": [
+        409,
+        409
+      ],
+      "rc2_status": [
+        409,
+        409
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "POST /operations/watchdog/{run_id}/messages": {
+      "b328": "行为差异",
+      "rc2": "行为差异",
+      "b328_status": [
+        200,
+        409
+      ],
+      "rc2_status": [
+        200,
+        409
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "POST /project-workspace/select-directory": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "POST /projects": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "governance_audit",
+        "projects"
+      ]
+    },
+    "POST /routing/assessments": {
+      "b328": "TS 路由缺失",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        404
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "governance_audit",
+        "workbench_model_runs"
+      ]
+    },
+    "POST /routing/jobs/{event_id}/correction": {
+      "b328": "行为差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        409
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "event_routing_messages",
+        "event_routing_sessions"
+      ]
+    },
+    "POST /routing/schedule": {
+      "b328": "行为差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        409
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "event_targets",
+        "events",
+        "governance_audit",
+        "governance_task_owners",
+        "task_routes",
+        "tasks"
+      ]
+    },
+    "POST /sessions/{ident}/coordination": {
+      "b328": "TS 路由缺失",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        404
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "events"
+      ]
+    },
+    "POST /sessions/{ident}/coordination/{request_id}/apply": {
+      "b328": "TS 路由缺失",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        404
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "event_targets",
+        "events",
+        "tasks"
+      ]
+    },
+    "POST /sessions/{ident}/handoff": {
+      "b328": "TS 路由缺失",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        404
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "approvals",
+        "events",
+        "tasks"
+      ]
+    },
+    "POST /sessions/{ident}/messages": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "events",
+        "governance_audit",
+        "tasks"
+      ],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/body/id",
+        "/db/events/0/after/id",
+        "/db/events/0/rowid",
+        "/db/governance_audit/0/after/details/$serialized_json/revision",
+        "/db/governance_audit/0/after/details/$serialized_json/state_version"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "POST /sessions/{ident}/reconcile": {
+      "b328": "行为差异",
+      "rc2": "行为差异",
+      "b328_status": [
+        200,
+        409
+      ],
+      "rc2_status": [
+        200,
+        409
+      ],
+      "rc2_ts_changed_tables": []
+    },
+    "POST /subscriptions": {
+      "b328": "TS 路由缺失",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        404
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "governance_audit",
+        "worker_subscriptions"
+      ]
+    },
+    "POST /tasks": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "events",
+        "governance_audit",
+        "governance_task_owners",
+        "tasks"
+      ],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/db/events/0/after/id",
+        "/db/events/0/rowid",
+        "/db/governance_audit/0/after/action",
+        "/db/governance_audit/0/after/details/$serialized_json/user_id"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "POST /tasks/{ident}/acceptance": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "events",
+        "governance_audit",
+        "tasks"
+      ],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/db/events/0/after/id",
+        "/db/events/0/rowid"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "POST /tasks/{ident}/controls": {
+      "b328": "行为差异",
+      "rc2": "行为差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "events",
+        "governance_audit",
+        "tasks"
+      ]
+    },
+    "POST /tasks/{ident}/messages": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "events",
+        "governance_audit",
+        "tasks"
+      ],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/body/id",
+        "/db/events/0/after/id",
+        "/db/events/0/rowid",
+        "/db/governance_audit/0/after/details/$serialized_json/revision",
+        "/db/governance_audit/0/after/details/$serialized_json/state_version"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "POST /tasks/{ident}/project": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "approvals",
+        "events",
+        "governance_audit",
+        "tasks",
+        "worker_subscriptions"
+      ],
+      "old_positive_fields_now_matching": [
+        "/body/last_error",
+        "/db/tasks/0/after/last_error"
+      ],
+      "remaining_positive_fields": [
+        "/db/events/0/after/id",
+        "/db/events/0/rowid"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "POST /tasks/{ident}/reconcile": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "events",
+        "governance_audit",
+        "tasks"
+      ],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/db/events/0/after/id",
+        "/db/events/0/rowid"
+      ],
+      "new_positive_difference_paths": []
+    },
+    "POST /tasks/{task_id}/deliveries": {
+      "b328": "业务抽查通过，响应头有差异",
+      "rc2": "业务抽查通过，响应头有差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "approvals",
+        "reply_drafts"
+      ]
+    },
+    "PUT /event-rules": {
+      "b328": "字段或持久记录差异",
+      "rc2": "字段或持久记录差异",
+      "b328_status": [
+        200,
+        200
+      ],
+      "rc2_status": [
+        200,
+        200
+      ],
+      "rc2_ts_changed_tables": [
+        "governance_audit",
+        "governance_settings"
+      ],
+      "old_positive_fields_now_matching": [],
+      "remaining_positive_fields": [
+        "/db/governance_audit",
+        "/db/governance_settings/0/after/updated_at",
+        "/db/governance_settings/0/before/updated_at"
+      ],
+      "new_positive_difference_paths": []
+    }
+  }
+}

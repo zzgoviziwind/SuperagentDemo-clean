@@ -1,0 +1,31 @@
+Node v22.20.0
+a39f1098be52972793a2df1fcd0ff86b80bcd9cf75541b5c9367e152a7b41b09  fake-channel.ts
+6a3bcc9ff74b453f038a472c761954616ac57c17e9e216dc995ba30e469fb738  fake-codex.ts
+e67cd2190d9a39f6ed6e793d326574e8e3ec4a676515550f88becacfc9d40127  fixture-workspace.ts
+57e3bc0d2b7ae0830d2607410589a688b091bf5b29611e8184ca38cd93563f5e  fixtures/environment.ts
+848b033bca91b4b8348a87432f0193c7d2cf41246ff9830bcab786091c0e16c3  fixtures/fake-app-server.ts
+087a70439b4088ac0d0d971d182b830c65a093561fc989a2d45ef7037160330b  fixtures/fake-channel-sender.ts
+1aaf8b049fb6ac57068d7dc64cb2b4b8751456907aed9b8f94e76eb38632c282  index.ts
+4ea2910b7fc3458f403fb7ee76711ab61b9cdf63701c8c7010cd3edca178c89c  package.json
+7d3c48e3fd93fbdb96dcbcc56910c3cd2b8d9affd170a486bfa135ece5a95ff5  test/runtime.test.ts
+test_bundled_offline_cases (__main__.CandidateCases.test_bundled_offline_cases) ... Bundled suite: # tests 11, # pass 11, # fail 0
+ok
+test_channel_error_excludes_adapter_diagnostics (__main__.CandidateCases.test_channel_error_excludes_adapter_diagnostics) ... ok
+test_channel_receipt_with_lost_confirmation (__main__.CandidateCases.test_channel_receipt_with_lost_confirmation) ... ok
+test_created_thread_with_unusable_ack_is_unknown (__main__.CandidateCases.test_created_thread_with_unusable_ack_is_unknown) ... ok
+test_env_excludes_parent_secrets (__main__.CandidateCases.test_env_excludes_parent_secrets) ... ok
+test_mixed_tree_forced (__main__.CandidateCases.test_mixed_tree_forced) ... ok
+test_mixed_tree_normal (__main__.CandidateCases.test_mixed_tree_normal) ... ok
+test_mixed_tree_owner_exit (__main__.CandidateCases.test_mixed_tree_owner_exit) ... ok
+test_prompt_and_environment_excluded_from_argv (__main__.CandidateCases.test_prompt_and_environment_excluded_from_argv) ... ok
+test_tree_forced (__main__.CandidateCases.test_tree_forced) ... ok
+test_tree_normal (__main__.CandidateCases.test_tree_normal) ... ok
+test_tree_owner_exit (__main__.CandidateCases.test_tree_owner_exit) ... ok
+test_turn_confirmed_and_stderr_private (__main__.CandidateCases.test_turn_confirmed_and_stderr_private) ... ok
+test_turn_unknown_eof (__main__.CandidateCases.test_turn_unknown_eof) ... ok
+test_turn_unknown_timeout (__main__.CandidateCases.test_turn_unknown_timeout) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 37.020s
+
+OK

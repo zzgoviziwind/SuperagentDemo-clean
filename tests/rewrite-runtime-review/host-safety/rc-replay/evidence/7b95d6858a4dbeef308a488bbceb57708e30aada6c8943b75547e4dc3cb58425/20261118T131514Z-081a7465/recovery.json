@@ -1,0 +1,41 @@
+{
+  "candidate": {
+    "source": "C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-runtime-review\\host-safety\\prepare-candidate.zip",
+    "dependency_source": "workspace",
+    "manifest_version": null,
+    "zip_sha256": "8f7bc94c298696fa99542039ef08405364490363316caa9f4e1a413e37967efb",
+    "files": {
+      "bin/windows-job-x64.exe": "425cd705d1fb3b5e2d47aba00c50145a890a9f664861a0274f2682ac60efe1bc",
+      "fixtures/environment.ts": "ecceb3cfe9c9abb0b013a2ceb465c1f991577e6a1eba4b2903796d0de8b019e2",
+      "fixtures/fake-app-server.ts": "3e6c1f1bafb71c663c3dc0284a5552d8a0098db47eb43516e8c596c7f4cc3622",
+      "fixtures/fake-channel-sender.ts": "087a70439b4088ac0d0d971d182b830c65a093561fc989a2d45ef7037160330b",
+      "main.js": "b3289b3be6299c3d9157b0b9f62f38901696cad4c708152542f3385788f9a8f3"
+    },
+    "dist_sha256": "7b95d6858a4dbeef308a488bbceb57708e30aada6c8943b75547e4dc3cb58425",
+    "main_sha256": "b3289b3be6299c3d9157b0b9f62f38901696cad4c708152542f3385788f9a8f3",
+    "node_sha256": "05012037a68886c9d60c9aaeee833d221e2fbaee8b80a243a69b46679c38a539"
+  },
+  "utc": "2026-11-18T13:15:14.792273+00:00",
+  "node": "v24.22.3",
+  "python": "3.12.10",
+  "seed_sha256": "57637fcc70bbbb90a6cbd9194665d1c7c928916c696ad0749914844ece2c5828",
+  "seed_storage_commit": "30bceacbf141cfb143bc0eab9d004761f23201ba",
+  "runner_files": {
+    "replay.py": "096aa6827942ca553adcf2dc4bfd5a2b82b2e95a222f87e3c6142dc08d7fb44f",
+    "candidate.py": "054a52f5ee5cb51e523ee8cc928e8f57daa522827f1de86cad01f098df747a16",
+    "oracle.py": "299785dbcca7f7a93327a438b3db8ee6ace04ffc83f61703b8c3c424485fce2f",
+    "prepare-guard.cjs": "2d4b1d6737af7ac0cc8d686d939f736e6a4d1ec61722208a92b03bb367f43f4d"
+  },
+  "cases": {
+    "reported_119": {
+      "pass": false,
+      "runner_error": "Traceback (most recent call last):\n  File \"C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-runtime-review\\host-safety\\rc-replay\\replay.py\", line 155, in main\n    case = exercise(node,dist/\"main.js\",work/name,raw,with_run)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-runtime-review\\host-safety\\rc-replay\\replay.py\", line 98, in exercise\n    python = subprocess.run([sys.executable,\"-IB\",\"-X\",\"utf8\",HERE.parent/\"oracle.py\",\"stock\",work],\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\examp\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\subprocess.py\", line 550, in run\n    stdout, stderr = process.communicate(input, timeout=timeout)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\examp\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\subprocess.py\", line 1209, in communicate\n    stdout, stderr = self._communicate(input, endtime, timeout)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\examp\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\subprocess.py\", line 1630, in _communicate\n    raise TimeoutExpired(self.args, orig_timeout)\nsubprocess.TimeoutExpired: Command '['E:\\\\Workspace\\\\Workspace\\\\Project\\\\SuperAgentDemo\\\\.venv\\\\Scripts\\\\python.exe', '-IB', '-X', 'utf8', WindowsPath('C:/Users/examp/.codex/worktrees/6333/SuperAgentDemo/tests/rewrite-runtime-review/host-safety/oracle.py'), 'stock', WindowsPath('C:/Users/examp/.codex/worktrees/6333/SuperAgentDemo/tests/rewrite-runtime-review/host-safety/rc-replay/r-03c9kzgk/reported_119')]' timed out after 35 seconds\n"
+    },
+    "bridge_without_model_table": {
+      "pass": false,
+      "runner_error": "Traceback (most recent call last):\n  File \"C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-runtime-review\\host-safety\\rc-replay\\replay.py\", line 155, in main\n    case = exercise(node,dist/\"main.js\",work/name,raw,with_run)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-runtime-review\\host-safety\\rc-replay\\replay.py\", line 98, in exercise\n    python = subprocess.run([sys.executable,\"-IB\",\"-X\",\"utf8\",HERE.parent/\"oracle.py\",\"stock\",work],\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\examp\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\subprocess.py\", line 550, in run\n    stdout, stderr = process.communicate(input, timeout=timeout)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\examp\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\subprocess.py\", line 1209, in communicate\n    stdout, stderr = self._communicate(input, endtime, timeout)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\examp\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\subprocess.py\", line 1630, in _communicate\n    raise TimeoutExpired(self.args, orig_timeout)\nsubprocess.TimeoutExpired: Command '['E:\\\\Workspace\\\\Workspace\\\\Project\\\\SuperAgentDemo\\\\.venv\\\\Scripts\\\\python.exe', '-IB', '-X', 'utf8', WindowsPath('C:/Users/examp/.codex/worktrees/6333/SuperAgentDemo/tests/rewrite-runtime-review/host-safety/oracle.py'), 'stock', WindowsPath('C:/Users/examp/.codex/worktrees/6333/SuperAgentDemo/tests/rewrite-runtime-review/host-safety/rc-replay/r-03c9kzgk/bridge_without_model_table')]' timed out after 35 seconds\n"
+    }
+  },
+  "dist_unchanged": true,
+  "pass": false
+}

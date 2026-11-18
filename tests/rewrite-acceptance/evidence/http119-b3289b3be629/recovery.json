@@ -1,0 +1,192 @@
+{
+  "entry_sha256": "b3289b3be6299c3d9157b0b9f62f38901696cad4c708152542f3385788f9a8f3",
+  "exit": 0,
+  "external_receipts": 0,
+  "live_rollback": {
+    "backup_files": 0,
+    "exit": 1,
+    "reason": "原控制器的租约仍有效"
+  },
+  "owners": {
+    "admin": {
+      "counts": {
+        "completed": 1,
+        "paused": 1,
+        "queued": 1,
+        "review_ready": 1,
+        "waiting_resource": 3
+      },
+      "statuses": {
+        "/artifacts/1": 200,
+        "/artifacts/1/download": 200,
+        "/tasks/1": 200,
+        "/tasks/1/export": 200,
+        "/tasks/15": 200,
+        "/tasks/15/export": 200
+      },
+      "tasks": [
+        1,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ]
+    },
+    "alice": {
+      "counts": {
+        "waiting_resource": 1
+      },
+      "statuses": {
+        "/artifacts/1": 200,
+        "/artifacts/1/download": 200,
+        "/tasks/1": 200,
+        "/tasks/1/export": 200,
+        "/tasks/15": 404,
+        "/tasks/15/export": 404
+      },
+      "tasks": [
+        1
+      ]
+    },
+    "bob": {
+      "counts": {
+        "waiting_resource": 1
+      },
+      "statuses": {
+        "/artifacts/1": 404,
+        "/artifacts/1/download": 404,
+        "/tasks/1": 404,
+        "/tasks/1/export": 404,
+        "/tasks/15": 200,
+        "/tasks/15/export": 200
+      },
+      "tasks": [
+        15
+      ]
+    },
+    "viewer": {
+      "counts": {},
+      "statuses": {
+        "/artifacts/1": 404,
+        "/artifacts/1/download": 404,
+        "/tasks/1": 404,
+        "/tasks/1/export": 404,
+        "/tasks/15": 404,
+        "/tasks/15/export": 404
+      },
+      "tasks": []
+    }
+  },
+  "pid": 41128,
+  "port": 62617,
+  "python_readback": {
+    "file_id": "3096224745050499",
+    "integrity": "ok",
+    "task_id": 15,
+    "watchdog_id": "c30cff5b-334b-4922-8b46-6e9c76a453f0"
+  },
+  "restarted-host": {
+    "exit_after_receipt": false,
+    "health": {
+      "implementation": "typescript",
+      "status": "ok",
+      "version": "0.2.0-dev.1"
+    },
+    "pid": 47480,
+    "port": 11689,
+    "returncode": 0
+  },
+  "rollback": {
+    "backup_sha256": "461d97c56cb5138750229950e024907f1b5cdc665252245c7b6bc4ae717af2ef",
+    "expected": {
+      "backup": [
+        "running",
+        "turn_intent",
+        "pending"
+      ],
+      "live": [
+        "unknown",
+        "turn_intent",
+        "unknown"
+      ]
+    },
+    "frozen": false,
+    "output": {
+      "backup": "C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-acceptance\\phase1-run-119-recovery-bqpfu81b\\python\\rollback-backups\\25c39185-ecdd-44be-9031-2f3e87253fee.db",
+      "database": "C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-acceptance\\phase1-run-119-recovery-bqpfu81b\\python\\superagent.db",
+      "prepared": true,
+      "recovery": {
+        "abandoned": 0,
+        "approvals_expired": 0,
+        "claims_expired": 0,
+        "dispatches_unknown": 0,
+        "legacy_unknown": 0,
+        "unknown": 0
+      },
+      "unknown_delivery_ids": [
+        "reply-2"
+      ],
+      "unknown_task_ids": [
+        1,
+        12
+      ]
+    },
+    "states": {
+      "backup": [
+        "running",
+        "turn_intent",
+        "pending"
+      ],
+      "live": [
+        "running",
+        "turn_intent",
+        "pending"
+      ]
+    }
+  },
+  "root": "C:\\Users\\examp\\.codex\\worktrees\\6333\\SuperAgentDemo\\tests\\rewrite-acceptance\\phase1-run-119-recovery-bqpfu81b\\python",
+  "timer": {
+    "manual_run_calls": 0,
+    "model_run": [
+      "c30cff5b-334b-4922-8b46-6e9c76a453f0",
+      "completed",
+      1,
+      "offline-codex-fixture",
+      "34b94278-dc2d-43e7-910e-00fb8be1a0a8",
+      "198f79a8-d697-47a2-830e-344e96fb2995"
+    ],
+    "watchdog": {
+      "conclusion": {
+        "action": "observe",
+        "applied": "observe",
+        "evidence_source": "offline-codex-fixture",
+        "invocation_id": "c30cff5b-334b-4922-8b46-6e9c76a453f0",
+        "reason": "独立离线协议进程已返回合成结果",
+        "status": "completed",
+        "thread_id": "34b94278-dc2d-43e7-910e-00fb8be1a0a8",
+        "turn_id": "198f79a8-d697-47a2-830e-344e96fb2995"
+      },
+      "correction": "",
+      "created_at": "2026-11-18T11:33:35.534000+00:00",
+      "evidence": {
+        "artifacts": [],
+        "corrections": [],
+        "events": [],
+        "task": {
+          "goal": "离线演练",
+          "id": 15,
+          "state_version": 1,
+          "status": "waiting_resource"
+        }
+      },
+      "id": "c30cff5b-334b-4922-8b46-6e9c76a453f0",
+      "state_version": 1,
+      "status": "completed",
+      "task_id": 15,
+      "thread_id": "34b94278-dc2d-43e7-910e-00fb8be1a0a8",
+      "turn_id": "198f79a8-d697-47a2-830e-344e96fb2995"
+    }
+  }
+}

@@ -1,0 +1,3138 @@
+{
+  "baseline": {
+    "commit": "7b7587d14399659d7951d3e195af863514fbf118",
+    "fingerprint": "abf0a6922e8da03d65cd53458df256a509d824c3fbf276f58943cc800201b091",
+    "files_checked": 346,
+    "contract_sha256": "f5718d78f6e5b64a8c23c1b37b8100084511420bc588a5ba9aa0b7f28d84811c",
+    "input_sha256": "7ddc38cd2088781c96d99ad63d5c264f13111636d7eaf17a8ea0b49dcc8fc03b"
+  },
+  "dist_set_sha256": "2857939ef3b88904a4d220acaf70e5615a1502fecd323f437f96970e9f54f50c",
+  "operation_count": 119,
+  "counts": {
+    "业务抽查通过": 20,
+    "Python ASGI": 22,
+    "Python Uvicorn": 6,
+    "Python 回切": 6,
+    "TS Host": 18,
+    "Python 任一入口": 25,
+    "两端有业务观测": 15,
+    "TS 浏览器": 2,
+    "仅匿名 401": 4,
+    "TS 登录前": 5,
+    "未实测": 95
+  },
+  "groups": {
+    "服务与身份": "从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。",
+    "预算": "同库重开后按账号回读额度、预留与结算，未知款项只能由授权用户核实一次。",
+    "项目与目录": "在含空格与中文的临时根安装，重开绑定项目和归档历史，以样本 Git 目录核对基线。",
+    "任务与产物": "由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。",
+    "收件与分发": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+    "事件中心": "浏览器从事件列表进入同一组，重启后原件与组的计数、核验、订阅及中文标题保持一致。",
+    "上下文与路由": "重启后以相同任务与 attempt 重开决定及清单，确认撤销范围、投递目标和幂等记录。",
+    "会话与桥接": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+    "节点与巡检": "在临时 root 仅配置合成节点，停机再启后重查项目绑定、操作回执与巡检记录。",
+    "现场与可选媒体": "在缺失和具备离线媒体组件的两套临时安装复验；回切原服务读相同记录、证据及媒体字节。"
+  },
+  "routes": {
+    "GET /health": {
+      "group": "服务与身份",
+      "phase3_case": "两端冷启及同库重启，核对状态、版本、监听地址与进程身份。",
+      "phase4_case": "从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。",
+      "source": "superagent/main.py:234",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/0",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/default/boots/0",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/default/boots/1",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/wp/boots/0",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/wp/boots/1",
+          "role": null
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/0",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/101",
+          "role": "admin"
+        },
+        {
+          "side": "Python 回切",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/105",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/0",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/106",
+          "role": "admin"
+        },
+        {
+          "side": "Python 回切",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/110",
+          "role": "admin"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "两次 TS 启动成功，Python 回切成功",
+      "phase4_status": "同库回切有 HTTP 证据；待安装复验"
+    },
+    "POST /api/v1/auth/login": {
+      "group": "服务与身份",
+      "phase3_case": "合成有效及无效令牌登录，比较状态、Cookie 属性和后续受限读取。",
+      "phase4_case": "从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。",
+      "source": "superagent/api/governance.py:15",
+      "observations": [
+        {
+          "side": "TS 浏览器",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/browser.json#/writes/0",
+          "role": "admin"
+        },
+        {
+          "side": "TS 浏览器",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/browser.json#/writes/0",
+          "role": "admin"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "浏览器用合成管理员登录成功；非法令牌、Cookie 生命周期待测",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/auth/me": {
+      "group": "服务与身份",
+      "phase3_case": "对照四身份的角色和 user_id，匿名及失效会话返回鉴权错误。",
+      "phase4_case": "从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。",
+      "source": "superagent/api/governance.py:40",
+      "observations": [
+        {
+          "side": "TS 登录前",
+          "status": 401,
+          "evidence": "evidence/phase1-final-1/browser.json#/httpErrors/4",
+          "role": "anonymous"
+        },
+        {
+          "side": "TS 登录前",
+          "status": 401,
+          "evidence": "evidence/phase1-final-2/browser.json#/httpErrors/4",
+          "role": "anonymous"
+        }
+      ],
+      "final_ts": "仅匿名 401",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/auth/logout": {
+      "group": "服务与身份",
+      "phase3_case": "登录后退出，复用原浏览器会话访问 me，核对 Cookie 清除。",
+      "phase4_case": "从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。",
+      "source": "superagent/api/governance.py:31",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/settings": {
+      "group": "服务与身份",
+      "phase3_case": "比较默认开关、修改后的类型和公开键，响应中排除私密连接配置。",
+      "phase4_case": "从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。",
+      "source": "superagent/api/governance.py:45",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/4",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/33",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/42",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/default/boots/0",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/default/boots/1",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/wp/boots/0",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/wp/boots/1",
+          "role": null
+        },
+        {
+          "side": "TS 登录前",
+          "status": 401,
+          "evidence": "evidence/phase1-final-1/browser.json#/httpErrors/3",
+          "role": "anonymous"
+        },
+        {
+          "side": "TS 登录前",
+          "status": 401,
+          "evidence": "evidence/phase1-final-2/browser.json#/httpErrors/3",
+          "role": "anonymous"
+        }
+      ],
+      "final_ts": "仅匿名 401",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "PATCH /api/v1/settings": {
+      "group": "服务与身份",
+      "phase3_case": "合法布尔读回，非法类型被拒；重启后最近一次有效值保留。",
+      "phase4_case": "从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。",
+      "source": "superagent/api/governance.py:51",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/32",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 422,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/35",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/41",
+          "role": null
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/1",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/5",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/13",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/69",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/99",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/104",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/1",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/5",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/15",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/71",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/104",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/109",
+          "role": "admin"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "调度与投递开关在实跑中生效；非法类型的 TS 分支待测",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/codex-prompts": {
+      "group": "服务与身份",
+      "phase3_case": "对照回复、修复和分析的提示配置与默认值，低权限读取按契约处理。",
+      "phase4_case": "从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。",
+      "source": "superagent/api/governance.py:65",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/identities": {
+      "group": "服务与身份",
+      "phase3_case": "对照有 grant 和无 grant 的非空映射，比较项目范围、权限和启用状态。",
+      "phase4_case": "从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。",
+      "source": "superagent/api/governance.py:108",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/identities": {
+      "group": "服务与身份",
+      "phase3_case": "映射合成外部 actor 到成员，再注入消息，验证实际生成任务的 owner。",
+      "phase4_case": "从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。",
+      "source": "superagent/api/governance.py:116",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/17",
+          "role": null
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/2",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/2",
+          "role": "admin"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "新建 bob 映射，合成钉钉私聊实际路由到 bob",
+      "phase4_status": "待安装复验"
+    },
+    "PATCH /api/v1/identities": {
+      "group": "服务与身份",
+      "phase3_case": "更新同一映射的授权项目并回读，核对原主键及新请求生效范围。",
+      "phase4_case": "从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。",
+      "source": "superagent/api/governance.py:116",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "DELETE /api/v1/identities/{identity_id}": {
+      "group": "服务与身份",
+      "phase3_case": "禁用映射后重送新消息，保留历史 owner，未知映射返回 404。",
+      "phase4_case": "从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。",
+      "source": "superagent/api/governance.py:122",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/audit": {
+      "group": "服务与身份",
+      "phase3_case": "两次有效治理修改后按 limit 查询，核对 actor、资源、倒序及非法 limit。",
+      "phase4_case": "从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。",
+      "source": "superagent/api/governance.py:135",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/architecture": {
+      "group": "服务与身份",
+      "phase3_case": "两端读取模块架构及配置能力，核对键与值，区别可选组件状态。",
+      "phase4_case": "从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。",
+      "source": "superagent/api/lifecycle.py:15",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/agents/local": {
+      "group": "服务与身份",
+      "phase3_case": "用空临时账号目录与合成驱动分别查看能力，核对可用性及权限。",
+      "phase4_case": "从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。",
+      "source": "superagent/api/local_agents.py:17",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/agents/local/connect": {
+      "group": "服务与身份",
+      "phase3_case": "仅在临时账号下切换合成驱动，校验显式登录选择、无效 agent 和审计。",
+      "phase4_case": "从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。",
+      "source": "superagent/api/local_agents.py:22",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/budgets": {
+      "group": "预算",
+      "phase3_case": "两个合成账号使用不同额度，核对货币、限额及管理权限。",
+      "phase4_case": "同库重开后按账号回读额度、预留与结算，未知款项只能由授权用户核实一次。",
+      "source": "superagent/api/governance.py:150",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "PATCH /api/v1/budgets/{account_id}": {
+      "group": "预算",
+      "phase3_case": "修改一个账号的上限，负数或非法类型被拒，另一账号保持原值。",
+      "phase4_case": "同库重开后按账号回读额度、预留与结算，未知款项只能由授权用户核实一次。",
+      "source": "superagent/api/governance.py:157",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/budget-reservations": {
+      "group": "预算",
+      "phase3_case": "准备 reserved、unknown 与 settled，分别筛选状态和账号，核对限制条数。",
+      "phase4_case": "同库重开后按账号回读额度、预留与结算，未知款项只能由授权用户核实一次。",
+      "source": "superagent/api/governance.py:163",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/budget-reservations/{reservation_id}/reconcile": {
+      "group": "预算",
+      "phase3_case": "对未知预留填写核验依据，核对最终用量、操作者与重复提交的金额。",
+      "phase4_case": "同库重开后按账号回读额度、预留与结算，未知款项只能由授权用户核实一次。",
+      "source": "superagent/api/governance.py:184",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/projects": {
+      "group": "项目与目录",
+      "phase3_case": "两个启用状态不同的项目，核对列表顺序、目录、基线与历史 ID。",
+      "phase4_case": "在含空格与中文的临时根安装，重开绑定项目和归档历史，以样本 Git 目录核对基线。",
+      "source": "superagent/main.py:237",
+      "observations": [
+        {
+          "side": "TS 登录前",
+          "status": 401,
+          "evidence": "evidence/phase1-final-1/browser.json#/httpErrors/1",
+          "role": "anonymous"
+        },
+        {
+          "side": "TS 登录前",
+          "status": 401,
+          "evidence": "evidence/phase1-final-2/browser.json#/httpErrors/1",
+          "role": "anonymous"
+        }
+      ],
+      "final_ts": "仅匿名 401",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/projects": {
+      "group": "项目与目录",
+      "phase3_case": "从允许根创建合成项目，校验绑定、相对路径及无效仓库配置。",
+      "phase4_case": "在含空格与中文的临时根安装，重开绑定项目和归档历史，以样本 Git 目录核对基线。",
+      "source": "superagent/main.py:240",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "PATCH /api/v1/projects/{ident}": {
+      "group": "项目与目录",
+      "phase3_case": "修改 allowed_paths 或基线并回读，非法路径被拒且旧配置保留。",
+      "phase4_case": "在含空格与中文的临时根安装，重开绑定项目和归档历史，以样本 Git 目录核对基线。",
+      "source": "superagent/main.py:248",
+      "observations": [
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/67",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/69",
+          "role": "admin"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "临时项目开放其自身根，修复审批生效；非法路径分支待测",
+      "phase4_status": "待安装复验"
+    },
+    "DELETE /api/v1/projects/{ident}": {
+      "group": "项目与目录",
+      "phase3_case": "归档已有任务的项目，核对历史任务可读及后续新任务准入。",
+      "phase4_case": "在含空格与中文的临时根安装，重开绑定项目和归档历史，以样本 Git 目录核对基线。",
+      "source": "superagent/main.py:259",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/project-workspace": {
+      "group": "项目与目录",
+      "phase3_case": "枚举临时目录及分支，验证中文目录、父目录与允许根边界。",
+      "phase4_case": "在含空格与中文的临时根安装，重开绑定项目和归档历史，以样本 Git 目录核对基线。",
+      "source": "superagent/api/project_workspace.py:138",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/project-workspace/codex-projects": {
+      "group": "项目与目录",
+      "phase3_case": "载入仅含合成项目的本地目录索引，再提供空索引，核对项目及提示。",
+      "phase4_case": "在含空格与中文的临时根安装，重开绑定项目和归档历史，以样本 Git 目录核对基线。",
+      "source": "superagent/api/project_workspace.py:80",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/project-workspace/select-directory": {
+      "group": "项目与目录",
+      "phase3_case": "替身选择器返回合法合成目录或取消，核对 path 和取消值，禁止读取宿主用户目录。",
+      "phase4_case": "在含空格与中文的临时根安装，重开绑定项目和归档历史，以样本 Git 目录核对基线。",
+      "source": "superagent/api/project_workspace.py:56",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/tasks": {
+      "group": "任务与产物",
+      "phase3_case": "同项目两位 owner、admin、viewer，比较精确 ID 集和项目筛选，验证历史 owner 回填。",
+      "phase4_case": "由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。",
+      "source": "superagent/main.py:275",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 401,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/1",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/20",
+          "role": null
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/15",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/16",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/28",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/29",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/40",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/41",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/52",
+          "role": "viewer"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/53",
+          "role": "viewer"
+        },
+        {
+          "side": "TS 登录前",
+          "status": 401,
+          "evidence": "evidence/phase1-final-1/browser.json#/httpErrors/0",
+          "role": "anonymous"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/17",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/18",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/30",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/31",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/42",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/43",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/54",
+          "role": "viewer"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/55",
+          "role": "viewer"
+        },
+        {
+          "side": "TS 登录前",
+          "status": 401,
+          "evidence": "evidence/phase1-final-2/browser.json#/httpErrors/0",
+          "role": "anonymous"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "四身份、同项目筛选和旧 owner 回填符合预期",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/tasks": {
+      "group": "任务与产物",
+      "phase3_case": "成员分别创建 reply、analysis、repair；项目禁用或 viewer 创建时核对状态、行数及归属。",
+      "phase4_case": "由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。",
+      "source": "superagent/main.py:282",
+      "observations": [
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/default/boots/0",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/wp/boots/0",
+          "role": null
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/68",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/70",
+          "role": "bob"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "成员创建 repair 并完成；其他种类及无效项目的直接创建待测",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/tasks/{ident}": {
+      "group": "任务与产物",
+      "phase3_case": "按四身份比较详情、事件、审批与产物，历史行无 attempt 也可读。",
+      "phase4_case": "由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。",
+      "source": "superagent/main.py:294",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/7",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/default/boots/0",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/default/boots/1",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/default/boots/1",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/wp/boots/0",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/wp/boots/1",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/wp/boots/1",
+          "role": null
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/6",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/7",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/8",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/9",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/10",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/11",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/18",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/19",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/20",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/24",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/31",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/32",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/36",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/43",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/44",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/48",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/55",
+          "role": "viewer"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/59",
+          "role": "viewer"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/70",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/71",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/72",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/73",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/74",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/75",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/76",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/77",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/78",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/79",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/80",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/81",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/82",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/83",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/84",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/85",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/87",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/89",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/90",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/91",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/92",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/93",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/94",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/95",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/6",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/7",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/8",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/9",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/10",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/11",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/12",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/13",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/20",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/21",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/22",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/26",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/33",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/34",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/38",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/45",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/46",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/50",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/57",
+          "role": "viewer"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/61",
+          "role": "viewer"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/72",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/73",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/74",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/75",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/76",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/77",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/78",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/79",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/80",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/81",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/82",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/83",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/84",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/85",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/86",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/87",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/89",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/91",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/92",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/93",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/94",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/95",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/96",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/97",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/98",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/99",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/100",
+          "role": "bob"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "可见任务返回完整记录，非归属及 viewer 返回 404",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/tasks/{ident}/project": {
+      "group": "任务与产物",
+      "phase3_case": "将待确认任务关联到有效项目，核对状态及关联；无效项目或旧版本不得推进。",
+      "phase4_case": "由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。",
+      "source": "superagent/main.py:305",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/tasks/{ident}/messages": {
+      "group": "任务与产物",
+      "phase3_case": "向可见任务写合成跟进，核对事件和状态版本；旧版本不得重复追加。",
+      "phase4_case": "由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。",
+      "source": "superagent/main.py:347",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/tasks/{ident}/controls": {
+      "group": "任务与产物",
+      "phase3_case": "pause、resume、cancel 后重放旧版本。核对 control_version、状态、事件和执行次数。",
+      "phase4_case": "由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。",
+      "source": "superagent/main.py:397",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/tasks/{ident}/reconcile": {
+      "group": "任务与产物",
+      "phase3_case": "将中断执行置为 unknown，分别提交空证据、旧版本与有效核实，观察解冻和审计。",
+      "phase4_case": "由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。",
+      "source": "superagent/main.py:442",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/tasks/{ident}/acceptance": {
+      "group": "任务与产物",
+      "phase3_case": "使用同轮证据验收，先提交旧 revision，修复另校验命令结果与改动摘要。",
+      "phase4_case": "由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。",
+      "source": "superagent/main.py:460",
+      "observations": [
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/12",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 409,
+          "evidence": "evidence/phase1-final-1/http.json#/97",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/98",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/14",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 409,
+          "evidence": "evidence/phase1-final-2/http.json#/102",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/103",
+          "role": "bob"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "reply 与 repair 均验收完成，repair 旧 revision 为 409；analysis 待测",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/approvals": {
+      "group": "任务与产物",
+      "phase3_case": "造工具和渠道两类待批，核对审批 ID、任务关联、状态和主体访问范围。",
+      "phase4_case": "由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。",
+      "source": "superagent/main.py:510",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/approvals/{ident}/decision": {
+      "group": "任务与产物",
+      "phase3_case": "真实假 Worker 发起请求。错 hash、重复决定、渠道审批各拒绝，有效决定仅凭确认回执推进。",
+      "phase4_case": "由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。",
+      "source": "superagent/main.py:513",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 409,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/13",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 409,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/14",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/15",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 409,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/16",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 409,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/27",
+          "role": null
+        },
+        {
+          "side": "TS Host",
+          "status": 409,
+          "evidence": "evidence/phase1-final-1/http.json#/86",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/88",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 409,
+          "evidence": "evidence/phase1-final-1/http.json#/96",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 409,
+          "evidence": "evidence/phase1-final-2/http.json#/88",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/90",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 409,
+          "evidence": "evidence/phase1-final-2/http.json#/101",
+          "role": "bob"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "真实修复工具审批先拒错 hash，正确决定获确认，重复决定拒绝；回执丢失的集成分支待测",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/artifacts/{ident}": {
+      "group": "任务与产物",
+      "phase3_case": "查看同轮和历史无 attempt 产物，比较所有者与非归属成员的读取结果。",
+      "phase4_case": "由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。",
+      "source": "superagent/main.py:623",
+      "observations": [
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/22",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/26",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/34",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/38",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/46",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/50",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/57",
+          "role": "viewer"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/61",
+          "role": "viewer"
+        },
+        {
+          "side": "Python 回切",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/112",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/24",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/28",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/36",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/40",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/48",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/52",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/59",
+          "role": "viewer"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/63",
+          "role": "viewer"
+        },
+        {
+          "side": "Python 回切",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/117",
+          "role": "admin"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "历史件和新 summary 均核对归属，跨归属返回 404",
+      "phase4_status": "同库回切有 HTTP 证据；待安装复验"
+    },
+    "GET /api/v1/artifacts/{ident}/download": {
+      "group": "任务与产物",
+      "phase3_case": "核对下载头、内容、摘要与四身份范围，未知产物应返回缺失。",
+      "phase4_case": "由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。",
+      "source": "superagent/main.py:626",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/10",
+          "role": null
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/23",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/27",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/35",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/39",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/47",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/51",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/58",
+          "role": "viewer"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/62",
+          "role": "viewer"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/25",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/29",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/37",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/41",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/49",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/53",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/60",
+          "role": "viewer"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/64",
+          "role": "viewer"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "历史件和新件的下载响应核对任务 ID；TS 下载头的差分待测",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/tasks/{ident}/export": {
+      "group": "任务与产物",
+      "phase3_case": "对照详情的事件、审批、产物和导出头；回切后逐行比 ID、版本及内容哈希。",
+      "phase4_case": "由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。",
+      "source": "superagent/main.py:631",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/9",
+          "role": null
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/21",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/25",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/33",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/37",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/45",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/49",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/56",
+          "role": "viewer"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/60",
+          "role": "viewer"
+        },
+        {
+          "side": "Python 回切",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/107",
+          "role": "admin"
+        },
+        {
+          "side": "Python 回切",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/109",
+          "role": "admin"
+        },
+        {
+          "side": "Python 回切",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/110",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/23",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/27",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/35",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/39",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/47",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/51",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/58",
+          "role": "viewer"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/62",
+          "role": "viewer"
+        },
+        {
+          "side": "Python 回切",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/112",
+          "role": "admin"
+        },
+        {
+          "side": "Python 回切",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/114",
+          "role": "admin"
+        },
+        {
+          "side": "Python 回切",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/115",
+          "role": "admin"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "四身份读写范围及回切后五件产物相符；导出头差分待测",
+      "phase4_status": "同库回切有 HTTP 证据；待安装复验"
+    },
+    "GET /api/v1/overview": {
+      "group": "任务与产物",
+      "phase3_case": "以四身份的可见任务推导每状态数、活动 ID 和待批 ID，和响应精确比较。",
+      "phase4_case": "由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。",
+      "source": "superagent/main.py:640",
+      "observations": [
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/17",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/30",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/42",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/54",
+          "role": "viewer"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/19",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/32",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/44",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/56",
+          "role": "viewer"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "四身份计数、活动 ID、待批 ID 与可见任务一致",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/operations/tasks/{task_id}/attempts": {
+      "group": "任务与产物",
+      "phase3_case": "比较同一任务两次 attempt 的顺序、绑定和可见性，未知任务按契约处理。",
+      "phase4_case": "由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。",
+      "source": "superagent/api/operations.py:41",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/connectors": {
+      "group": "收件与分发",
+      "phase3_case": "默认全关与单个假适配器启动，核对状态、标识和停机后的最后状态。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/connections.py:57",
+      "observations": [
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/default/boots/0",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/default/boots/1",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/wp/boots/0",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/wp/boots/1",
+          "role": null
+        },
+        {
+          "side": "Python 回切",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/106",
+          "role": "admin"
+        },
+        {
+          "side": "TS 登录前",
+          "status": 401,
+          "evidence": "evidence/phase1-final-1/browser.json#/httpErrors/2",
+          "role": "anonymous"
+        },
+        {
+          "side": "Python 回切",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/111",
+          "role": "admin"
+        },
+        {
+          "side": "TS 登录前",
+          "status": 401,
+          "evidence": "evidence/phase1-final-2/browser.json#/httpErrors/2",
+          "role": "anonymous"
+        }
+      ],
+      "final_ts": "仅匿名 401",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "同库回切有 HTTP 证据；待安装复验"
+    },
+    "GET /api/v1/connectors/dingtalk/groups": {
+      "group": "收件与分发",
+      "phase3_case": "假 DWS 返回两页群搜索；核对 next_cursor、群名、坏响应和未配置提示。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/connections.py:62",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/connectors/dingtalk/group": {
+      "group": "收件与分发",
+      "phase3_case": "假 DWS 返回匹配 ID 的群与不匹配记录，核对名称及无效响应。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/connections.py:92",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/connectors/{name}/{action}": {
+      "group": "收件与分发",
+      "phase3_case": "在假驱动上启停指定连接器，比较重复操作和非法动作，对外调用保持为零。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/connections.py:115",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/events": {
+      "group": "收件与分发",
+      "phase3_case": "同一合成消息投两次，核对原件与任务 ID、重复标记、绑定与假回声处理。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/connections.py:125",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/18",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/19",
+          "role": null
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/3",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/4",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/3",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/4",
+          "role": "admin"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "合成私聊重复注入得到同一事件和任务；回声输入待测",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/events": {
+      "group": "收件与分发",
+      "phase3_case": "准备两个来源及不同路由状态，按游标、来源、关键词筛选并核对全量 ID。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/connections.py:136",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/events/stream": {
+      "group": "收件与分发",
+      "phase3_case": "两条变更后断开并从最后事件 ID 续读，核对顺序、心跳、身份范围及重复。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/main.py:647",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/events/{event_id}/trace": {
+      "group": "收件与分发",
+      "phase3_case": "对一个已分发原件追踪所有目标，逐项对应路由、任务及交付历史。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/lifecycle.py:59",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/events/{event_id}/retry-routing": {
+      "group": "收件与分发",
+      "phase3_case": "对一条可重试原件恢复路由，复点后核对唯一任务与投递数。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/connections.py:144",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/events/{event_id}/retry-attachments": {
+      "group": "收件与分发",
+      "phase3_case": "为假附件构造一次读取失败再成功，核对托管内容、事件和重试资格。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/connections.py:155",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/subscriptions": {
+      "group": "收件与分发",
+      "phase3_case": "准备启用与停用订阅，比较绑定项目、目标、启用状态。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/lifecycle.py:27",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/subscriptions": {
+      "group": "收件与分发",
+      "phase3_case": "创建一条合法订阅，再以相同范围重复提交，核对活动订阅和后续分发数。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/routing.py:96",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "DELETE /api/v1/subscriptions/{subscription_id}": {
+      "group": "收件与分发",
+      "phase3_case": "停用已分发的订阅，新事件停止跟进，旧事件与审计可查。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/routing.py:110",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/event-rules": {
+      "group": "收件与分发",
+      "phase3_case": "读回两条规则的优先级和时区，核对含跨午夜窗口的配置。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/event_rules.py:13",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "PUT /api/v1/event-rules": {
+      "group": "收件与分发",
+      "phase3_case": "保存合法规则，对不存在项目提交失败，核对旧规则保持有效。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/event_rules.py:18",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/tasks/{task_id}/deliveries": {
+      "group": "收件与分发",
+      "phase3_case": "基于任务原件及正文建草稿，核对 event_id、审批 hash 和错误来源绑定。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/connections.py:165",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/25",
+          "role": null
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/14",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/16",
+          "role": "bob"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "由归属成员从本次 Worker 摘要建草稿并批准；错误来源绑定待测",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/tasks/{task_id}/deliveries": {
+      "group": "收件与分发",
+      "phase3_case": "同一非空草稿用四身份读取，核对 ID、正文、账本及跨归属拒绝。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/connections.py:173",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/11",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/31",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/43",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/default/boots/0",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/default/boots/1",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/wp/boots/0",
+          "role": null
+        },
+        {
+          "side": "Python Uvicorn",
+          "status": 200,
+          "evidence": "uvicorn-results.json#/profiles/wp/boots/1",
+          "role": null
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/63",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/64",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/65",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-1/http.json#/66",
+          "role": "viewer"
+        },
+        {
+          "side": "Python 回切",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/108",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/65",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/66",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/67",
+          "role": "alice"
+        },
+        {
+          "side": "TS Host",
+          "status": 404,
+          "evidence": "evidence/phase1-final-2/http.json#/68",
+          "role": "viewer"
+        },
+        {
+          "side": "Python 回切",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/113",
+          "role": "admin"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "四身份核对同一非空草稿，回切后读到同一账本",
+      "phase4_status": "同库回切有 HTTP 证据；待安装复验"
+    },
+    "POST /api/v1/deliveries/{draft_id}/decision": {
+      "group": "收件与分发",
+      "phase3_case": "用错 hash、正确批准、重复决定和非归属身份，核对终态及批准内容。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/connections.py:183",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 409,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/28",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/29",
+          "role": null
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/100",
+          "role": "bob"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/105",
+          "role": "bob"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "用当前 action_hash 批准成功；错 hash、过期和非归属决定待测",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/deliveries/{draft_id}/publish": {
+      "group": "收件与分发",
+      "phase3_case": "开关关停和未批零发送，收件后强杀，重启重放 unknown 和 succeeded 各核对一份回执。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/connections.py:191",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/12",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 409,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/26",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 409,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/30",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 409,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/34",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/36",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/37",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/38",
+          "role": null
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/102",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/103",
+          "role": "admin"
+        },
+        {
+          "side": "Python 回切",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/http.json#/111",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/107",
+          "role": "admin"
+        },
+        {
+          "side": "TS Host",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/108",
+          "role": "admin"
+        },
+        {
+          "side": "Python 回切",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/http.json#/116",
+          "role": "admin"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "强杀后自然过租约，未知及成功重放均仅一份回执；关停与未批的 TS 分支待测",
+      "phase4_status": "同库回切有 HTTP 证据；待安装复验"
+    },
+    "POST /api/v1/deliveries/{draft_id}/reconcile": {
+      "group": "收件与分发",
+      "phase3_case": "unknown 提交真实假回执编号，经 UI 记录并刷新；另核验缺证据及失败结果的处理。",
+      "phase4_case": "离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。",
+      "source": "superagent/api/connections.py:199",
+      "observations": [
+        {
+          "side": "TS 浏览器",
+          "status": 200,
+          "evidence": "evidence/phase1-final-1/browser.json#/writes/1",
+          "role": "admin"
+        },
+        {
+          "side": "TS 浏览器",
+          "status": 200,
+          "evidence": "evidence/phase1-final-2/browser.json#/writes/1",
+          "role": "admin"
+        }
+      ],
+      "final_ts": "业务抽查通过",
+      "tested_scope": "浏览器空证据按钮禁用、提交成功、刷新及回切保持；失败结果与后端拒绝空证据待测",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/event-groups": {
+      "group": "事件中心",
+      "phase3_case": "对两个归属任务建组，核对组键、待核验数和访问范围。",
+      "phase4_case": "浏览器从事件列表进入同一组，重启后原件与组的计数、核验、订阅及中文标题保持一致。",
+      "source": "superagent/api/event_groups.py:260",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/event-groups/index": {
+      "group": "事件中心",
+      "phase3_case": "同一原件分发到两个组，按来源、状态及关键词筛选翻页，核对翻页前统计。",
+      "phase4_case": "浏览器从事件列表进入同一组，重启后原件与组的计数、核验、订阅及中文标题保持一致。",
+      "source": "superagent/api/event_groups.py:24",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/event-groups/triage-options": {
+      "group": "事件中心",
+      "phase3_case": "准备启用及归档项目，核对可选项目、任务与权限。",
+      "phase4_case": "浏览器从事件列表进入同一组，重启后原件与组的计数、核验、订阅及中文标题保持一致。",
+      "source": "superagent/api/event_groups.py:87",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/event-groups/triage": {
+      "group": "事件中心",
+      "phase3_case": "未分派原件选择新建或现有任务，重放后核对关联行和状态。",
+      "phase4_case": "浏览器从事件列表进入同一组，重启后原件与组的计数、核验、订阅及中文标题保持一致。",
+      "source": "superagent/api/event_groups.py:113",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/event-groups/{ident}": {
+      "group": "事件中心",
+      "phase3_case": "比较组详情的原件、投递副本、审批、草稿及结果计数。",
+      "phase4_case": "浏览器从事件列表进入同一组，重启后原件与组的计数、核验、订阅及中文标题保持一致。",
+      "source": "superagent/api/event_groups.py:313",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/8",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/21",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/24",
+          "role": null
+        }
+      ],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/event-groups/{ident}/rename": {
+      "group": "事件中心",
+      "phase3_case": "合法中文标题及旧状态版本重命名，重读任务和组标题。",
+      "phase4_case": "浏览器从事件列表进入同一组，重启后原件与组的计数、核验、订阅及中文标题保持一致。",
+      "source": "superagent/api/event_groups.py:225",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/event-groups/{ident}/delegations": {
+      "group": "事件中心",
+      "phase3_case": "相同原件委派两次，核对唯一委派行和实际接收组。",
+      "phase4_case": "浏览器从事件列表进入同一组，重启后原件与组的计数、核验、订阅及中文标题保持一致。",
+      "source": "superagent/api/event_groups.py:355",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/event-groups/{ident}/events/{event_id}/resolution": {
+      "group": "事件中心",
+      "phase3_case": "仅核验指定组中的原件，再送旧版本，核对另一组待核验数。",
+      "phase4_case": "浏览器从事件列表进入同一组，重启后原件与组的计数、核验、订阅及中文标题保持一致。",
+      "source": "superagent/api/event_groups.py:331",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/22",
+          "role": null
+        },
+        {
+          "side": "Python ASGI",
+          "status": 409,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/23",
+          "role": null
+        }
+      ],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/event-groups/{ident}/following/{subscription_id}": {
+      "group": "事件中心",
+      "phase3_case": "对一条本组订阅切换跟进，验证其他组不变及版本约束。",
+      "phase4_case": "浏览器从事件列表进入同一组，重启后原件与组的计数、核验、订阅及中文标题保持一致。",
+      "source": "superagent/api/event_groups.py:392",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/event-groups/{ident}/sync-own-dingtalk": {
+      "group": "事件中心",
+      "phase3_case": "由假历史源补本组记录两次，核对 added、实际新增 ID 和来源范围。",
+      "phase4_case": "浏览器从事件列表进入同一组，重启后原件与组的计数、核验、订阅及中文标题保持一致。",
+      "source": "superagent/api/event_groups.py:267",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/decisions": {
+      "group": "上下文与路由",
+      "phase3_case": "准备两个项目及撤销决定，按状态、分页查询，核对可见 ID。",
+      "phase4_case": "重启后以相同任务与 attempt 重开决定及清单，确认撤销范围、投递目标和幂等记录。",
+      "source": "superagent/api/context.py:132",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/decisions": {
+      "group": "上下文与路由",
+      "phase3_case": "给本项目和本任务创建决定，错项目原件被拒，清单引用正确 ID。",
+      "phase4_case": "重启后以相同任务与 attempt 重开决定及清单，确认撤销范围、投递目标和幂等记录。",
+      "source": "superagent/api/context.py:61",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 201,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/39",
+          "role": null
+        }
+      ],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/decisions/{decision_id}/revoke": {
+      "group": "上下文与路由",
+      "phase3_case": "写撤销原因，确认从新清单消失，历史决定记录仍可读。",
+      "phase4_case": "重启后以相同任务与 attempt 重开决定及清单，确认撤销范围、投递目标和幂等记录。",
+      "source": "superagent/api/context.py:89",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/40",
+          "role": null
+        }
+      ],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/tasks/{task_id}/decisions": {
+      "group": "上下文与路由",
+      "phase3_case": "同项目两个任务各建决定，按任务和状态筛选核对精确集合。",
+      "phase4_case": "重启后以相同任务与 attempt 重开决定及清单，确认撤销范围、投递目标和幂等记录。",
+      "source": "superagent/api/context.py:140",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/attempts/{attempt_id}/context": {
+      "group": "上下文与路由",
+      "phase3_case": "核对指定 attempt 对应的任务、决定和清单，缺失 manifest 返回 404。",
+      "phase4_case": "重启后以相同任务与 attempt 重开决定及清单，确认撤销范围、投递目标和幂等记录。",
+      "source": "superagent/api/context.py:147",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/tasks/{task_id}/context": {
+      "group": "上下文与路由",
+      "phase3_case": "将两次 attempt 的 manifest 按任务列出，核对 limit 与归属。",
+      "phase4_case": "重启后以相同任务与 attempt 重开决定及清单，确认撤销范围、投递目标和幂等记录。",
+      "source": "superagent/api/context.py:161",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/routing/assessments": {
+      "group": "上下文与路由",
+      "phase3_case": "对两条合成原件执行离线评估，比较候选与实际原件、权限及证据。",
+      "phase4_case": "重启后以相同任务与 attempt 重开决定及清单，确认撤销范围、投递目标和幂等记录。",
+      "source": "superagent/api/routing.py:53",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/routing/jobs": {
+      "group": "上下文与路由",
+      "phase3_case": "创建多个语义路由任务，验证分页 next_after、has_more 及可授权纠正目标。",
+      "phase4_case": "重启后以相同任务与 attempt 重开决定及清单，确认撤销范围、投递目标和幂等记录。",
+      "source": "superagent/api/routing.py:121",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/routing/schedule": {
+      "group": "上下文与路由",
+      "phase3_case": "切换语义路由开关后调度同一 event_id，比较分发数及实际建任务数。",
+      "phase4_case": "重启后以相同任务与 attempt 重开决定及清单，确认撤销范围、投递目标和幂等记录。",
+      "source": "superagent/api/routing.py:146",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/routing/jobs/{event_id}/correction": {
+      "group": "上下文与路由",
+      "phase3_case": "提交带证据的人工纠正并重试，对照最终目标、记录和重复副作用。",
+      "phase4_case": "重启后以相同任务与 attempt 重开决定及清单，确认撤销范围、投递目标和幂等记录。",
+      "source": "superagent/api/routing.py:159",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/sessions": {
+      "group": "会话与桥接",
+      "phase3_case": "准备 worker、router 和语义任务，对比项目筛选及各角色可见会话。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/sessions.py:72",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/sessions/{ident}": {
+      "group": "会话与桥接",
+      "phase3_case": "用三种会话 ID 读消息、版本和线程，核对缺失项与归属。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/sessions.py:89",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/sessions/{ident}/messages": {
+      "group": "会话与桥接",
+      "phase3_case": "在合成会话写跟进，重放旧版本，核对消息顺序和唯一调度。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/sessions.py:133",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/sessions/{ident}/reconcile": {
+      "group": "会话与桥接",
+      "phase3_case": "对 unknown 会话提交当前版本和证据，核对记录及旧版本拒绝。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/sessions.py:158",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/sessions/{ident}/transcript": {
+      "group": "会话与桥接",
+      "phase3_case": "给定可读假 thread 与缺失 thread，比较来源标记及本地历史回退。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/sessions.py:173",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/sessions/{ident}/handoff": {
+      "group": "会话与桥接",
+      "phase3_case": "为绑定 thread 的任务生成移交材料，核对任务、线程和附件范围。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/sessions.py:244",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/sessions/{ident}/coordination": {
+      "group": "会话与桥接",
+      "phase3_case": "两个合成 Worker 创建协调请求并重复提交，核对关联方及唯一请求。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/sessions.py:297",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/sessions/{ident}/coordination": {
+      "group": "会话与桥接",
+      "phase3_case": "对含协调请求会话和其他会话，各核对请求 ID 及权限。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/sessions.py:324",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/sessions/{ident}/coordination/{request_id}/apply": {
+      "group": "会话与桥接",
+      "phase3_case": "应用同一请求两次，核对结果、消息行和实际执行次数。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/sessions.py:334",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/conversation-providers": {
+      "group": "会话与桥接",
+      "phase3_case": "比较离线 provider 的能力与模式，核对未知能力未被声明可用。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/conversation_providers.py:28",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/conversation-providers/bridge/status": {
+      "group": "会话与桥接",
+      "phase3_case": "有权与无权的合成桥接身份读取，成功时核对 principal 和能力。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/conversation_providers.py:34",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/conversation-providers/bridge/sessions": {
+      "group": "会话与桥接",
+      "phase3_case": "跨项目准备两个会话，核对筛选及桥接身份可见的精确集合。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/conversation_providers.py:39",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/conversation-providers/bridge/sessions/{ident}": {
+      "group": "会话与桥接",
+      "phase3_case": "带 after、limit 两页读取同一会话，核对快照、游标和消息序号。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/conversation_providers.py:45",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/conversation-providers/bridge/operations/{request_key}": {
+      "group": "会话与桥接",
+      "phase3_case": "读回已完成键与不存在键，核对结果和主体绑定。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/conversation_providers.py:90",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/conversation-providers/bridge/operations": {
+      "group": "会话与桥接",
+      "phase3_case": "同一合成 request_key 重放，核对 duplicate 和持久化操作次数。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/conversation_providers.py:100",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/conversation-providers/mcp": {
+      "group": "会话与桥接",
+      "phase3_case": "对比合规 JSON-RPC 请求与通知、错误参数的结果、响应 ID 和通知状态。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/conversation_providers.py:141",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/conversation-providers/mcp": {
+      "group": "会话与桥接",
+      "phase3_case": "具有桥接权限的身份发 GET，核对 405、Allow 为 POST 及空正文。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/conversation_providers.py:199",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 405,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/2",
+          "role": null
+        }
+      ],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "DELETE /api/v1/conversation-providers/mcp": {
+      "group": "会话与桥接",
+      "phase3_case": "具有桥接权限的身份发 DELETE，核对 405、Allow 为 POST 及空正文。",
+      "phase4_case": "在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。",
+      "source": "superagent/api/conversation_providers.py:199",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 405,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/3",
+          "role": null
+        }
+      ],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/operations/nodes": {
+      "group": "节点与巡检",
+      "phase3_case": "配置两个合成节点，核对项目范围与根目录，响应不得含签名秘密。",
+      "phase4_case": "在临时 root 仅配置合成节点，停机再启后重查项目绑定、操作回执与巡检记录。",
+      "source": "superagent/api/operations.py:52",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "PATCH /api/v1/operations/projects/{project_id}/execution-node": {
+      "group": "节点与巡检",
+      "phase3_case": "绑定有授权的节点，拒绝项目范围不符的节点，回读持久绑定。",
+      "phase4_case": "在临时 root 仅配置合成节点，停机再启后重查项目绑定、操作回执与巡检记录。",
+      "source": "superagent/api/operations.py:69",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/operations/daemon/poll": {
+      "group": "节点与巡检",
+      "phase3_case": "预置合法签名夹具轮询，校验操作、活动会话及重复 nonce 的拒绝。",
+      "phase4_case": "在临时 root 仅配置合成节点，停机再启后重查项目绑定、操作回执与巡检记录。",
+      "source": "superagent/api/operations.py:114",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/operations/daemon/exchange": {
+      "group": "节点与巡检",
+      "phase3_case": "预置合成节点提交匹配操作的响应，核对唯一接收与绑定不匹配拒绝。",
+      "phase4_case": "在临时 root 仅配置合成节点，停机再启后重查项目绑定、操作回执与巡检记录。",
+      "source": "superagent/api/operations.py:130",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/operations/watchdog": {
+      "group": "节点与巡检",
+      "phase3_case": "开关两态读取有历史的巡检列表，核对按任务筛选和返回配置。",
+      "phase4_case": "在临时 root 仅配置合成节点，停机再启后重查项目绑定、操作回执与巡检记录。",
+      "source": "superagent/api/operations.py:144",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/operations/watchdog/tasks/{task_id}/run": {
+      "group": "节点与巡检",
+      "phase3_case": "对指定任务触发离线巡检，核对 run_id、证据及未启用时的行为。",
+      "phase4_case": "在临时 root 仅配置合成节点，停机再启后重查项目绑定、操作回执与巡检记录。",
+      "source": "superagent/api/operations.py:156",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/operations/watchdog/{run_id}/messages": {
+      "group": "节点与巡检",
+      "phase3_case": "给一条已存在的巡检提交人工纠正，复查关联 run 与记录，未知 run 应拒绝。",
+      "phase4_case": "在临时 root 仅配置合成节点，停机再启后重查项目绑定、操作回执与巡检记录。",
+      "source": "superagent/api/operations.py:175",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/field-intake/organizer": {
+      "group": "现场与可选媒体",
+      "phase3_case": "预览默认 offline_sample，与显式可用整理模式对比，核对真实状态。",
+      "phase4_case": "在缺失和具备离线媒体组件的两套临时安装复验；回切原服务读相同记录、证据及媒体字节。",
+      "source": "superagent/api/field_intake.py:92",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/5",
+          "role": null
+        }
+      ],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/field-intake/records": {
+      "group": "现场与可选媒体",
+      "phase3_case": "创建两条记录，核对 ID、项目、时间、顺序与管理员权限。",
+      "phase4_case": "在缺失和具备离线媒体组件的两套临时安装复验；回切原服务读相同记录、证据及媒体字节。",
+      "source": "superagent/api/field_intake.py:98",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/field-intake/records": {
+      "group": "现场与可选媒体",
+      "phase3_case": "提交合成笔记和截图，核对候选、段落及资料归属，非法附件失败。",
+      "phase4_case": "在缺失和具备离线媒体组件的两套临时安装复验；回切原服务读相同记录、证据及媒体字节。",
+      "source": "superagent/api/field_intake.py:106",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/field-intake/records/{ident}": {
+      "group": "现场与可选媒体",
+      "phase3_case": "重读含截图与候选的记录，核对 ID、标题、时间线与可回放信息。",
+      "phase4_case": "在缺失和具备离线媒体组件的两套临时安装复验；回切原服务读相同记录、证据及媒体字节。",
+      "source": "superagent/api/field_intake.py:187",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/field-intake/records/{ident}/screenshots/{number}": {
+      "group": "现场与可选媒体",
+      "phase3_case": "对固定小图核对 MIME、字节摘要及缺号响应。",
+      "phase4_case": "在缺失和具备离线媒体组件的两套临时安装复验；回切原服务读相同记录、证据及媒体字节。",
+      "source": "superagent/api/field_intake.py:197",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/field-intake/records/{ident}/transcript/{segment_id}": {
+      "group": "现场与可选媒体",
+      "phase3_case": "校验指定时间段正文与起止点，未知段落返回缺失。",
+      "phase4_case": "在缺失和具备离线媒体组件的两套临时安装复验；回切原服务读相同记录、证据及媒体字节。",
+      "source": "superagent/api/field_intake.py:216",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/field-intake/records/{ident}/targets": {
+      "group": "现场与可选媒体",
+      "phase3_case": "两个项目备选任务，核对允许关联目标的 ID 和当前状态版本。",
+      "phase4_case": "在缺失和具备离线媒体组件的两套临时安装复验；回切原服务读相同记录、证据及媒体字节。",
+      "source": "superagent/api/field_intake.py:227",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/field-intake/candidates/{ident}/decision": {
+      "group": "现场与可选媒体",
+      "phase3_case": "人工采纳、关联或忽略，重放后核对状态与任务新建次数。",
+      "phase4_case": "在缺失和具备离线媒体组件的两套临时安装复验；回切原服务读相同记录、证据及媒体字节。",
+      "source": "superagent/api/field_intake.py:272",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/field-intake/analysis/{ident}/implement": {
+      "group": "现场与可选媒体",
+      "phase3_case": "已验证分析生成修复任务，重复请求返回相同任务，缺少证明时拒绝。",
+      "phase4_case": "在缺失和具备离线媒体组件的两套临时安装复验；回切原服务读相同记录、证据及媒体字节。",
+      "source": "superagent/api/field_intake.py:345",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/field-intake/media-jobs": {
+      "group": "现场与可选媒体",
+      "phase3_case": "缺组件及离线可用两态，核对 ready 和历史 job 的阶段与错误。",
+      "phase4_case": "在缺失和具备离线媒体组件的两套临时安装复验；回切原服务读相同记录、证据及媒体字节。",
+      "source": "superagent/api/field_media.py:46",
+      "observations": [
+        {
+          "side": "Python ASGI",
+          "status": 200,
+          "evidence": "stage0-evidence.json#/sample/oracle/http/6",
+          "role": null
+        }
+      ],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/field-intake/media-jobs": {
+      "group": "现场与可选媒体",
+      "phase3_case": "缺组件时验证 409；离线媒体可用时上传小样本，核对类型、任务及尺寸边界。",
+      "phase4_case": "在缺失和具备离线媒体组件的两套临时安装复验；回切原服务读相同记录、证据及媒体字节。",
+      "source": "superagent/api/field_media.py:54",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "POST /api/v1/field-intake/media-jobs/{ident}/retry": {
+      "group": "现场与可选媒体",
+      "phase3_case": "重试失败的合成 job，核对新状态；非失败状态拒绝。",
+      "phase4_case": "在缺失和具备离线媒体组件的两套临时安装复验；回切原服务读相同记录、证据及媒体字节。",
+      "source": "superagent/api/field_media.py:125",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    },
+    "GET /api/v1/field-intake/records/{ident}/media": {
+      "group": "现场与可选媒体",
+      "phase3_case": "下载合成媒体，校验 MIME、内容及关联记录，移除临时文件后验证 404。",
+      "phase4_case": "在缺失和具备离线媒体组件的两套临时安装复验；回切原服务读相同记录、证据及媒体字节。",
+      "source": "superagent/api/field_media.py:138",
+      "observations": [],
+      "final_ts": "未实测",
+      "tested_scope": "待执行本行阶段 3 场景",
+      "phase4_status": "待安装复验"
+    }
+  }
+}

@@ -1,0 +1,131 @@
+# Section headers describe the Phase 4 package/rollback check shared by the routes below.
+# Each row pairs one frozen method/path with its Phase 3 differential case.
+[服务与身份] 从安装入口使用全新临时配置与合成身份登录，再启保留治理配置和审计，失效的会话继续受限。
+GET /health | 两端冷启及同库重启，核对状态、版本、监听地址与进程身份。
+POST /auth/login | 合成有效及无效令牌登录，比较状态、Cookie 属性和后续受限读取。
+GET /auth/me | 对照四身份的角色和 user_id，匿名及失效会话返回鉴权错误。
+POST /auth/logout | 登录后退出，复用原浏览器会话访问 me，核对 Cookie 清除。
+GET /settings | 比较默认开关、修改后的类型和公开键，响应中排除私密连接配置。
+PATCH /settings | 合法布尔读回，非法类型被拒；重启后最近一次有效值保留。
+GET /codex-prompts | 对照回复、修复和分析的提示配置与默认值，低权限读取按契约处理。
+GET /identities | 对照有 grant 和无 grant 的非空映射，比较项目范围、权限和启用状态。
+POST /identities | 映射合成外部 actor 到成员，再注入消息，验证实际生成任务的 owner。
+PATCH /identities | 更新同一映射的授权项目并回读，核对原主键及新请求生效范围。
+DELETE /identities/{identity_id} | 禁用映射后重送新消息，保留历史 owner，未知映射返回 404。
+GET /audit | 两次有效治理修改后按 limit 查询，核对 actor、资源、倒序及非法 limit。
+GET /architecture | 两端读取模块架构及配置能力，核对键与值，区别可选组件状态。
+GET /agents/local | 用空临时账号目录与合成驱动分别查看能力，核对可用性及权限。
+POST /agents/local/connect | 仅在临时账号下切换合成驱动，校验显式登录选择、无效 agent 和审计。
+[预算] 同库重开后按账号回读额度、预留与结算，未知款项只能由授权用户核实一次。
+GET /budgets | 两个合成账号使用不同额度，核对货币、限额及管理权限。
+PATCH /budgets/{account_id} | 修改一个账号的上限，负数或非法类型被拒，另一账号保持原值。
+GET /budget-reservations | 准备 reserved、unknown 与 settled，分别筛选状态和账号，核对限制条数。
+POST /budget-reservations/{reservation_id}/reconcile | 对未知预留填写核验依据，核对最终用量、操作者与重复提交的金额。
+[项目与目录] 在含空格与中文的临时根安装，重开绑定项目和归档历史，以样本 Git 目录核对基线。
+GET /projects | 两个启用状态不同的项目，核对列表顺序、目录、基线与历史 ID。
+POST /projects | 从允许根创建合成项目，校验绑定、相对路径及无效仓库配置。
+PATCH /projects/{ident} | 修改 allowed_paths 或基线并回读，非法路径被拒且旧配置保留。
+DELETE /projects/{ident} | 归档已有任务的项目，核对历史任务可读及后续新任务准入。
+GET /project-workspace | 枚举临时目录及分支，验证中文目录、父目录与允许根边界。
+GET /project-workspace/codex-projects | 载入仅含合成项目的本地目录索引，再提供空索引，核对项目及提示。
+POST /project-workspace/select-directory | 替身选择器返回合法合成目录或取消，核对 path 和取消值，禁止读取宿主用户目录。
+[任务与产物] 由安装入口运行合成 Worker，切断后恢复，旧库与回切 Python 逐项核对任务、审批、产物、导出及归属。
+GET /tasks | 同项目两位 owner、admin、viewer，比较精确 ID 集和项目筛选，验证历史 owner 回填。
+POST /tasks | 成员分别创建 reply、analysis、repair；项目禁用或 viewer 创建时核对状态、行数及归属。
+GET /tasks/{ident} | 按四身份比较详情、事件、审批与产物，历史行无 attempt 也可读。
+POST /tasks/{ident}/project | 将待确认任务关联到有效项目，核对状态及关联；无效项目或旧版本不得推进。
+POST /tasks/{ident}/messages | 向可见任务写合成跟进，核对事件和状态版本；旧版本不得重复追加。
+POST /tasks/{ident}/controls | pause、resume、cancel 后重放旧版本。核对 control_version、状态、事件和执行次数。
+POST /tasks/{ident}/reconcile | 将中断执行置为 unknown，分别提交空证据、旧版本与有效核实，观察解冻和审计。
+POST /tasks/{ident}/acceptance | 使用同轮证据验收，先提交旧 revision，修复另校验命令结果与改动摘要。
+GET /approvals | 造工具和渠道两类待批，核对审批 ID、任务关联、状态和主体访问范围。
+POST /approvals/{ident}/decision | 真实假 Worker 发起请求。错 hash、重复决定、渠道审批各拒绝，有效决定仅凭确认回执推进。
+GET /artifacts/{ident} | 查看同轮和历史无 attempt 产物，比较所有者与非归属成员的读取结果。
+GET /artifacts/{ident}/download | 核对下载头、内容、摘要与四身份范围，未知产物应返回缺失。
+GET /tasks/{ident}/export | 对照详情的事件、审批、产物和导出头；回切后逐行比 ID、版本及内容哈希。
+GET /overview | 以四身份的可见任务推导每状态数、活动 ID 和待批 ID，和响应精确比较。
+GET /operations/tasks/{task_id}/attempts | 比较同一任务两次 attempt 的顺序、绑定和可见性，未知任务按契约处理。
+[收件与分发] 离线安装只启用假连接器；重启保留游标、原件、订阅、投递键及正确目标，对账后核对独立收件数。
+GET /connectors | 默认全关与单个假适配器启动，核对状态、标识和停机后的最后状态。
+GET /connectors/dingtalk/groups | 假 DWS 返回两页群搜索；核对 next_cursor、群名、坏响应和未配置提示。
+GET /connectors/dingtalk/group | 假 DWS 返回匹配 ID 的群与不匹配记录，核对名称及无效响应。
+POST /connectors/{name}/{action} | 在假驱动上启停指定连接器，比较重复操作和非法动作，对外调用保持为零。
+POST /events | 同一合成消息投两次，核对原件与任务 ID、重复标记、绑定与假回声处理。
+GET /events | 准备两个来源及不同路由状态，按游标、来源、关键词筛选并核对全量 ID。
+GET /events/stream | 两条变更后断开并从最后事件 ID 续读，核对顺序、心跳、身份范围及重复。
+GET /events/{event_id}/trace | 对一个已分发原件追踪所有目标，逐项对应路由、任务及交付历史。
+POST /events/{event_id}/retry-routing | 对一条可重试原件恢复路由，复点后核对唯一任务与投递数。
+POST /events/{event_id}/retry-attachments | 为假附件构造一次读取失败再成功，核对托管内容、事件和重试资格。
+GET /subscriptions | 准备启用与停用订阅，比较绑定项目、目标、启用状态。
+POST /subscriptions | 创建一条合法订阅，再以相同范围重复提交，核对活动订阅和后续分发数。
+DELETE /subscriptions/{subscription_id} | 停用已分发的订阅，新事件停止跟进，旧事件与审计可查。
+GET /event-rules | 读回两条规则的优先级和时区，核对含跨午夜窗口的配置。
+PUT /event-rules | 保存合法规则，对不存在项目提交失败，核对旧规则保持有效。
+POST /tasks/{task_id}/deliveries | 基于任务原件及正文建草稿，核对 event_id、审批 hash 和错误来源绑定。
+GET /tasks/{task_id}/deliveries | 同一非空草稿用四身份读取，核对 ID、正文、账本及跨归属拒绝。
+POST /deliveries/{draft_id}/decision | 用错 hash、正确批准、重复决定和非归属身份，核对终态及批准内容。
+POST /deliveries/{draft_id}/publish | 开关关停和未批零发送，收件后强杀，重启重放 unknown 和 succeeded 各核对一份回执。
+POST /deliveries/{draft_id}/reconcile | unknown 提交真实假回执编号，经 UI 记录并刷新；另核验缺证据及失败结果的处理。
+[事件中心] 浏览器从事件列表进入同一组，重启后原件与组的计数、核验、订阅及中文标题保持一致。
+GET /event-groups | 对两个归属任务建组，核对组键、待核验数和访问范围。
+GET /event-groups/index | 同一原件分发到两个组，按来源、状态及关键词筛选翻页，核对翻页前统计。
+GET /event-groups/triage-options | 准备启用及归档项目，核对可选项目、任务与权限。
+POST /event-groups/triage | 未分派原件选择新建或现有任务，重放后核对关联行和状态。
+GET /event-groups/{ident} | 比较组详情的原件、投递副本、审批、草稿及结果计数。
+POST /event-groups/{ident}/rename | 合法中文标题及旧状态版本重命名，重读任务和组标题。
+POST /event-groups/{ident}/delegations | 相同原件委派两次，核对唯一委派行和实际接收组。
+POST /event-groups/{ident}/events/{event_id}/resolution | 仅核验指定组中的原件，再送旧版本，核对另一组待核验数。
+POST /event-groups/{ident}/following/{subscription_id} | 对一条本组订阅切换跟进，验证其他组不变及版本约束。
+POST /event-groups/{ident}/sync-own-dingtalk | 由假历史源补本组记录两次，核对 added、实际新增 ID 和来源范围。
+[上下文与路由] 重启后以相同任务与 attempt 重开决定及清单，确认撤销范围、投递目标和幂等记录。
+GET /decisions | 准备两个项目及撤销决定，按状态、分页查询，核对可见 ID。
+POST /decisions | 给本项目和本任务创建决定，错项目原件被拒，清单引用正确 ID。
+POST /decisions/{decision_id}/revoke | 写撤销原因，确认从新清单消失，历史决定记录仍可读。
+GET /tasks/{task_id}/decisions | 同项目两个任务各建决定，按任务和状态筛选核对精确集合。
+GET /attempts/{attempt_id}/context | 核对指定 attempt 对应的任务、决定和清单，缺失 manifest 返回 404。
+GET /tasks/{task_id}/context | 将两次 attempt 的 manifest 按任务列出，核对 limit 与归属。
+POST /routing/assessments | 对两条合成原件执行离线评估，比较候选与实际原件、权限及证据。
+GET /routing/jobs | 创建多个语义路由任务，验证分页 next_after、has_more 及可授权纠正目标。
+POST /routing/schedule | 切换语义路由开关后调度同一 event_id，比较分发数及实际建任务数。
+POST /routing/jobs/{event_id}/correction | 提交带证据的人工纠正并重试，对照最终目标、记录和重复副作用。
+[会话与桥接] 在包中使用合成会话和临时桥接身份，重启后读取原线程、游标、协调请求和操作回执。
+GET /sessions | 准备 worker、router 和语义任务，对比项目筛选及各角色可见会话。
+GET /sessions/{ident} | 用三种会话 ID 读消息、版本和线程，核对缺失项与归属。
+POST /sessions/{ident}/messages | 在合成会话写跟进，重放旧版本，核对消息顺序和唯一调度。
+POST /sessions/{ident}/reconcile | 对 unknown 会话提交当前版本和证据，核对记录及旧版本拒绝。
+GET /sessions/{ident}/transcript | 给定可读假 thread 与缺失 thread，比较来源标记及本地历史回退。
+POST /sessions/{ident}/handoff | 为绑定 thread 的任务生成移交材料，核对任务、线程和附件范围。
+POST /sessions/{ident}/coordination | 两个合成 Worker 创建协调请求并重复提交，核对关联方及唯一请求。
+GET /sessions/{ident}/coordination | 对含协调请求会话和其他会话，各核对请求 ID 及权限。
+POST /sessions/{ident}/coordination/{request_id}/apply | 应用同一请求两次，核对结果、消息行和实际执行次数。
+GET /conversation-providers | 比较离线 provider 的能力与模式，核对未知能力未被声明可用。
+GET /conversation-providers/bridge/status | 有权与无权的合成桥接身份读取，成功时核对 principal 和能力。
+GET /conversation-providers/bridge/sessions | 跨项目准备两个会话，核对筛选及桥接身份可见的精确集合。
+GET /conversation-providers/bridge/sessions/{ident} | 带 after、limit 两页读取同一会话，核对快照、游标和消息序号。
+GET /conversation-providers/bridge/operations/{request_key} | 读回已完成键与不存在键，核对结果和主体绑定。
+POST /conversation-providers/bridge/operations | 同一合成 request_key 重放，核对 duplicate 和持久化操作次数。
+POST /conversation-providers/mcp | 对比合规 JSON-RPC 请求与通知、错误参数的结果、响应 ID 和通知状态。
+GET /conversation-providers/mcp | 具有桥接权限的身份发 GET，核对 405、Allow 为 POST 及空正文。
+DELETE /conversation-providers/mcp | 具有桥接权限的身份发 DELETE，核对 405、Allow 为 POST 及空正文。
+[节点与巡检] 在临时 root 仅配置合成节点，停机再启后重查项目绑定、操作回执与巡检记录。
+GET /operations/nodes | 配置两个合成节点，核对项目范围与根目录，响应不得含签名秘密。
+PATCH /operations/projects/{project_id}/execution-node | 绑定有授权的节点，拒绝项目范围不符的节点，回读持久绑定。
+POST /operations/daemon/poll | 预置合法签名夹具轮询，校验操作、活动会话及重复 nonce 的拒绝。
+POST /operations/daemon/exchange | 预置合成节点提交匹配操作的响应，核对唯一接收与绑定不匹配拒绝。
+GET /operations/watchdog | 开关两态读取有历史的巡检列表，核对按任务筛选和返回配置。
+POST /operations/watchdog/tasks/{task_id}/run | 对指定任务触发离线巡检，核对 run_id、证据及未启用时的行为。
+POST /operations/watchdog/{run_id}/messages | 给一条已存在的巡检提交人工纠正，复查关联 run 与记录，未知 run 应拒绝。
+[现场与可选媒体] 在缺失和具备离线媒体组件的两套临时安装复验；回切原服务读相同记录、证据及媒体字节。
+GET /field-intake/organizer | 预览默认 offline_sample，与显式可用整理模式对比，核对真实状态。
+GET /field-intake/records | 创建两条记录，核对 ID、项目、时间、顺序与管理员权限。
+POST /field-intake/records | 提交合成笔记和截图，核对候选、段落及资料归属，非法附件失败。
+GET /field-intake/records/{ident} | 重读含截图与候选的记录，核对 ID、标题、时间线与可回放信息。
+GET /field-intake/records/{ident}/screenshots/{number} | 对固定小图核对 MIME、字节摘要及缺号响应。
+GET /field-intake/records/{ident}/transcript/{segment_id} | 校验指定时间段正文与起止点，未知段落返回缺失。
+GET /field-intake/records/{ident}/targets | 两个项目备选任务，核对允许关联目标的 ID 和当前状态版本。
+POST /field-intake/candidates/{ident}/decision | 人工采纳、关联或忽略，重放后核对状态与任务新建次数。
+POST /field-intake/analysis/{ident}/implement | 已验证分析生成修复任务，重复请求返回相同任务，缺少证明时拒绝。
+GET /field-intake/media-jobs | 缺组件及离线可用两态，核对 ready 和历史 job 的阶段与错误。
+POST /field-intake/media-jobs | 缺组件时验证 409；离线媒体可用时上传小样本，核对类型、任务及尺寸边界。
+POST /field-intake/media-jobs/{ident}/retry | 重试失败的合成 job，核对新状态；非失败状态拒绝。
+GET /field-intake/records/{ident}/media | 下载合成媒体，校验 MIME、内容及关联记录，移除临时文件后验证 404。
