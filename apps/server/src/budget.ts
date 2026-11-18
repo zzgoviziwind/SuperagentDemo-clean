@@ -2,7 +2,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { fail } from './auth.js';
-import { admin, audit, serialize, tx, utc, type Row } from './sql.js';
+import { admin, audit, tx, utc, type Row } from './sql.js';
 
 const amount=z.int().min(0).max(10**15);
 const reservation=(r:Row)=>({...r,usage:r.usage==null?null:JSON.parse(String(r.usage))});
@@ -57,7 +57,8 @@ export function registerBudget(app:FastifyInstance,db:DatabaseSync) {
   app.get('/api/v1/audit',async req=>{
     admin(req.principal);
     const limit=z.object({limit:z.coerce.number().int().min(1).max(1000).default(100)}).parse(req.query).limit;
-    return db.prepare('SELECT * FROM governance_audit ORDER BY id DESC LIMIT ?').all(limit).map(serialize);
+    return db.prepare('SELECT * FROM governance_audit ORDER BY id DESC LIMIT ?').all(limit)
+      .map(row=>({...row,details:JSON.parse(String(row.details))}));
   });
   app.get('/api/v1/budgets',async req=>{admin(req.principal);return db.prepare('SELECT * FROM governance_budget_accounts ORDER BY id').all();});
   app.patch('/api/v1/budgets/:id',async req=>{

@@ -48,7 +48,7 @@ export function registerWatchdog(app: FastifyInstance, store: WorkbenchStore): v
     let confirmed = false;
     if (body.reconcile_unknown && before.status === 'unknown') {
       const stopped = workbenchRuntime(app)?.hasStoppedWatchdog;
-      confirmed = Boolean(stopped && await stopped(before.task_id).catch(() => false));
+      confirmed = Boolean(stopped && await stopped(before.task_id, runId).catch(() => false));
     }
     return store.write(() => {
       const run = store.row('watchdog_runs', 'id', runId);

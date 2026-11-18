@@ -93,11 +93,29 @@ describe("工作台关键交互", () => {
   it("飞书链接打开当前审批并聚焦，打开链接本身不提交决定", async () => {
     window.history.replaceState(null, "", "/?task=2&approval=17");
     const write = vi.fn(() => new Response("{}"));
-    setup(write, "admin", [], { status: "waiting_approval", control_version: 3 }, false,
-      [{ id: 17, status: "pending", revision: 1, control_version: 3, action_hash: "current", action: { method: "item/fileChange/requestApproval" } }]);
-    const approve = await screen.findByRole("button", { name: "批准" });
-    expect(document.activeElement).toBe(approve.closest("article"));
-    expect(write).not.toHaveBeenCalled();
+    let focusWhenApprovalAppeared: Element | null | undefined;
+    const observer = new MutationObserver(() => {
+      if (document.querySelector("[data-execution-approval]") && focusWhenApprovalAppeared === undefined) {
+        focusWhenApprovalAppeared = document.activeElement;
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    try {
+      setup(write, "admin", [], { status: "waiting_approval", control_version: 3 }, false,
+        [{ id: 17, status: "pending", revision: 1, control_version: 3, action_hash: "current", action: { method: "item/fileChange/requestApproval" } }]);
+      const approve = await screen.findByRole("button", { name: "批准" }, { timeout: 3000 });
+      const article = approve.closest("article");
+      expect(document.activeElement).toBe(article);
+      expect(focusWhenApprovalAppeared).toBe(article);
+      const user = userEvent.setup();
+      await user.tab();
+      expect(document.activeElement).toBe(article?.querySelector("summary"));
+      await user.tab();
+      expect(document.activeElement).toBe(approve);
+      expect(write).not.toHaveBeenCalled();
+    } finally {
+      observer.disconnect();
+    }
   });
 
   it("飞书旧链接显示审批失效并隐藏过期操作", async () => {

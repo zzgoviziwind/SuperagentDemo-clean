@@ -49,7 +49,7 @@ export async function buildServer(env: NodeJS.ProcessEnv) {
     app.addHook('preHandler',async req=>{
       if(!['GET','HEAD','OPTIONS'].includes(req.method)) checkLease();
     });
-    app.get('/health',async () => ({status:'ok',version:'0.2.0-dev.1',implementation:'typescript'}));
+    app.get('/health',async () => ({status:'ok',version:env.SUPERAGENT_RELEASE_VERSION || '0.2.0-dev.1',implementation:'typescript'}));
     registerSettings(app,store.db,env);
     registerProjects(app,store.db,env);
     registerContext(app,store.db);

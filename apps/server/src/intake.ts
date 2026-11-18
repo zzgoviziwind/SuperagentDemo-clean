@@ -11,6 +11,7 @@ import { actionHash } from '../../../packages/storage/src/index.ts';
 import { noActionReason } from './workbench/event-groups.js';
 import { enqueueSemanticReceipt } from './workbench/scheduler.js';
 import { stopFenced, type WorkerControl } from './controls.js';
+import { recordRedmineEcho } from './deliveries/echo.ts';
 
 const positive=z.int().positive(), kind=z.enum(['repair','analysis','reply']);
 const taskInput=z.strictObject({project_id:positive,title:z.string().trim().min(1).max(300),goal:z.string().trim().min(1).max(100000),
@@ -63,7 +64,8 @@ function route(db:DatabaseSync,e:Receipt,id:number,env:NodeJS.ProcessEnv) {
   const prior=JSON.parse(String(original.data));
   const attempts=Array.isArray(prior._lifecycle)?prior._lifecycle:[];
   const started=utc();
-  const detail:Record<string,unknown>={rule_set:'ingestion-v4',input:{source:e.source,event_type:e.event_type,
+  const checks:Record<string,unknown>={};
+  const detail:Record<string,unknown>={rule_set:'ingestion-v4',checks,authorization:{status:'not_evaluated'},settings_provider:'database',input:{source:e.source,event_type:e.event_type,
     actor_id:e.actor_id??null,thread_id:e.thread_id??null,project_external_id:e.project_external_id??null,content_length:Array.from(e.content).length,
     at_me:e.metadata.at_me??null,needs_confirmation:e.metadata.needs_confirmation??null,uncertain_mentions:e.metadata.uncertain_mentions??null}};
   const steps=new Map<string,{status:string;reason:string;detail:unknown}>();
@@ -86,12 +88,11 @@ function route(db:DatabaseSync,e:Receipt,id:number,env:NodeJS.ProcessEnv) {
       _lifecycle:[...attempts,{attempt:attempts.length+1,started_at:started,steps:stages}]};
     db.prepare('UPDATE events SET data=? WHERE id=?').run(JSON.stringify(data),id);
   };
-  const pending=(reason:string)=>set('pending_confirmation',reason);
+  const pending=(reason:string)=>{detail.blocked_reason=reason;set('pending_confirmation',reason);};
   const cfg=settings(db);
   const access=e.source==='dingtalk'&&cfg.dingtalk_request_access?accessSchema.parse(cfg.dingtalk_request_access):null;
   const {actor,candidates}=admission(db,e,access);
-  if(e.metadata.self_authored===true) {
-    if(e.source==='redmine') return set('self_echo','self_authored');
+  if(e.source==='dingtalk' && e.metadata.self_authored===true) {
     const target=ownMessageTarget(db,e);
     if(!target) return set('ignored','self_context_unmatched');
     db.prepare('UPDATE events SET task_id=? WHERE id=?').run(target,id);
@@ -99,19 +100,28 @@ function route(db:DatabaseSync,e:Receipt,id:number,env:NodeJS.ProcessEnv) {
   }
   const ignored=noActionReason({...e,data:e});
   if(ignored) return set('ignored',ignored);
+  const person=access?.people.find(p=>p.actor_id===e.actor_id);
+  if(access && (access.mode==='off'||person?.reply===false||access.mode==='selected'&&!person)) return set('ignored','sender_reply_disabled');
+  checks.identity={rule:'mapped_actor_enabled',allowed:!!actor};
   if(!actor) return pending('actor_unmapped_or_disabled');
   detail.validated_actor_user_id=actor.user_id;
-  if(!['admin','member'].includes(roleOf(env,String(actor.user_id))??'')) return pending('actor_not_authorized_for_project');
+  const role=roleOf(env,String(actor.user_id)),grants=JSON.parse(String(actor.project_ids??'[]')),permissions=JSON.parse(String(actor.permissions??'[]'));
+  detail.resolved_actor={user_id:actor.user_id,role,enabled:true,project_ids:grants,permissions};
   const direct=e.source==='dingtalk' && e.metadata.dws_event_type==='user_im_message_receive_o2o_all';
   const policy=cfg.dingtalk_response_policy as {direct_messages:string;group_messages:string;default_project_id:number|null;group_scope?:string;group_chat_ids?:string[]};
-  if(e.source==='dingtalk' && (direct ? policy.direct_messages==='off' : policy.group_messages==='off' ||
-    (policy.group_messages==='mentions' && e.metadata.at_me!==true) || (policy.group_messages==='requests' && policy.group_scope==='selected' && !policy.group_chat_ids?.includes(e.thread_id??'')))) return set('ignored','message_response_policy_off_or_scope');
+  const policyAllowed=e.source!=='dingtalk'||(direct ? policy.direct_messages!=='off' : policy.group_messages!=='off' &&
+    !(policy.group_messages==='mentions' && e.metadata.at_me!==true) && !(policy.group_messages==='requests' && policy.group_scope==='selected' && !policy.group_chat_ids?.includes(e.thread_id??'')));
+  detail.effective_response_policy=e.source==='dingtalk'?policy:null;
+  detail.policy_allowed=e.source==='dingtalk'?policyAllowed:null;
+  checks.response_policy={rule:'dingtalk_response_scope',status:e.source==='dingtalk'?'evaluated':'not_applicable',allowed:detail.policy_allowed};
+  if(!policyAllowed) return set('ignored','message_response_policy_off_or_scope');
   const field=e.source==='dingtalk'?'dingtalk_chat_ids':'redmine_project_ids';
   let projects=db.prepare('SELECT id,enabled FROM projects WHERE archived=0 AND EXISTS (SELECT 1 FROM json_each('+field+') WHERE CAST(value AS TEXT)=?)').all(e.project_external_id??'');
   if(!projects.length && direct && policy.default_project_id) projects=db.prepare('SELECT id,enabled FROM projects WHERE id=? AND archived=0').all(policy.default_project_id);
   let clarification=false;
   if(access) ({projects,clarification}=selectAdmissionProject(db,id,e,access,candidates??[]));
   detail.project_candidates=projects.map(p=>({id:p.id,enabled:!!p.enabled}));
+  checks.project_binding={rule:'single_enabled_project',allowed:projects.length===1&&!!projects[0].enabled};
   if(projects.length!==1 || !projects[0].enabled) {
     pending('project_binding_missing_ambiguous_or_disabled');
     if(cfg.semantic_routing_enabled) enqueueSemanticReceipt(db,id,env);
@@ -119,14 +129,34 @@ function route(db:DatabaseSync,e:Receipt,id:number,env:NodeJS.ProcessEnv) {
   }
   const project=Number(projects[0].id);
   detail.selected_project_id=project;
-  if(!JSON.parse(String(actor.permissions??'[]')).includes('request') || !JSON.parse(String(actor.project_ids??'[]')).includes(project)) return pending('actor_not_authorized_for_project');
-  if(!(e.source==='dingtalk'?['message.received']:['issue.comment','issue.changed','issue.updated']).includes(e.event_type)) return pending('unsupported_event_type');
+  const grantChecks=[{rule:'actor_role_admin_or_member',allowed:role==='admin'||role==='member'},
+    {rule:'project_in_actor_grants',allowed:grants.some((value:unknown)=>String(value)===String(project))},
+    {rule:'request_permission_required',allowed:permissions.includes('request')}];
+  const authorized=grantChecks.every(c=>c.allowed);
+  detail.authorization={status:authorized?'passed':'blocked',allowed:authorized,project_id:project,rules:grantChecks};
+  checks.authorization={rule:'project_request_authorization',allowed:authorized};
+  if(!authorized) return pending('actor_not_authorized_for_project');
+  const echo=recordRedmineEcho(db,e,id,project,env);
+  checks.delivery_echo={rule:'confirmed_delivery_echo_filter',allowed:!echo};
+  if(echo) {
+    detail.blocked_reason=echo.status;
+    step('fast_filter','blocked',echo.status,detail);
+    return set(echo.status,'',{delivery_action_id:echo.actionId,echo_journal_id:echo.journal,echo_reason:echo.reason});
+  }
+  const supported=(e.source==='dingtalk'?['message.received']:['issue.comment','issue.changed','issue.updated']).includes(e.event_type);
+  checks.event_type={rule:'supported_source_event_type',allowed:supported};
+  if(!supported) return pending('unsupported_event_type');
   const uncertain=e.metadata.uncertain_mentions;
-  if(!e.content.trim() || (Array.isArray(uncertain)?uncertain.length>0:Boolean(uncertain)) || e.metadata.needs_confirmation) return pending('ambiguous_or_empty_request');
-  const readOnlyPattern=/只读|只(?:做)?分析|仅(?:做)?分析|分析即可|(?:不要|不允许|禁止|不)(?:修改|改动|改写|调整)(?:(?:任何)?(?:代码|文件)|(?=[，。,；;\s]|$))/g;
+  const contentAllowed=!!e.content.trim() && !(Array.isArray(uncertain)?uncertain.length:Boolean(uncertain)) && !e.metadata.needs_confirmation;
+  checks.message_content={rule:'unambiguous_nonempty_message',allowed:contentAllowed};
+  if(!contentAllowed) return pending('ambiguous_or_empty_request');
+  const readOnlyPattern=/只读|只(?:做)?分析|仅(?:做)?分析|分析即可|(?:不要|不允许|禁止|不)(?:修改|改动|改写|调整)(?:(?:任何)?(?:代码|文件)|(?=[，。,；;\s]|$))/gi;
   const readonly=e.content.search(readOnlyPattern)!==-1;
   const changes=/修复|修改|改动|改写|新增|实现|调整|优化|增加功能|\b(?:fix|implement|modify)\b/i.test(e.content.replace(readOnlyPattern,''));
-  if(readonly && changes) return pending('conflicting_analysis_and_write_request');
+  const question=/做好(?:了)?(?:没|吗)|完成(?:了)?(?:没|吗)|进度|进展|为什么|为何|怎么|如何|什么|哪些|哪个|多少|是否|能否|可否|是不是|行不行|有没有|要不要|能不能|可不可以|[吗么]\s*[？?]?\s*$/i;
+  const requestedKind=changes?(readonly?'conflict':'repair'):readonly||question.test(e.content)?'analysis':null;
+  checks.request_kind={rule:'no_conflicting_analysis_and_write',allowed:requestedKind!=='conflict',requested_kind:requestedKind};
+  if(requestedKind==='conflict') return pending('conflicting_analysis_and_write_request');
   const progress=direct&&!/请|帮我|麻烦|需要你/.test(e.content)&&/做好(?:了)?(?:没|吗)|完成(?:了)?(?:没|吗)|进度|进展|是否(?:已|完成)|做(?:完|到哪)|(?:修复|修好|解决|上线|部署|发布|通过|换模型|好了)(?:了)?(?:没|吗|么)|(?:修好|解决|上线|部署|发布)了(?:是|对)么|为什么.*(?:模型|接口|报错)/.test(e.content);
   const type=clarification?'reply':progress?'analysis':changes?'repair':direct&&!readonly&&!/分析|排查|检查/.test(e.content)?'reply':'analysis';
   step('fast_filter','passed','identity_project_type_and_input_validated',detail);
@@ -260,6 +290,34 @@ export function registerIntake(app:FastifyInstance,db:DatabaseSync,env:NodeJS.Pr
     followups.set(db,{worker,pending});
     app.addHook('preClose',async()=>{followups.delete(db);await Promise.allSettled([...pending]);});
   }
+  app.post('/api/v1/subscriptions',async req=>{
+    admin(req.principal);
+    const v=z.object({project_id:positive,task_id:positive,source:z.enum(['redmine','dingtalk']),
+      thread_id:z.string().min(1).max(255).refine(s=>!!s.trim()),profile:z.string().max(255).default('')}).parse(req.body);
+    return tx(db,()=>{
+      const t=db.prepare(`SELECT p.dingtalk_chat_ids FROM tasks t JOIN projects p ON p.id=t.project_id
+        WHERE t.id=? AND p.id=? AND p.enabled AND NOT p.archived AND NOT t.outcome_unknown
+        AND t.status NOT IN ('completed','cancelled')`).get(v.task_id,v.project_id);
+      if(!t) return fail(422,'目标任务不可订阅或身份无权限');
+      if(v.source==='dingtalk' && !JSON.parse(String(t.dingtalk_chat_ids)).map(String).includes(v.thread_id))
+        return fail(422,'线程未绑定当前项目');
+      const key=actionHash({source:v.source,thread_id:v.thread_id,profile:v.profile});
+      const result=db.prepare(`INSERT INTO worker_subscriptions(project_id,task_id,source,thread_id,profile,thread_key,enabled,created_at)
+        VALUES(?,?,?,?,?,?,1,?) ON CONFLICT(project_id,thread_key,task_id) DO UPDATE SET enabled=1 RETURNING *`)
+        .get(v.project_id,v.task_id,v.source,v.thread_id,v.profile,key,utc())!;
+      audit(db,req.principal.user_id,'subscription.create',Number(result.id),v);
+      return serialize(result);
+    });
+  });
+  app.delete('/api/v1/subscriptions/:id',async req=>{
+    admin(req.principal);
+    const {id}=z.object({id:z.coerce.number().int().positive()}).parse(req.params);
+    return tx(db,()=>{
+      const result=db.prepare('UPDATE worker_subscriptions SET enabled=0 WHERE id=? RETURNING *').get(id)??fail(404,'订阅不存在');
+      audit(db,req.principal.user_id,'subscription.cancel',id);
+      return serialize(result);
+    });
+  });
   app.post('/api/v1/tasks',async req=>{
     if(req.principal.role==='viewer') fail(403,'无权创建任务');
     const t=taskInput.parse(req.body);

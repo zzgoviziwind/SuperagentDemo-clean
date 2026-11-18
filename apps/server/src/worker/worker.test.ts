@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { link, mkdir, mkdtemp, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,6 +7,8 @@ import Fastify from 'fastify';
 import { describe, expect, test } from 'vitest';
 import { ZodError } from 'zod';
 import { openStorage, StorageConflict } from '../../../../packages/storage/index.ts';
+import { inspectReadOnly, pinReferenceRoot } from '../../../../packages/runtime/index.ts';
+import { DatabaseSync } from 'node:sqlite';
 import { registerAuth } from '../auth.js';
 import { registerControls } from '../controls.js';
 import { utc } from '../sql.js';
@@ -42,6 +44,7 @@ async function harness(root: string, options: NodeJS.ProcessEnv) {
   registerAuth(app, env);
   const controls = registerWorker(app, store, lease, root, env);
   registerControls(app, db, controls);
+  app.post('/api/v1/tasks/:task_id/deliveries', () => ({ received: true }));
   await app.ready();
   return {
     db, controls, env, root,
@@ -56,8 +59,8 @@ async function harness(root: string, options: NodeJS.ProcessEnv) {
     },
     get(id: number) { return db.prepare('SELECT * FROM tasks WHERE id=?').get(id)!; },
     approval(id: number) { return db.prepare('SELECT * FROM approvals WHERE task_id=?').get(id)!; },
-    request(method: 'GET' | 'POST', url: string, payload?: object) {
-      return app.inject({ method, url: `/api/v1/${url}`, headers: { authorization: `Bearer ${token}`, host: 'localhost' }, payload });
+    request(method: 'GET' | 'POST' | 'PUT', url: string, payload?: object, accessToken = token) {
+      return app.inject({ method, url: `/api/v1/${url}`, headers: { authorization: `Bearer ${accessToken}`, host: 'localhost' }, payload });
     },
     post(url: string, payload: object) {
       return this.request('POST', url, payload);
@@ -354,7 +357,7 @@ describe('Phase 2 Worker semantics', () => {
 
   test.each(['history', 'environment', 'shared'])('blocks %s project configuration before claiming locally', async mode => host(async f => {
     if (mode === 'history') f.db.prepare("INSERT INTO project_execution_nodes(project_id,node_id) VALUES(1,'previous')").run();
-    if (mode === 'shared') f.db.prepare("UPDATE projects SET reference_access='directories' WHERE id=1").run();
+    if (mode === 'shared') f.db.prepare('UPDATE projects SET repo_path=? WHERE id=1').run('\\\\fixture.invalid\\share');
     f.insert(1, 'analysis');
     f.scheduler(true);
     await until(() => f.get(1).status, 'waiting_resource');
@@ -362,4 +365,108 @@ describe('Phase 2 Worker semantics', () => {
     expect(f.get(1).last_error).toContain('现场切换需单控制器');
     expect(f.db.prepare('SELECT id FROM execution_attempts WHERE task_id=1').all()).toHaveLength(0);
   }, mode === 'environment' ? { SUPERAGENT_PROJECT_EXECUTION_NODES: '{"1":"configured"}' } : {}), 15_000);
+});
+
+describe('Frozen Worker reference and reply behavior', () => {
+  test('external reference directory is read through an alias and the verified attempt is local only', async () => host(async f => {
+    const directory = join(f.root, '合成资料');
+    await mkdir(directory);
+    const file = join(directory, '合成输入.txt');
+    await writeFile(file, '离线资料\n');
+    f.env.SUPERAGENT_ALLOWED_REPO_ROOTS = f.root;
+    f.db.prepare("UPDATE projects SET reference_access='directories',reference_dirs=? WHERE id=1").run(JSON.stringify([directory]));
+    f.insert(1, 'analysis');
+    f.scheduler(true);
+    await until(() => f.get(1).status, 'review_ready');
+    const proof = JSON.parse(String(f.db.prepare("SELECT content FROM artifacts WHERE task_id=1 AND kind='verification'").get()?.content));
+    expect(proof).toMatchObject({ analysis_verified: true, reads: [{ path: '@refs/dir-1/合成输入.txt', reference: 'dir-1',
+      root_sha256: expect.stringMatching(/^[0-9a-f]{64}$/), sha256: expect.stringMatching(/^[0-9a-f]{64}$/) }] });
+    expect(f.db.prepare("SELECT id FROM events WHERE task_id=1 AND event_type='analysis_reference_scope'").get()).toBeTruthy();
+    expect((await f.post('tasks/1/deliveries', { event_id: 1, content: '合成外发' })).statusCode).toBe(409);
+    expect(await readFile(file, 'utf8')).toBe('离线资料\n');
+    expect(JSON.stringify(proof)).not.toContain(directory);
+  }), 20_000);
+
+  test('operator selection limits legacy active-project scope and a nonadministrator receives no aliases', async () => host(async f => {
+    const roots = [join(f.root, '项目甲'), join(f.root, '项目乙')];
+    for (const [index, root] of roots.entries()) {
+      await mkdir(root);
+      await writeFile(join(root, '合成输入.txt'), `资料 ${index + 1}\n`);
+      f.db.prepare(`INSERT INTO projects(id,name,repo_path,repositories,base_branch,test_command,allowed_paths,dingtalk_chat_ids,
+        redmine_project_ids,enabled,archived,created_at) VALUES(?,?,?,'[]','main','','[]','[]','[]',1,0,?)`)
+        .run(index + 2, `资料项目 ${index + 1}`, root, stamp);
+    }
+    f.db.prepare("UPDATE projects SET reference_access='projects' WHERE id=1").run();
+    expect((await f.request('PUT', 'projects/1/reference-projects', { project_ids: [2] }, 'member-fixture')).statusCode).toBe(403);
+    expect((await f.request('GET', 'projects/1/reference-projects')).json().project_ids).toBeNull();
+    expect((await f.request('PUT', 'projects/1/reference-projects', { project_ids: [2] })).json().project_ids).toEqual([2]);
+    f.insert(1, 'analysis');
+    f.scheduler(true);
+    await until(() => f.get(1).status, 'review_ready');
+    const proof = JSON.parse(String(f.db.prepare("SELECT content FROM artifacts WHERE task_id=1 AND kind='verification'").get()?.content));
+    expect(proof.reads).toMatchObject([{ path: '@refs/project-2/合成输入.txt', reference: 'project-2', project_id: 2 }]);
+    f.env.SUPERAGENT_FIXTURE_REFERENCE_PATH = '@refs/project-3/合成输入.txt';
+    f.insert(2, 'analysis');
+    await until(() => f.get(2).status, 'waiting_resource');
+    expect(f.get(2).last_error).toContain('只读资料请求被拒绝');
+    f.env.SUPERAGENT_FIXTURE_REFERENCE_PATH = '@refs/project-2/合成输入.txt';
+    f.insert(3, 'analysis');
+    f.db.prepare("UPDATE tasks SET owner_id='member-without-admin' WHERE id=3").run();
+    await until(() => f.get(3).status, 'waiting_resource');
+    expect(f.db.prepare("SELECT id FROM events WHERE task_id=3 AND event_type='analysis_reference_scope'").get()).toBeUndefined();
+    expect(f.db.prepare('SELECT id FROM artifacts WHERE task_id IN (2,3)').all()).toHaveLength(0);
+  }, { SUPERAGENT_USERS_JSON: JSON.stringify([{ user_id: 'member-without-admin', role: 'member', token: 'member-fixture' }]) }), 25_000);
+
+  test('read-only inspection rejects escape, sensitive files, hard links and replaced directories', async () => host(async f => {
+    const reference = join(f.root, 'allowed-reference');
+    const excluded = join(f.root, 'excluded');
+    await Promise.all([mkdir(reference), mkdir(excluded)]);
+    await writeFile(join(reference, 'safe.txt'), '有效说明\n');
+    await writeFile(join(reference, '.npmrc'), 'fixture-secret\n');
+    await writeFile(join(excluded, 'other.txt'), 'other\n');
+    await link(join(excluded, 'other.txt'), join(reference, 'linked.txt'));
+    await symlink(excluded, join(reference, 'shortcut'), 'junction');
+    const policy = { env: { ...f.env, SUPERAGENT_ALLOWED_REPO_ROOTS: reference }, fixtureRoot: f.root };
+    const pin = await pinReferenceRoot(reference, policy);
+    const options = { signal: new AbortController().signal, reference: { alias: 'dir-1', pin, policy } };
+    await expect(pinReferenceRoot(excluded, policy)).rejects.toThrow('超出管理员目录范围');
+    for (const path of ['../excluded/other.txt', '.npmrc', 'linked.txt', 'shortcut/other.txt', join(excluded, 'other.txt')]) {
+      await expect(inspectReadOnly(reference, 'read_file', { path }, options)).rejects.toThrow();
+    }
+    const listing = await inspectReadOnly(reference, 'list_files', { path: '.' }, options);
+    expect(JSON.parse(listing.text).files).toEqual([{ path: '@refs/dir-1/safe.txt', size: expect.any(Number) }]);
+    expect(listing.evidence).toEqual([]);
+    const search = await inspectReadOnly(reference, 'search_text', { path: '.', query: '有效' }, options);
+    expect(search.evidence).toMatchObject([{ path: '@refs/dir-1/safe.txt', root_sha256: pin.sha256 }]);
+    await rename(reference, join(f.root, 'retired-reference'));
+    await mkdir(reference);
+    await writeFile(join(reference, 'safe.txt'), 'changed\n');
+    await expect(inspectReadOnly(reference, 'read_file', { path: 'safe.txt' }, options)).rejects.toThrow('资料根目录已变化');
+  }), 20_000);
+
+  test('older SQLite project rows migrate to workspace-only by default', async () => host(async f => {
+    const path = join(f.root, 'legacy.db');
+    const old = new DatabaseSync(path);
+    old.exec(`CREATE TABLE projects (id INTEGER PRIMARY KEY, name TEXT NOT NULL, repo_path TEXT NOT NULL,
+      base_branch TEXT NOT NULL, test_command TEXT NOT NULL, allowed_paths TEXT NOT NULL,
+      dingtalk_chat_ids TEXT NOT NULL, redmine_project_ids TEXT NOT NULL, enabled BOOLEAN NOT NULL, created_at TEXT NOT NULL);
+      INSERT INTO projects VALUES (9,'旧项目','fixture','main','','[]','[]','[]',1,'2026-11-18')`);
+    old.close();
+    const migrated = openStorage(path, { stateRoot: f.root });
+    try { expect(migrated.db.prepare('SELECT reference_access,reference_dirs FROM projects WHERE id=9').get())
+      .toEqual({ reference_access: 'workspace', reference_dirs: '[]' }); }
+    finally { migrated.close(); }
+  }), 15_000);
+
+  test('reply Worker persists its judgment source before starting a turn', async () => host(async f => {
+    f.insert(1, 'reply');
+    const source = f.db.prepare(`INSERT INTO events(task_id,source,event_type,content,data,created_at)
+      VALUES(1,'redmine','message','合成来信',?,?)`).run(JSON.stringify({ routing_status: 'routed' }), stamp).lastInsertRowid;
+    f.scheduler(true);
+    await until(() => f.get(1).status, 'review_ready');
+    const binding = f.db.prepare("SELECT data FROM events WHERE task_id=1 AND event_type='reply_decision_input'").get();
+    expect(binding).toBeTruthy();
+    const attempt = f.db.prepare('SELECT id,revision,control_version FROM execution_attempts WHERE task_id=1').get();
+    expect(JSON.parse(String(binding?.data))).toMatchObject({ attempt_id: attempt?.id, source_event_id: Number(source), revision: 1, control_version: 1 });
+  }), 15_000);
 });

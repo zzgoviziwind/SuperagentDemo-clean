@@ -1,14 +1,28 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { assembleContext } from './context.js';
 import { fenceHostWrites } from './lease.js';
+import type { HTTPMethods } from 'fastify';
 import { afterEach, expect, it } from 'vitest';
 import { buildServer } from './server.js';
 
 const roots: string[]=[];
 afterEach(()=>{for(const root of roots.splice(0)) rmSync(root,{recursive:true,force:true});});
+it('registers every method and path in the frozen HTTP inventory',async()=>{
+  const root=mkdtempSync(join(tmpdir(),'superagent-routes-'));
+  roots.push(root);
+  const app=await buildServer({SUPERAGENT_DATA_DIR:root,SUPERAGENT_SERVICE_MODE:'preview'});
+  try {
+    const inventory=JSON.parse(readFileSync(new URL('../../../docs/rewrite/surface.json',import.meta.url),'utf8'));
+    const missing=Object.keys(inventory.routes).filter(route=>{
+      const [method,pattern]=route.split(' ');
+      return !app.findRoute({method:method as HTTPMethods,url:pattern.replace(/\{[^}]+\}/g,'1')})?.handler;
+    });
+    expect(missing).toEqual([]);
+  } finally {await app.close();}
+});
 it('routes a bound source once, keeps ungranted receipts pending, serves the same group after restart',async()=>{
   const root=mkdtempSync(join(tmpdir(),'superagent-合同 '));
   roots.push(root);
@@ -49,6 +63,47 @@ it('fences late callbacks on the writing connection after an ownership change',(
     expect(()=>db.exec('UPDATE scratch SET n=2')).toThrow('controller lease lost');
     expect(db.prepare('SELECT n FROM scratch').get()?.n).toBe(1);
   } finally { db.close(); }
+});
+it('keeps one durable subscription across concurrent requests and decodes the old audit format',async()=>{
+  const root=mkdtempSync(join(tmpdir(),'superagent-subscriptions-'));
+  roots.push(root);
+  const app=await buildServer({SUPERAGENT_DATA_DIR:root,SUPERAGENT_ALLOWED_REPO_ROOTS:root,SUPERAGENT_SERVICE_MODE:'preview'});
+  const db=new DatabaseSync(join(root,'superagent.db'));
+  try {
+    const post=(url:string,payload:object)=>app.inject({method:'POST',url:'/api/v1'+url,payload});
+    const project=(await post('/projects',{name:'订阅样例',repo_path:root,dingtalk_chat_ids:['team']})).json();
+    const task=(await post('/tasks',{project_id:project.id,title:'离线测试',goal:'核对订阅'})).json();
+    const request={project_id:project.id,task_id:task.id,thread_id:'team',profile:'offline',source:'dingtalk'};
+    const replies=await Promise.all(Array.from({length:4},()=>post('/subscriptions',request)));
+    expect(replies.map(r=>r.statusCode)).toEqual([200,200,200,200]);
+    expect(new Set(replies.map(r=>r.json().id)).size).toBe(1);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM worker_subscriptions').get()?.n).toBe(1);
+    const cancelled=await app.inject({method:'DELETE',url:'/api/v1/subscriptions/'+replies[0].json().id});
+    expect(cancelled.json().enabled).toBe(false);
+    const audit=await app.inject('/api/v1/audit?limit=1');
+    expect(audit.json()).toEqual([expect.objectContaining({action:'subscription.cancel',details:{}})]);
+  } finally {db.close();await app.close();}
+});
+it('requires an available engine to resume legacy reply tasks and records message revisions',async()=>{
+  const root=mkdtempSync(join(tmpdir(),'superagent-legacy-reply-'));
+  roots.push(root);
+  const app=await buildServer({SUPERAGENT_DATA_DIR:root,SUPERAGENT_ALLOWED_REPO_ROOTS:root,SUPERAGENT_SERVICE_MODE:'preview'});
+  const db=new DatabaseSync(join(root,'superagent.db'));
+  try {
+    const post=(url:string,payload:object)=>app.inject({method:'POST',url:'/api/v1'+url,payload});
+    const project=(await post('/projects',{name:'回复验证',repo_path:root})).json();
+    const task=(await post('/tasks',{project_id:project.id,title:'回复',goal:'离线复核',kind:'reply'})).json();
+    const path='/tasks/'+task.id;
+    expect((await post(path+'/controls',{action:'bogus'})).statusCode).toBe(409);
+    db.prepare("UPDATE tasks SET status='waiting_resource',last_error='未配置本机回复引擎' WHERE id=?").run(task.id);
+    expect((await post(path+'/controls',{action:'resume'})).statusCode).toBe(409);
+    db.prepare("UPDATE tasks SET status='review_ready',last_error=NULL WHERE id=?").run(task.id);
+    expect((await post(path+'/messages',{content:'请补充交付依据'})).statusCode).toBe(200);
+    expect(db.prepare('SELECT status,last_error FROM tasks WHERE id=?').get(task.id)).toEqual({
+      status:'waiting_input',last_error:'收到新补充，请继续执行后重新验收'});
+    const audit=await app.inject('/api/v1/audit?limit=1');
+    expect(audit.json()[0]).toMatchObject({action:'task.message',details:{revision:2,state_version:2}});
+  } finally {db.close();await app.close();}
 });
 it('limits recalled summaries by current audience, owner and decision provenance',async()=>{
   const root=mkdtempSync(join(tmpdir(),'superagent-context-'));

@@ -273,19 +273,6 @@ export function App() {
       void openTask(target);
     }
   }, [signedIn, openTask]);
-  const linkedApproval = useRef("");
-  function focusLinkedApproval(target: HTMLElement | null, taskId: string, approval: string) {
-    if (!target || linkedApproval.current === approval) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("task") !== taskId || params.get("approval") !== approval) return;
-    // Let the event panel finish its normal heading focus before focusing the decision.
-    queueMicrotask(() => {
-      if (!target.isConnected || linkedApproval.current === approval) return;
-      linkedApproval.current = approval;
-      target.focus();
-      target.scrollIntoView?.({ block: "center" });
-    });
-  }
   function navigate(next: string) {
     const [destination, target = ""] = next.split("#");
     const nextPage = ["任务", "事件"].includes(destination) ? "事件中心" : destination === "会话工作台" ? "Worker 工作台" : destination;
@@ -572,7 +559,7 @@ export function App() {
                 {
                   (activeApprovals.length ? (
                     activeApprovals.map((a) => (
-                      <article key={a.id} data-execution-approval ref={node => focusLinkedApproval(node, String(task.id), String(a.id))} tabIndex={-1} className="artifact">
+                      <article key={a.id} data-execution-approval={a.id} tabIndex={-1} className="artifact">
                         <strong>
                           {a.title ?? a.action_type ?? "动作审批"}
                         </strong>
@@ -1029,6 +1016,7 @@ export function App() {
         }} />}
         {page === "事件中心" && user && (
             <GroupedEvents key={eventHomeVersion} taskDetail={detail} initialGroupId={focusedGroup} operations={eventOperations} reply={eventReply} replySnapshot={replySnapshot} operationsId={task ? String(task.id) : undefined}
+              linkedApprovalId={reviewLinkId}
               initialScope={eventScope} onScopeChange={setEventScope} projects={projects} canManage={isAdmin}
               overview={<ArchitecturePanel onNavigate={navigate} isAdmin={isAdmin} eventStatus={eventScope.status} />}
               endAction={endEventAction} controls={<>

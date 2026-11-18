@@ -8,6 +8,8 @@ param(
     [ValidateSet('Disabled', 'Existing', 'Environment')][string]$CodexMode,
     [string]$CodexExecutable,
     [string]$CodexHome,
+    [string]$GitExecutable,
+    [switch]$ClearGitExecutable,
     [string]$InjectEnvironment,
     [switch]$ClearInjectedEnvironment,
     [ValidateSet('dingtalk', 'redmine')][string]$Channel,
@@ -180,15 +182,21 @@ function Get-LocalResponse([int]$ListenPort, [string]$Resource) {
     $request.Timeout = 1000
     $request.ReadWriteTimeout = 1000
     $request.AllowAutoRedirect = $false
-    try { $response = $request.GetResponse() } catch [Net.WebException] {
-        if ($_.Exception.Response) { $_.Exception.Response.Dispose() }
+    # A replacement Node process can bind the same port while an old pooled connection is closing.
+    $request.KeepAlive = $false
+    try {
+        $response = $request.GetResponse()
+        try {
+            if ([int]$response.StatusCode -ne 200) { return }
+            $stream = $response.GetResponseStream()
+            if (-not $stream -or -not $stream.CanRead) { return }
+            $reader = [IO.StreamReader]::new($stream)
+            try { $reader.ReadToEnd() } finally { $reader.Dispose() }
+        } finally { $response.Dispose() }
+    } catch [Net.WebException], [IO.IOException] {
+        if ($_.Exception -is [Net.WebException] -and $_.Exception.Response) { $_.Exception.Response.Dispose() }
         return
     }
-    try {
-        if ([int]$response.StatusCode -ne 200) { return }
-        $reader = [IO.StreamReader]::new($response.GetResponseStream())
-        try { $reader.ReadToEnd() } finally { $reader.Dispose() }
-    } finally { $response.Dispose() }
 }
 
 function Test-ListeningPort([int]$ListenPort) {
@@ -214,7 +222,7 @@ function Test-ServiceReady($Process, [int]$ListenPort) {
     return (Get-LocalResponse $ListenPort '/') -match '<(?:!doctype\s+html|html)\b'
 }
 
-function Start-IsolatedProcess([string]$Payload, [int]$ListenPort, [string]$LogDirectory, [hashtable]$Settings) {
+function Start-IsolatedProcess([string]$Payload, [string]$ReleaseVersion, [int]$ListenPort, [string]$LogDirectory, [hashtable]$Settings) {
     $profileRoot = Join-Path $dataRoot 'profile'
     $local = Join-Path $profileRoot 'Local'
     $roaming = Join-Path $profileRoot 'Roaming'
@@ -226,11 +234,14 @@ function Start-IsolatedProcess([string]$Payload, [int]$ListenPort, [string]$LogD
     $node = Join-Path $Payload 'runtime/node.exe'
     $launcher = Join-Path $Payload 'runtime/launch.cjs'
     $entry = Join-Path $Payload 'apps/server/dist/main.js'
+    $git = Get-GitSelection (Get-LaunchConfiguration)
+    $pathDirectories = @((Split-Path -Parent $node), $systemDirectory)
+    if ($git.executable) { $pathDirectories += Split-Path -Parent $git.executable }
     $environment = @{
         SystemRoot = $env:SystemRoot
         SystemDrive = $env:SystemDrive
         ComSpec = (Join-Path $systemDirectory 'cmd.exe')
-        PATH = "$(Split-Path -Parent $node);$systemDirectory"
+        PATH = $pathDirectories -join ';'
         USERPROFILE = $profileRoot
         HOME = $profileRoot
         APPDATA = $roaming
@@ -240,6 +251,7 @@ function Start-IsolatedProcess([string]$Payload, [int]$ListenPort, [string]$LogD
         SUPERAGENT_PORT = [string]$ListenPort
         SUPERAGENT_DATA_DIR = $dataRoot
         SUPERAGENT_WEB_DIST = (Join-Path $Payload 'apps/web/dist')
+        SUPERAGENT_RELEASE_VERSION = $ReleaseVersion
         SUPERAGENT_STOP_FILE = (Join-Path $LogDirectory 'stop.request')
         SUPERAGENT_LOG_DIRECTORY = $LogDirectory
     }
@@ -280,7 +292,7 @@ function Start-Release([string]$Version, [int]$ListenPort) {
     if (Test-ListeningPort $ListenPort) { throw "Port $ListenPort is already in use. The other process was left running." }
     $logs = Join-Path $logRoot "$([DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fff'))-$Version-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
     [IO.Directory]::CreateDirectory($logs) | Out-Null
-    $process = Start-IsolatedProcess (Join-Path $directory 'payload') $ListenPort $logs $settings
+    $process = Start-IsolatedProcess (Join-Path $directory 'payload') $manifest.version $ListenPort $logs $settings
     try {
         $null = $process.Handle
         if ($process.HasExited) { throw "Process exited with code $($process.ExitCode)." }

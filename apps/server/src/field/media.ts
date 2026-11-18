@@ -134,7 +134,7 @@ export function registerFieldMedia(app: FastifyInstance, db: DatabaseSync, root:
   });
   app.get(base + '/media-jobs', async () => ({
     ready: processor.media, ...(processor.media ? {} : { reason: processor.mediaReason }),
-    jobs: db.prepare(`SELECT ${jobColumns} FROM field_media_jobs ORDER BY created_at DESC,id DESC LIMIT 30`).all(),
+    jobs: db.prepare(`SELECT ${jobColumns} FROM field_media_jobs ORDER BY created_at DESC,rowid ASC LIMIT 30`).all(),
   }));
   app.get<{ Params: { id: string } }>(base + '/records/:id/media', async (request, reply) => {
     const id = fieldId.parse(request.params.id);

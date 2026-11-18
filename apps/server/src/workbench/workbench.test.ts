@@ -491,4 +491,84 @@ describe('工作台与冻结 SQLite 表兼容', () => {
     db.exec("UPDATE tasks SET owner_id='alice' WHERE id=2");
     expect((await inject(ops + '/send-once', 'bob')).statusCode).toBe(404);
   });
+
+  it('接管只为可见的已退出本机任务生成材料，并发只暂停和记账一次', async () => {
+    db.exec("UPDATE tasks SET status='review_ready',codex_thread_id='saved-legacy' WHERE id=1");
+    const url = '/sessions/worker:1/handoff';
+    expect((await post(url, {}, 'bob')).statusCode).toBe(404);
+    expect((await post(url, {}, 'viewer')).statusCode).toBe(404);
+    expect((await post('/sessions/router:1/handoff', {})).statusCode).toBe(422);
+    const requests = await Promise.all(Array.from({ length: 4 }, () => post(url, {}, 'alice')));
+    expect(requests.map(result => result.statusCode)).toEqual([200, 200, 200, 200]);
+    expect(requests.map(result => result.json())).toEqual(Array(4).fill(requests[0].json()));
+    expect(requests[0].json()).toMatchObject({ task_id: 1, thread_id: 'saved-legacy' });
+    expect(requests[0].json().content).toContain('当前状态：paused；任务版本：2');
+    expect(db.prepare("SELECT count(*) AS n FROM events WHERE event_type='manual_handoff'").get()?.n).toBe(1);
+  });
+
+  it('跨所有权的调配申请不可见，管理员并发重复申请及应用只追加一次', async () => {
+    event(9, { task_id: 1, source: 'redmine', external_id: 'coord-original', event_type: 'issue.comment',
+      content: '调配原件', data: '{"actor_id":"coord-admin","project_external_id":"7","routing_status":"routed"}' });
+    insert('governance_identities', { id: 2, source: 'redmine', actor_id: 'coord-admin', user_id: 'admin', enabled: 1 });
+    insert('governance_identity_grants', { identity_id: 2, project_ids: '[1]', permissions: '["request"]' });
+    const path = '/sessions/worker:1/coordination';
+    const body = { target_task_id: 2, event_id: 9, evidence: '已确认应补充', expected_state_version: 1, request_key: 'stable' };
+    expect((await post(path, body, 'alice')).statusCode).toBe(404);
+    expect((await post('/sessions/worker:2/coordination', body, 'bob')).statusCode).toBe(404);
+    const requested = await Promise.all(Array.from({ length: 4 }, () => post(path, body)));
+    expect(requested.map(result => result.statusCode)).toEqual([200, 200, 200, 200]);
+    const requestId = requested[0].json().id;
+    expect(requested.map(result => result.json().id)).toEqual(Array(4).fill(requestId));
+    expect((await post(path, { ...body, evidence: '不同内容' })).statusCode).toBe(409);
+    const apply = '/sessions/worker:2/coordination/' + requestId + '/apply';
+    expect((await post(apply, {}, 'bob')).statusCode).toBe(403);
+    const applied = await Promise.all(Array.from({ length: 4 }, () => post(apply, {})));
+    expect(applied.map(result => result.statusCode)).toEqual([200, 200, 200, 200]);
+    expect(applied[0].json()).toMatchObject({ id: requestId, data: { status: 'applied', retained_task_ids: [1] } });
+    expect(db.prepare('SELECT task_id FROM events WHERE id=9').get()?.task_id).toBe(1);
+    expect(db.prepare('SELECT count(*) AS n FROM event_targets WHERE event_id=9 AND task_id=2').get()?.n).toBe(1);
+    expect(db.prepare('SELECT state_version FROM tasks WHERE id=2').get()?.state_version).toBe(2);
+    event(12, { task_id: 1, source: 'redmine', external_id: 'member-original', event_type: 'issue.comment',
+      content: '由旧 owner 映射成员发起', data: '{"actor_id":"coord-admin","project_external_id":"7","routing_status":"routed"}' });
+    db.exec("UPDATE governance_identities SET user_id='alice' WHERE id=2");
+    configureWorkbenchRuntime(app, { resolveRole: user => user === 'alice' ? 'member' : undefined });
+    const forbidden = await post(path, { ...body, event_id: 12, request_key: 'source-other-owner', expected_state_version: 2 });
+    expect(forbidden.statusCode).toBe(200);
+    expect((await post('/sessions/worker:2/coordination/' + forbidden.json().id + '/apply', {})).statusCode).toBe(403);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM event_targets WHERE event_id=12').get()?.n).toBe(0);
+  });
+
+  it('两条经授权的同一私聊可做只读评估，无模型时审计真实缺口且不派发', async () => {
+    for (const id of [9, 10]) event(id, { source: 'dingtalk', external_id: 'assess-' + id,
+      event_type: 'message.received', content: '能帮我查一下进展吗',
+      data: '{"actor_id":"actor","thread_id":"unbound-direct","metadata":{"profile":"p","dws_event_type":"user_im_message_receive_o2o_all","uncertain_mentions":[]},"routing_status":"pending_confirmation"}' });
+    const url = '/routing/assessments';
+    expect((await post(url, { event_ids: [9, 10] }, 'alice')).statusCode).toBe(403);
+    expect((await post(url, { event_ids: [9, 9] })).statusCode).toBe(422);
+    const results = await Promise.all([post(url, { event_ids: [9, 10] }), post(url, { event_ids: [10, 9] })]);
+    expect(results.map(result => result.statusCode)).toEqual([200, 200]);
+    expect(results[0].json()).toMatchObject({ event_ids: [9, 10], status: 'incomplete', thread_id: null, turn_id: null });
+    expect(results[1].json().assessment_id).toBe(results[0].json().assessment_id);
+    expect(db.prepare("SELECT count(*) AS n FROM governance_audit WHERE action='event.readonly_assessment'").get()?.n).toBe(1);
+    expect(db.prepare('SELECT task_id FROM events WHERE id=9').get()?.task_id).toBeNull();
+  });
+
+  it('兼容旧语义判定的仅记账重放，未知巡检和会话仍要求退出确认', async () => {
+    event(9, { source: 'redmine', external_id: 'legacy-ignore', data: '{"routing_status":"ignored"}' });
+    insert('semantic_routing_jobs', { event_id: 9, project_id: 1, status: 'ignored', context: '{}',
+      decision: '{"action":"ignore","reason":"样本"}', output: '', created_at: at, updated_at: at });
+    const path = '/routing/jobs/9/correction';
+    expect((await post(path, { decision: { action: 'ignore', reason: '样本' }, evidence: '人工核验' })).json())
+      .toMatchObject({ event_id: 9, status: 'ignored', newly_applied: false });
+    expect((await post(path, { decision: { action: 'dispatch', reason: '缺少版本' }, evidence: '人工核验' })).statusCode).toBe(409);
+    expect(db.prepare('SELECT count(*) AS n FROM event_routing_messages WHERE event_id=9').get()?.n).toBe(2);
+    insert('router_sessions', { project_id: 1, status: 'unknown', state_version: 1, outcome_unknown: 1, updated_at: at });
+    insert('watchdog_runs', { id: 'legacy-unknown-watchdog', task_id: 1, state_version: 1, status: 'unknown',
+      evidence: '{}', conclusion: '{}', correction: '', created_at: at });
+    expect((await post('/sessions/router:1/reconcile', { evidence: '已停止', expected_state_version: 1 })).statusCode).toBe(409);
+    expect((await post('/operations/watchdog/legacy-unknown-watchdog/messages',
+      { content: '已核验', reconcile_unknown: true })).statusCode).toBe(409);
+    expect(db.prepare('SELECT outcome_unknown FROM router_sessions WHERE project_id=1').get()?.outcome_unknown).toBe(1);
+    expect(db.prepare("SELECT status FROM watchdog_runs WHERE id='legacy-unknown-watchdog'").get()?.status).toBe('unknown');
+  });
 });

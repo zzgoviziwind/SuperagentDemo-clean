@@ -59,6 +59,36 @@ describe('Field Intake with the production SQLite schema', () => {
     return response.json();
   }
 
+  it('advertises offline notes with timeline support and preserves the legacy sample candidate fields', async () => {
+    expect((await api('/organizer')).json()).toEqual({ mode: 'offline_sample', timeline: true, ocr: false });
+    const item = await record();
+    expect(item.organizer).toBe('offline_sample');
+    expect(item.candidates[0].draft).toEqual({
+      kind: 'bug', title: '模拟现象。', detail: '模拟现象。', note_line: 1, quote: 'Bug：模拟现象。[截图1]', screenshots: [1],
+    });
+    expect((await api(`/records/${item.id}`)).json().candidates).toEqual(item.candidates);
+    const screenshotOnly = await record('');
+    expect(screenshotOnly.candidates[0].draft).toEqual({
+      kind: 'question', title: '核对截图 1', detail: '请填写截图中的现象和期望。', note_line: null, quote: '', screenshots: [1],
+    });
+  });
+
+  it('replays media jobs sharing a timestamp in database insertion order without losing their stored states', async () => {
+    const dated = '2026-11-18T12:00:00.000000+00:00';
+    const insert = store.db.prepare(`INSERT INTO field_media_jobs(id,project_id,title,owner_id,state,phase,error,media,screenshots,created_at)
+      VALUES(?,?,?,'admin',?,?,?,'{}','[]',?)`);
+    insert.run('10000000-0000-4000-8000-000000000001', project, '已归档录音', 'ready', 'done', null, dated);
+    insert.run('failed-media', project, '待重试', 'failed', 'failed', '已中断', dated);
+    insert.run(randomUUID(), project, '最新录音', 'ready', 'ready', null, '2026-11-18T12:01:00.000000+00:00');
+    const result = (await api('/media-jobs')).json();
+    expect(result.ready).toBe(false);
+    expect(result.jobs).toMatchObject([
+      { title: '最新录音', state: 'ready', phase: 'ready' },
+      { title: '已归档录音', state: 'ready', phase: 'done', error: null },
+      { title: '待重试', state: 'failed', phase: 'failed', error: '已中断' },
+    ]);
+  });
+
   it('imports timestamped evidence, serves verified screenshots and identifies missing optional media', async () => {
     const response = await post('/records', { project_id: project, title: '合成时间轴', screenshots: [screenshot], timeline: {
       version: 1, transcript: [{ text: '较晚发言', start_ms: 400, end_ms: 700 }, { text: '较早发言', start_ms: 100, end_ms: 350 }],
@@ -117,6 +147,8 @@ describe('Field Intake with the production SQLite schema', () => {
     expect(two.json()).toEqual(one.json());
     const task = one.json().decision.task_id;
     expect(store.db.prepare('SELECT kind,source FROM tasks WHERE id=?').get(task)).toEqual({ kind: 'analysis', source: 'field' });
+    const actions = store.db.prepare('SELECT action,resource,details FROM governance_audit WHERE actor=? ORDER BY id');
+    expect(actions.all('admin')).toContainEqual({ action: 'task.assign', resource: String(task), details: '{"user_id":"admin"}' });
     expect((await post(decisionPath, { action: 'dismiss' })).statusCode).toBe(409);
     const linkPath = `/candidates/${item.candidates[1].id}/decision`;
     const link = { action: 'link', title: '补充', detail: '额外合成证据', kind: 'requirement', task_id: task };
@@ -132,11 +164,23 @@ describe('Field Intake with the production SQLite schema', () => {
     add.run(task, 'verification', proof, 'evidence-b', utc());
     expect((await post(implementPath, implement)).statusCode).toBe(409);
     add.run(task, 'verification', proof, 'evidence-a', utc());
-    const approved = await post(implementPath, implement);
+    expect((await post(implementPath, { ...implement, expected_state_version: 1 })).statusCode).toBe(409);
+    expect((await api(`/records/${item.id}/targets`)).json()).toContainEqual({ id: task, title: '模拟分析', state_version: 2 });
+    const [approved, repeated] = await Promise.all([post(implementPath, implement), post(implementPath, implement)]);
     expect(approved.statusCode).toBe(200);
+    expect(repeated.json()).toEqual(approved.json());
     expect((await post(implementPath, implement)).json()).toEqual(approved.json());
     expect((await post(implementPath, { ...implement, scope: '越过原批准范围' })).statusCode).toBe(409);
-    expect(store.db.prepare('SELECT kind,goal FROM tasks WHERE id=?').get(approved.json().task_id)).toEqual({ kind: 'repair', goal: implement.scope });
+    const repair = approved.json().task_id;
+    expect(store.db.prepare('SELECT kind,goal,acceptance_criteria FROM tasks WHERE id=?').get(repair))
+      .toEqual({ kind: 'repair', goal: implement.scope, acceptance_criteria: implement.acceptance_criteria });
+    expect(store.db.prepare('SELECT state_version,revision,control_version,status FROM tasks WHERE id=?').get(task))
+      .toEqual({ state_version: 3, revision: 2, control_version: 2, status: 'review_ready' });
+    expect(actions.all('admin').slice(-2)).toEqual([
+      { action: 'task.assign', resource: String(repair), details: '{"user_id":"admin"}' },
+      { action: 'field.implementation.approve', resource: String(task), details: JSON.stringify({ task_id: repair, revision: 2, source: 'field' }) },
+    ]);
+    expect(store.db.prepare("SELECT count(*) AS count FROM events WHERE event_type='implementation.approved'").get()?.count).toBe(1);
   });
 
   it('accepts multipart audio and video when the optional processor is ready and stops at candidate review', async () => {

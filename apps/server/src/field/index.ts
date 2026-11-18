@@ -48,7 +48,9 @@ export function registerField(app: FastifyInstance, store: Storage, root: string
   const processor = fieldProcessor(env, root);
   app.register(async field => {
     field.addHook('onRequest', requireAdmin);
-    field.get(base + '/organizer', async () => ({ mode: 'local_evidence', timeline: true, ocr: processor.ocr }));
+    field.get(base + '/organizer', async () => ({
+      mode: processor.ocr ? 'local_evidence' : 'offline_sample', timeline: true, ocr: processor.ocr,
+    }));
     field.get(base + '/records', async () => db.prepare(`SELECT id,title,project_id,created_at FROM field_records
       ORDER BY created_at DESC,id DESC LIMIT 50`).all());
     field.post(base + '/records', { bodyLimit: 5 * 4 * Math.ceil(imageLimit / 3) + 768 * 1024 }, async request => {

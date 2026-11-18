@@ -1,5 +1,11 @@
 function Confirm-EnvironmentName([string]$Name) {
-    if ($Name -cnotmatch '^(SUPERAGENT_(API_TOKEN|USERS_JSON|SESSION_SECRET|ALLOWED_REPO_ROOTS|ATTACHMENTS_ROOT|FIELD_(PYTHON|OCR_MODELS|WHISPER_MODEL))|([A-Z][A-Z0-9]*_)*REDMINE_API_KEY)$') {
+    if ($Name -ceq 'DWS_CONFIG_DIR') { return }
+    $allowed = 'API_TOKEN', 'USERS_JSON', 'SESSION_SECRET', 'ALLOWED_REPO_ROOTS', 'ATTACHMENTS_ROOT',
+        'FIELD_PYTHON', 'FIELD_OCR_MODELS', 'FIELD_WHISPER_MODEL', 'CONTEXT_MODE', 'WORKER_MAX_RUN_MS',
+        'EXECUTION_NODES', 'PROJECT_EXECUTION_NODES', 'FEISHU_ENABLED', 'FEISHU_MODE', 'FEISHU_APP_ID',
+        'FEISHU_APP_SECRET', 'FEISHU_ENCRYPT_KEY', 'FEISHU_OPEN_ID', 'FEISHU_OWNER_ID', 'FEISHU_VERIFICATION_TOKEN'
+    if ($Name -cnotmatch '^([A-Z][A-Z0-9]*_)*REDMINE_API_KEY$' -and
+        (-not $Name.StartsWith('SUPERAGENT_', [StringComparison]::Ordinal) -or $Name.Substring(11) -cnotin $allowed)) {
         throw 'The selected environment variable is not supported for injection.'
     }
 }
@@ -21,8 +27,51 @@ function Confirm-CodexSelection([string]$Executable, [string]$Account) {
     }
 }
 
+function Get-PlainGit([string]$Candidate) {
+    if ($Candidate -notmatch '^[A-Za-z]:[\\/][^;]+$' -or [IO.Path]::GetFileName($Candidate) -ne 'git.exe') { return }
+    try {
+        $item = Get-Item -LiteralPath $Candidate -Force -ErrorAction Stop
+        if ($item -isnot [IO.FileInfo]) { return }
+        Assert-PlainPath $item.DirectoryName
+        Assert-PlainItem $item
+        if ([IO.DriveInfo]::new($item.Directory.Root.FullName).DriveType -ne [IO.DriveType]::Fixed) { return }
+        return $item
+    } catch { return }
+}
+
+function Get-GitSelection($Configuration) {
+    if ($Configuration.gitExecutable) {
+        $explicit = Get-PlainGit $Configuration.gitExecutable
+        if ($explicit) { return @{ source = 'configured'; executable = $explicit.FullName } }
+        return @{ source = 'missing'; issue = 'The configured git.exe is unavailable. Select an existing local Git installation.' }
+    }
+    $registryKeys = 'HKLM:/SOFTWARE/GitForWindows', 'HKLM:/SOFTWARE/WOW6432Node/GitForWindows',
+        'HKCU:/SOFTWARE/GitForWindows'
+    $roots = @(
+        foreach ($key in $registryKeys) {
+            $path = (Get-ItemProperty -LiteralPath $key -Name InstallPath -ErrorAction SilentlyContinue).InstallPath
+            if ($path) { $path }
+        }
+        foreach ($folder in 'ProgramFiles', 'ProgramFilesX86') {
+            $path = [Environment]::GetFolderPath($folder)
+            if ($path) { Join-Path $path 'Git' }
+        }
+        $local = [Environment]::GetFolderPath('LocalApplicationData')
+        if ($local) { Join-Path $local 'Programs/Git' }
+    )
+    foreach ($directory in $roots | Where-Object { $_ -match '^[A-Za-z]:[\\/][^;]+$' } | Select-Object -Unique) {
+        $git = Get-PlainGit ([IO.Path]::Combine($directory, 'cmd/git.exe'))
+        if ($git -and $git.VersionInfo.ProductName -eq 'Git' -and
+            $git.VersionInfo.FileDescription -eq 'Git for Windows') {
+            return @{ source = 'automatic'; executable = $git.FullName }
+        }
+    }
+    return @{ source = 'missing'; issue = 'Git for Windows was not found. Use Configure -GitExecutable with its absolute git.exe path.' }
+}
+
 function Set-LaunchConfiguration {
     if ($ClearInjectedEnvironment -and $InjectEnvironment) { throw 'Set or clear environment injection in one operation.' }
+    if ($ClearGitExecutable -and $GitExecutable) { throw 'Set or clear Git selection in one operation.' }
     $previous = Get-LaunchConfiguration
     $selected = if ($CodexMode) { $CodexMode } else { $previous.codexMode }
     $config = @{ codexMode = $selected; injectedEnvironment = @($previous.injectedEnvironment | Where-Object { $_ }) }
@@ -36,6 +85,13 @@ function Set-LaunchConfiguration {
     } elseif ($InjectEnvironment) {
         $config.injectedEnvironment = @($InjectEnvironment.Split(',') | ForEach-Object { $_.Trim() } | Sort-Object -Unique)
         foreach ($name in $config.injectedEnvironment) { Confirm-EnvironmentName $name }
+    }
+    if ($GitExecutable) {
+        $git = Get-PlainGit $GitExecutable
+        if (-not $git) { throw 'Select an existing git.exe using an absolute path on a local fixed drive.' }
+        $config.gitExecutable = $git.FullName
+    } elseif (-not $ClearGitExecutable -and $previous.gitExecutable) {
+        $config.gitExecutable = $previous.gitExecutable
     }
     Write-State $configurationPath $config
     Write-Output 'Configuration saved. Use Diagnose to inspect it and Restart to apply it.'
@@ -93,6 +149,7 @@ function Get-LaunchConfigurationStatus {
         codexIssues = $issues
         availableInjectionNames = $available
         missingInjectionNames = $missing
+        git = Get-GitSelection $config
         configure = 'SuperAgent.cmd -Action Configure'
         configureChannel = 'SuperAgent.cmd -Action ConfigureChannel'
     }

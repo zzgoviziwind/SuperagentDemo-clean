@@ -61,7 +61,7 @@ $runtime = & .\deploy\windows-ts\Prepare-OfficialNode.ps1 `
 
 ## 后端接入契约
 
-工作目录是实例的 `data`。启动使用包内 `payload\apps\server\dist\main.js`，显式注入 `SUPERAGENT_PORT`、`SUPERAGENT_DATA_DIR`、`SUPERAGENT_WEB_DIST`。默认环境只包含必需的 Windows 变量、包内运行时和该实例的私有用户目录。后端须绑定 `127.0.0.1`，在可用时返回 `GET /health` 的 JSON `{"status":"ok"}`，并同源提供首页、静态文件和 `/api/v1`。后端通过 `SIGTERM` 处理器关闭 HTTP、数据库和本轮子进程。初始配置应关闭外部渠道、模型及执行器。
+工作目录是实例的 `data`。启动使用包内 `payload\apps\server\dist\main.js`，显式注入 `SUPERAGENT_PORT`、`SUPERAGENT_DATA_DIR`、`SUPERAGENT_WEB_DIST` 和已核验的活动版本 `SUPERAGENT_RELEASE_VERSION`。后端绑定 `127.0.0.1`，在可用时由 `GET /health` 返回状态及版本，并同源提供首页、静态文件和 `/api/v1`。后端通过 `SIGTERM` 处理器关闭 HTTP、数据库和本轮子进程。初始配置应关闭外部渠道、模型及执行器。
 
 ## Codex 账号和渠道配置
 
@@ -75,7 +75,17 @@ $manager = "$env:LOCALAPPDATA\SuperAgent\SuperAgent.cmd"
 
 已有启动环境可选择 `-CodexMode Environment`。每次启动、重启、升级或回滚都从调用进程取 `SUPERAGENT_CODEX_EXECUTABLE`、`SUPERAGENT_CODEX_HOME` 和 `SUPERAGENT_CODEX_USE_EXISTING_LOGIN=1`。本地执行仍由工作台的调度和审批策略决定，配置命令不测试账号、不启动 Codex。
 
-需要认证时，先由本机凭据管理工具把值注入当前 PowerShell 进程，再从同一环境调用管理命令。下面的命令只选择需要传给后端的变量名。支持 `SUPERAGENT_API_TOKEN`、`SUPERAGENT_USERS_JSON`、`SUPERAGENT_SESSION_SECRET`、`SUPERAGENT_ALLOWED_REPO_ROOTS` 和 `*_REDMINE_API_KEY`。缺值时，管理命令会在停服前退出。使用 `-ClearInjectedEnvironment` 清空已选变量名。诊断和配置文件只记录名字。
+按量 Codex 使用已验证的本机登录。连接前在管理设置中配置正数的单轮预算预留估算，并确认全局预算可预留。安装器沿用显式选定的已有登录目录，账户是否按量由运行时判定。验收同一工作台的正常安装和 Git 项目绑定可保持 Codex 为 `Disabled`。
+
+先由本机凭据管理工具或调用端把值放入当前 PowerShell 进程，再从同一环境调用管理命令。选中的变量名替换上次选择，需要保留的变量一并列出。缺值时，管理命令会在停服前退出。使用 `-ClearInjectedEnvironment` 清空选择。默认选择为空，安装配置和诊断只保存或显示变量名。
+
+| 用途 | 可选变量 |
+| --- | --- |
+| 认证、目录和 Redmine | `SUPERAGENT_API_TOKEN`、`SUPERAGENT_USERS_JSON`、`SUPERAGENT_SESSION_SECRET`、`SUPERAGENT_ALLOWED_REPO_ROOTS`、`SUPERAGENT_ATTACHMENTS_ROOT`、`REDMINE_API_KEY` 或其他以 `_REDMINE_API_KEY` 结尾且受支持的大写变量名 |
+| Worker 和执行节点 | `SUPERAGENT_CONTEXT_MODE`、`SUPERAGENT_WORKER_MAX_RUN_MS`、`SUPERAGENT_EXECUTION_NODES`、`SUPERAGENT_PROJECT_EXECUTION_NODES`。节点及映射使用 JSON。TS 可展示配置及绑定，远端执行设备仍由冻结 Python 控制器承载 |
+| 飞书卡片 | `SUPERAGENT_FEISHU_ENABLED`、`SUPERAGENT_FEISHU_MODE`、`SUPERAGENT_FEISHU_APP_ID`、`SUPERAGENT_FEISHU_APP_SECRET`、`SUPERAGENT_FEISHU_ENCRYPT_KEY`、`SUPERAGENT_FEISHU_OPEN_ID`、`SUPERAGENT_FEISHU_OWNER_ID`、`SUPERAGENT_FEISHU_VERIFICATION_TOKEN`。默认关闭。启用卡片需显式提供 `ENABLED=1` 和 `MODE=card`，并配置应用、收件人及回调凭据 |
+| 钉钉 DWS | `DWS_CONFIG_DIR`，可选，指向操作员显式选择的本机 DWS 配置目录 |
+| 现场记录 | 见 [可选本机处理](./field/README.md#可选本机处理) |
 
 ```powershell
 & $manager -Action Configure -InjectEnvironment 'SUPERAGENT_API_TOKEN,SUPERAGENT_SESSION_SECRET'
@@ -85,6 +95,16 @@ $manager = "$env:LOCALAPPDATA\SuperAgent\SuperAgent.cmd"
 
 渠道配置可在工作台管理设置操作，或用以下命令把非敏感 JSON 写到已启动的本机服务。Redmine 示例字段为 `enabled`、`base_url`、`user_id`、`api_key_env`。钉钉示例字段为 `enabled`、`profile`、`kind`、`chat_id`。密钥存放在环境变量，JSON 使用 `api_key_env` 保存名字。配置命令可使用当前进程的 `SUPERAGENT_API_TOKEN`，多用户模式可单独由凭据管理器注入管理员的 `SUPERAGENT_CONFIG_TOKEN` 供这一次配置请求使用。
 
+钉钉的 `executable` 使用本机 `dws.exe` 的绝对路径，同时选定 `profile` 和 `self_ids`。服务与子进程默认使用实例私有用户目录，安装器不查找桌面账号。要复用已有 DWS 登录，由操作员显式选择配置目录。以下路径为示例。请把现有选中的其他变量名一并写入 `-InjectEnvironment`。
+
+```powershell
+$env:DWS_CONFIG_DIR = 'D:\SuperAgentTools\dws-profile'
+& $manager -Action Configure -InjectEnvironment 'DWS_CONFIG_DIR'
+& $manager -Action Restart
+```
+
+安装器只保存变量名并传入启动进程，只有启用的 DWS 子进程使用该目录。此项依赖渠道子进程接入 `DWS_CONFIG_DIR` 的版本。取消时重新选择所需变量并排除 `DWS_CONFIG_DIR`，或清空选项后重启。避免将目录里的登录文件复制进安装包或验收材料。
+
 ```powershell
 & $manager -Action ConfigureChannel -Channel redmine -ChannelSettingsPath $redmineSettingsJson
 ```
@@ -92,6 +112,18 @@ $manager = "$env:LOCALAPPDATA\SuperAgent\SuperAgent.cmd"
 工程样本的 TS 可以保存渠道设置，`运行状态` 以 TS 后端返回为准。启用的钉钉或 Redmine 若显示 `unavailable`，表示该版本还没有真实渠道驱动。配置可用与实收实发分别验收。
 
 现场记录的启动选项和历史数据布局见 [现场记录说明](./field/README.md)。
+
+## Git 项目
+
+安装器在 Git for Windows 的登记位置、标准程序目录和用户 Git 安装目录查找 `cmd\git.exe`。发现后仅把该目录加入服务 PATH，保留内置 Node 和系统目录。使用自定义位置时，安装后配置受信任的本机 Git 绝对路径，再重启。
+
+```powershell
+& $manager -Action Configure -GitExecutable 'D:\Tools\Git\cmd\git.exe'
+& $manager -Action Restart
+& $manager -Action Diagnose
+```
+
+`launchConfiguration.git` 显示选中的程序与来源。用 `Configure -ClearGitExecutable` 恢复自动查找。Git 缺失时工作台仍可启动，项目分支和多仓配置需在 Git 就绪后使用。Git 配置与 Codex 登录分开。
 
 | 提示 | 检查位置 |
 | --- | --- |

@@ -17,6 +17,8 @@ function nodes(env:NodeJS.ProcessEnv) {
     .refine(v=>new Set(v.map(n=>n.id)).size===v.length).parse(JSON.parse(env.SUPERAGENT_EXECUTION_NODES??'[]'));
 }
 export function registerNodes(app:FastifyInstance,db:DatabaseSync,env:NodeJS.ProcessEnv) {
+  for(const operation of ['poll','exchange']) app.post('/api/v1/operations/daemon/'+operation,async(_request,reply)=>
+    reply.code(503).send({detail:'远端执行设备由原 Python 控制器承载。请完成同库回切后连接原控制器。',execution_host:'python'}));
   app.get('/api/v1/operations/nodes',async req=>{
     admin(req.principal);
     const items=nodes(env).map(n=>{

@@ -44,6 +44,7 @@ function newTask(db: DatabaseSync, project: number, principal: Principal, kind: 
     VALUES(?,?,?,?,?,'field',?,'queued',1,1,1,0,?,?) RETURNING id,revision`)
     .get(project, principal.user_id, kind, title, goal, criteria, now, now)!;
   db.prepare('INSERT INTO governance_task_owners(task_id,user_id) VALUES(?,?)').run(task.id, principal.user_id);
+  audit(db, principal.user_id, 'task.assign', Number(task.id), { user_id: principal.user_id });
   return task;
 }
 
@@ -153,11 +154,14 @@ export function implement(db: DatabaseSync, attachments: string, id: number, pri
     const field = db.prepare("SELECT 1 FROM events WHERE task_id=? AND source='field' AND event_type='message.received'").get(id);
     const summary = verifiedSummary(db, parent);
     if (parent.kind !== 'analysis' || parent.outcome_unknown || !['review_ready', 'completed'].includes(String(parent.status))
-      || parent.state_version !== body.expected_state_version || !field || !summary || !body.scope.trim() || !body.acceptance_criteria.trim()) {
+      || !field || !summary || !body.scope.trim() || !body.acceptance_criteria.trim()) {
       fail(409, '请先取得当前版本的已核验只读分析结果，再批准实施');
     }
     const project = Number(parent.project_id);
     projectFor(db, project);
+    const updated = db.prepare('UPDATE tasks SET state_version=state_version+1,updated_at=? WHERE id=? AND state_version=?')
+      .run(utc(), id, body.expected_state_version);
+    if (updated.changes !== 1) fail(409, '事件组已变化，请刷新');
     const task = newTask(db, project, principal, 'repair', `实施：${parent.title}`.slice(0, 300), body.scope.trim(), body.acceptance_criteria.trim());
     addImages(db, task, fieldImages(db, parent).map(value => attachmentForTask(attachments, json<Image>(value))));
     addEvent(db).get(task.id, externalId, 'implementation.approved', `分析事件 #${id} · 版本 ${parent.revision}\n${summary.content}`,

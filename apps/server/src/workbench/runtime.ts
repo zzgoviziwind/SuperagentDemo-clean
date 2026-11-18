@@ -30,6 +30,19 @@ export interface DingTalkHistoryPage {
   }[];
 }
 
+export interface DingTalkImageBinding extends DingTalkHistoryBinding {
+  eventId: number;
+}
+
+export interface DingTalkSourceImage {
+  contentType: string;
+  bytes: Buffer;
+}
+
+export interface AssessmentImage extends DingTalkSourceImage {
+  eventId: number;
+}
+
 export interface SemanticDecision {
   action: 'create' | 'dispatch' | 'ignore' | 'confirm';
   kind: 'analysis' | 'repair' | 'reply';
@@ -41,15 +54,22 @@ export interface SemanticDecision {
 export interface WorkbenchRuntime {
   readThread?(binding: SessionBinding & { threadId: string; includeTurns: true }, signal: AbortSignal): Promise<unknown>;
   readOwnDingTalk?(binding: DingTalkHistoryBinding, signal: AbortSignal): Promise<DingTalkHistoryPage>;
+  readOwnDingTalkImages?(binding: DingTalkImageBinding, signal: AbortSignal): Promise<readonly DingTalkSourceImage[]>;
   wakeProjectRouter?(projectId: number): void;
   projectRouterAvailable?(): boolean;
+  assessmentAvailable?(): boolean;
+  assessmentImagesAvailable?(): boolean;
+  runAssessment?(id: string, context: Record<string, unknown>, stillAuthorized: () => boolean,
+    images?: readonly AssessmentImage[]): Promise<{
+    text?: string; thread_id: string | null; turn_id: string | null; image_turn_id?: string; error?: string;
+  }>;
   resolveRole?(user: string): 'admin' | 'member' | 'viewer' | undefined;
   hasStoppedSession?(binding: SessionBinding): Promise<boolean>;
   scheduleSemantic?(eventId: number | undefined, actor: string): Promise<{ checked: number; routed_event_ids: number[] }>;
   applySemanticCorrection?(eventId: number, decision: SemanticDecision, evidence: string, actor: string):
     Promise<{ newly_applied: boolean }>;
   runWatchdog?(taskId: number): Promise<string>;
-  hasStoppedWatchdog?(taskId: number): Promise<boolean>;
+  hasStoppedWatchdog?(taskId: number, runId?: string): Promise<boolean>;
 }
 
 export function codexThreadReader(request: (binding: SessionBinding, method: 'thread/read',

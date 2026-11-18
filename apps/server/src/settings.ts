@@ -114,10 +114,13 @@ export function registerSettings(app:FastifyInstance,db:DatabaseSync,env:NodeJS.
           if (Object.hasOwn(changes,key) && (cfg.enabled ?? false) !== changes[alias]) fail(422,'连接器启用字段冲突');
           changes[key] = schemas[key].parse({...cfg,enabled:changes[alias]});
         }
+        if(Object.hasOwn(changes,key)) changes[alias]=(changes[key] as {enabled?:boolean}).enabled??false;
       }
       const save = db.prepare('INSERT INTO governance_settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at');
-      for (const [key,value] of Object.entries(changes)) save.run(key,JSON.stringify(value),utc());
-      audit(db,req.principal.user_id,'settings.update','settings',{keys:Object.keys(changes)});
+      for (const [key,value] of Object.entries(changes)) {
+        save.run(key,JSON.stringify(value),utc());
+        audit(db,req.principal.user_id,'settings.write',key,{value});
+      }
       return settings(db);
     });
     if(Object.keys(changes).some(k=>['dingtalk_enabled','redmine_enabled','dingtalk_response_policy','connectors.dingtalk','connectors.redmine'].includes(k)))

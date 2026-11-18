@@ -6,7 +6,8 @@ param(
     [string]$WebNodeModules,
     [switch]$CheckConfiguration,
     [switch]$CheckField,
-    [switch]$CheckFieldDependencyHint
+    [switch]$CheckFieldDependencyHint,
+    [switch]$CheckReleaseVersion
 )
 $ErrorActionPreference = 'Stop'
 $exe = (Resolve-Path -LiteralPath $Installer).Path
@@ -52,6 +53,7 @@ try {
     if ($first.status -ne 'running') { throw 'Installed server did not become ready.' }
     $health = Request-Text '/health' | ConvertFrom-Json
     if ($health.status -ne 'ok' -or $health.implementation -ne 'typescript') { throw 'Expected the actual TypeScript server.' }
+    if ($CheckReleaseVersion -and $health.version -cne $first.active) { throw 'Health does not identify the active installed release.' }
     $health | ConvertTo-Json -Compress
     $index = Request-Text '/'
     $script = [regex]::Match($index, 'src="(/assets/[^"]+)"').Groups[1].Value
@@ -82,7 +84,9 @@ try {
     if ($second.status -ne 'running' -or $second.pid -eq $first.pid -or $second.data -ne $first.data) {
         throw 'Restart did not replace the process and keep the data directory.'
     }
-    if ((Request-Text '/health' | ConvertFrom-Json).implementation -ne 'typescript') { throw 'Restart health failed.' }
+    $restartedHealth = Request-Text '/health' | ConvertFrom-Json
+    if ($restartedHealth.implementation -ne 'typescript') { throw 'Restart health failed.' }
+    if ($CheckReleaseVersion -and $restartedHealth.version -cne $second.active) { throw 'Restart did not report the active release.' }
     Write-Output "PASS restart from PID $($first.pid) to $($second.pid) using the same SQLite directory"
     if ($CheckConfiguration) {
         $fakeExe = Join-Path $temporary 'fake-codex.exe'

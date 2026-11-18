@@ -80,7 +80,7 @@ export type Draft = {
   title: string;
   detail: string;
   quote?: string;
-  note_line?: number;
+  note_line?: number | null;
   screenshots: number[];
   evidence?: Evidence[];
   organizer?: string;
@@ -92,6 +92,7 @@ export function orderedSegments(rows: z.infer<typeof transcriptSegment>[]): Segm
 }
 
 export function organize(notes: string, frames: { at_ms?: number; ocr?: OcrLine[] }[], segments: Segment[]): Draft[] {
+  const evidenceMode = segments.length > 0 || frames.some(frame => frame.at_ms !== undefined || frame.ocr?.length);
   const used = new Set<number>();
   const drafts: Draft[] = [];
   for (const [index, line] of notes.split(/\r\n|\n|\r/).entries()) {
@@ -105,12 +106,17 @@ export function organize(notes: string, frames: { at_ms?: number; ocr?: OcrLine[
     drafts.push({
       kind: label === '需求' ? 'requirement' : label && /^(bug|缺陷)$/i.test(label) ? 'bug' : 'question',
       title: detail.slice(0, 200), detail: detail.slice(0, 2500), note_line: index + 1, quote: line,
-      screenshots: [...references].sort(), organizer: 'local_evidence',
+      screenshots: [...references].sort(), ...(evidenceMode ? { organizer: 'local_evidence' } : {}),
     });
   }
   for (const [index, frame] of frames.entries()) {
     const id = index + 1;
     if (used.has(id) && !frame.ocr?.length && frame.at_ms === undefined) continue;
+    if (!evidenceMode) {
+      drafts.push({ kind: 'question', title: `核对截图 ${id}`, detail: '请填写截图中的现象和期望。',
+        note_line: null, quote: '', screenshots: [id] });
+      continue;
+    }
     const at = frame.at_ms;
     const nearby: NonNullable<Evidence['nearby']> = [];
     if (at !== undefined && segments.length) {

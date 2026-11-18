@@ -118,12 +118,13 @@ function eventCardTitle(group: Row | undefined, lead: Row | undefined, messages:
 }
 
 export function GroupedEvents({
-  initialEventId, initialGroupId, onSelectGroup, onRefreshTask, onOpenSession, onManage,
+  initialEventId, initialGroupId, linkedApprovalId, onSelectGroup, onRefreshTask, onOpenSession, onManage,
   operations, reply, replySnapshot, operationsId, currentTask: taskSnapshot, taskDetail, recovery, controls, supplement, endAction,
   initialScope, onScopeChange, projects = [], canManage = true, overview,
 }: {
   initialEventId?: number;
   initialGroupId?: string;
+  linkedApprovalId?: string | null;
   onSelectGroup?: (id: string | null) => void;
   onRefreshTask?: (id: string) => Promise<void>;
   onOpenTask: (id: string) => void;
@@ -187,6 +188,7 @@ export function GroupedEvents({
   const progressJump = useRef<ProgressTarget | null>(null);
   const returnPosition=useRef({ page:0, list:0, key:'' });
   const pendingFocus=useRef<'list'|'detail'|null>(null);
+  const focusedApproval = useRef('');
   const parentOwnsTask=taskDetail!==undefined;
   const execution=parentOwnsTask ? taskDetail : localExecution;
   const currentTask=parentOwnsTask ? taskDetail?.task : taskSnapshot;
@@ -248,6 +250,21 @@ export function GroupedEvents({
   }
 
   useLayoutEffect(() => {
+    if (linkedApprovalId && operationsId && selected?.group && operationsId === String(selected.group.id)
+      && view === 'detail' && detailTab === 'processing') {
+      const key = `${operationsId}:${linkedApprovalId}`;
+      if (focusedApproval.current !== key) {
+        const article = Array.from(detailRef.current?.querySelectorAll<HTMLElement>('[data-execution-approval]') ?? [])
+          .find(node => node.dataset.executionApproval === linkedApprovalId);
+        if (article) {
+          focusedApproval.current = key;
+          pendingFocus.current = null;
+          article.focus();
+          article.scrollIntoView?.({ block: 'center' });
+          return;
+        }
+      }
+    }
     const detailFocus = detailHeading.current ?? (!selected && !opening && overview ? detailRef.current : null);
     if(pendingFocus.current==='detail' && view==='detail' && detailFocus) {
       pendingFocus.current=null;
@@ -261,7 +278,7 @@ export function GroupedEvents({
       if(listRef.current) listRef.current.scrollTop=list;
       window.scrollTo({top:page});
     }
-  },[view,selected?.key,opening,overview]);
+  },[view,selected?.key,selected?.group,opening,overview,detailTab,linkedApprovalId,operationsId,operations]);
 
   const load = useCallback(async (start=0, until=start+pageSize) => {
     const seq=++generation.current;

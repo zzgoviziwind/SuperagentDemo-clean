@@ -2,15 +2,16 @@ import { lstat, mkdir, mkdtemp, realpath } from 'node:fs/promises';
 import { isAbsolute, join, relative } from 'node:path';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { CodexStartupError, FixtureProcessUnknown, fixtureAnalysisRead, fixtureWorkspaceSnapshot,
+import { CodexStartupError, FixtureProcessUnknown, fixtureWorkspaceSnapshot,
   prepareFixtureWorkspace, verifyFixtureRepair, prepareProjectWorkspace, projectWorkspaceSnapshot, projectVerificationCommand,
-  readWorkspaceText, runProjectVerification, openRestrictedCodex, WorkspacePolicyError } from '../../../../packages/runtime/index.ts';
-import type { CodexEvent, FakeCodexOptions, TurnBinding, FileReadEvidence, ProjectBaseline, ProjectRepository,
+  inspectReadOnly, readOnlyToolNames, runProjectVerification, openRestrictedCodex, WorkspacePolicyError } from '../../../../packages/runtime/index.ts';
+import type { CodexEvent, FakeCodexOptions, TurnBinding, ReadOnlyEvidence, ProjectBaseline, ProjectRepository,
   RestrictedCodexDriver } from '../../../../packages/runtime/index.ts';
 import type { ApprovalRow, Attempt, Fields, Lease, Storage } from '../../../../packages/storage/index.ts';
 import { fail } from '../auth.js';
 import { reserveModelRun, settleBudget } from '../budget.js';
 import { assembleContext } from '../context.js';
+import { prepareReplyDecision } from '../deliveries/replies.ts';
 import { assignedNode } from '../nodes.js';
 import { settings } from '../settings.js';
 import { audit, owned, record, serialize, tx, utc } from '../sql.js';
@@ -18,6 +19,8 @@ import { acceptTask, recheckWorkerWorkspace, workerProject, workerProjectKey } f
 import type { WorkerProject as Project } from './acceptance.ts';
 import { pinnedSelection, registerLocalAgents } from './local-agents.ts';
 import { buildWorkerPrompt } from './prompts.ts';
+import { captureReferenceScope, referenceScopeCurrent, registerReferenceControls } from './references.ts';
+import type { ReferenceScope } from './references.ts';
 
 export { buildWorkerPrompt, WORKER_PROMPTS } from './prompts.ts';
 
@@ -37,6 +40,7 @@ interface Run {
   project: Project;
   fixtureRepo?: string;
   projectWorkspace?: boolean;
+  referenceScope?: ReferenceScope;
   binding?: TurnBinding;
   pending?: Pending;
   decision?: DecisionInFlight;
@@ -53,6 +57,8 @@ interface Run {
 export interface WorkerControls {
   stop(taskId: number): Promise<boolean>;
   steer?(taskId: number, content: string): Promise<boolean>;
+  isActive(taskId: number): boolean;
+  canRunReply(): boolean;
 }
 
 type Driver = {
@@ -83,6 +89,8 @@ function driverFrom(env: NodeJS.ProcessEnv, store: Storage): Driver | undefined 
       source: 'offline-codex-fixture', cwd, scenario: scenarios[run.task.kind], repairFixture: run.task.kind === 'repair', exitAt,
       persistThreads: true, projectPath: run.fixtureRepo, signal: run.abort.signal,
       holdForSteer: run.task.kind === 'reply' && env.SUPERAGENT_FIXTURE_HOLD_REPLY === '1',
+      referenceFixturePath: run.task.kind === 'analysis' ? env.SUPERAGENT_FIXTURE_REFERENCE_PATH
+        ?? (run.referenceScope?.roots.size ? `@refs/${run.referenceScope.roots.keys().next().value}/合成输入.txt` : undefined) : undefined,
     }) };
   }
   if (env.SUPERAGENT_DRIVER !== undefined && env.SUPERAGENT_DRIVER !== 'codex') return;
@@ -128,6 +136,8 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
   const runs = new Map<number, Run>();
   const db = store.db;
   registerLocalAgents(app, db, root, env);
+  const referencePolicy = { env, fixtureRoot: root };
+  registerReferenceControls(app, db, referencePolicy);
   const deadlineMs = z.coerce.number().int().min(100).max(900_000).parse(env.SUPERAGENT_WORKER_MAX_RUN_MS ?? 240_000);
   let stopping = false;
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -139,6 +149,7 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
   function current(run: Run) {
     const project = projectOf(run.task.project_id);
     if (!project || projectKey(project) !== projectKey(run.project) || assignedNode(db, run.task.project_id, env)) return false;
+    if (run.referenceScope && !referenceScopeCurrent(db, run.task.id, run.task.project_id, project, env, run.referenceScope)) return false;
     return db.prepare(`SELECT id FROM tasks WHERE id=? AND revision=? AND control_version=?
       AND project_id=? AND NOT outcome_unknown AND status IN ('running','waiting_approval')`)
       .get(run.task.id, run.attempt.revision, run.attempt.control_version, run.task.project_id);
@@ -167,7 +178,9 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
         WHERE e.task_id=? AND e.event_type='worker_thread_bound' AND a.thread_id=? ORDER BY e.id DESC LIMIT 1`)
         .get(run.task.id, prior.codex_thread_id);
       const info = known && object(JSON.parse(String(known.data)));
+      const referenceKey = run.referenceScope?.roots.size ? run.referenceScope.bindingKey : undefined;
       if (!info || info.evidence_source !== run.source || info.kind !== run.task.kind || info.project_key !== projectKey(run.project)
+          || info.reference_scope_key !== referenceKey
           || typeof known?.workspace_path !== 'string' || known.workspace_path !== prior.workspace_path || known.status === 'unknown') {
         throw new RunStopped('既有会话工作区或来源未核实，请人工核对');
       }
@@ -240,7 +253,8 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
     let started = false;
     let summary = '';
     let references: string[] = [];
-    const reads: FileReadEvidence[] = [];
+    const reads: ReadOnlyEvidence[] = [];
+    let readCalls = 0;
     for await (const event of client.events()) {
       checkRunning(run);
       if (event.method.startsWith('runtime/')) throw new RunStopped('执行进程退出且本轮结果未确认');
@@ -257,13 +271,30 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
 
       if (event.method === 'turn/started') started = true;
       if (event.id !== undefined) {
-        if (started && run.task.kind === 'analysis' && run.cwd && reads.length < 8
-            && event.method === 'item/tool/call' && event.params.tool === 'read_file' && event.params.namespace == null) {
-          const path = object(event.params.arguments)?.path;
-          const result = run.projectWorkspace ? await readWorkspaceText(run.cwd, path) : await fixtureAnalysisRead(run.cwd, path);
+        if (started && run.task.kind === 'analysis' && run.cwd && readCalls++ < 16 && event.method === 'item/tool/call'
+            && typeof event.params.tool === 'string' && readOnlyToolNames.has(event.params.tool) && event.params.namespace == null) {
+          const tool = event.params.tool;
+          const args = object(event.params.arguments);
+          const path = args?.path ?? '.';
+          const match = typeof path === 'string' ? /^@refs\/([^/]+)(?:\/(.*))?$/.exec(path) : null;
+          const selected = match ? run.referenceScope?.roots.get(match[1]) : undefined;
+          let result: Awaited<ReturnType<typeof inspectReadOnly>>;
+          try {
+            if (!args || (typeof path === 'string' && path.startsWith('@refs') && !selected)) throw new Error('资料别名未授权');
+            result = await inspectReadOnly(selected?.pin.root ?? run.cwd, tool, match ? { ...args, path: match[2] || '.' } : args, {
+              signal: run.abort.signal, reference: selected && match ? { alias: match[1], ...selected, policy: referencePolicy } : undefined,
+            });
+          } catch {
+            checkRunning(run);
+            record(db, run.task.id, 'readonly_tool', '', { ...binding, attempt_id: run.attempt.id, tool, success: false, denied: true });
+            await client.respondReadTool(event.id, binding, '{"error":"只读请求被拒绝"}', false);
+            throw new RunStopped('只读资料请求被拒绝，本轮缺少完整核验');
+          }
           checkRunning(run);
           await client.respondReadTool(event.id, binding, result.text);
-          reads.push({ ...result.evidence, source: 'host-filesystem-read' });
+          reads.push(...result.evidence);
+          record(db, run.task.id, 'readonly_tool', '', { ...binding, attempt_id: run.attempt.id, tool, success: true,
+            file_count: result.evidence.length, reference: selected ? match?.[1] : undefined });
           continue;
         }
         const method = event.method;
@@ -288,7 +319,7 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
           throw new RunStopped('回复轮次出现了工具调用或未知项目');
         }
         if (run.task.kind === 'analysis' && (!item || (!benignReplyItems.has(String(item.type)) &&
-            !(item.type === 'dynamicToolCall' && item.tool === 'read_file' && item.success !== false)))) {
+            !(item.type === 'dynamicToolCall' && typeof item.tool === 'string' && readOnlyToolNames.has(item.tool) && item.success !== false)))) {
           throw new RunStopped('分析轮次出现只读范围之外的操作');
         }
         if (run.task.kind === 'repair' && item && (['mcpToolCall', 'dynamicToolCall', 'webSearch'].includes(String(item.type))
@@ -307,7 +338,7 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
           || !summary || summary.length > 50_000 || run.messageCursor !== latestMessage(run.task.id)) {
         throw new RunStopped('同轮 Host 核验证据不足，须人工核对');
       }
-      if (run.task.kind !== 'reply' && run.projectWorkspace) {
+      if (run.task.kind !== 'reply' && (run.projectWorkspace || run.referenceScope?.roots.size)) {
         const outcome = z.object({ status: z.literal('completed'), summary: z.string().trim().min(1),
           paths: z.array(z.string().trim().min(1)).min(1).max(100) }).safeParse(JSON.parse(summary));
         if (!outcome.success) {
@@ -333,7 +364,7 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
     throw new RunStopped('执行结束且本轮结果未确认');
   }
 
-  async function validateWorkspaceProof(run: Run, reads: FileReadEvidence[], references: string[]) {
+  async function validateWorkspaceProof(run: Run, reads: ReadOnlyEvidence[], references: string[]) {
     if (run.task.kind === 'reply') return { proof: {}, changes: undefined };
     if (!run.cwd || !run.baseSha) throw new RunStopped('缺少受限工作区基线');
     try {
@@ -361,7 +392,8 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
         const test = await verifyFixtureRepair(run.cwd, changes, signal);
         return { changes, proof: { repair_verified: true, workspace_sha256: changes.sha256, test } };
       }
-      if (!reads.length || changes.diff || changes.changed.length || changes.untracked.length) throw new Error('missing read or unexpected changes');
+      if (!reads.length || changes.diff || changes.changed.length || changes.untracked.length
+          || !references.every(path => reads.some(read => read.path === path))) throw new Error('missing read or unexpected changes');
       return { changes, proof: { analysis_verified: true, workspace_sha256: changes.sha256, reads } };
     } catch (error) {
       if (error instanceof FixtureProcessUnknown) throw error;
@@ -376,6 +408,10 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
     try {
       store.beginAttempt(lease, run.attempt.id);
       checkRunning(run);
+      if (run.task.kind === 'analysis' && run.project.reference_access !== 'workspace') {
+        run.referenceScope = await captureReferenceScope(db, run.task.id, run.task.project_id, run.project, referencePolicy, run.abort.signal);
+        checkRunning(run);
+      }
       const { cwd, thread: existingThread } = await prepareRunWorkspace(run);
       checkRunning(run);
       store.recordWorkspace(lease, run.attempt.id, cwd, run.baseSha ?? null);
@@ -386,7 +422,8 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
       checkRunning(run);
       store.recordThread(lease, run.attempt.id, thread);
       record(db, run.task.id, 'worker_thread_bound', '', { attempt_id: run.attempt.id, thread_id: thread,
-        evidence_source: run.source, project_key: projectKey(run.project), kind: run.task.kind, resumed: !!existingThread });
+        evidence_source: run.source, project_key: projectKey(run.project), kind: run.task.kind, resumed: !!existingThread,
+        reference_scope_key: run.referenceScope?.roots.size ? run.referenceScope.bindingKey : undefined });
       const task = db.prepare('SELECT goal FROM tasks WHERE id=? AND revision=? AND control_version=?')
         .get(run.task.id, run.attempt.revision, run.attempt.control_version);
       if (typeof task?.goal !== 'string' || !task.goal.trim() || task.goal.length > 20_000) {
@@ -395,8 +432,12 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
       run.messageCursor = latestMessage(run.task.id);
       const assembled = env.SUPERAGENT_CONTEXT_MODE === 'decisions' ? assembleContext(db, run.task.id) : undefined;
       const context = assembled?.prompt ?? legacyFollowups(run.task.id);
-      const prompt = buildWorkerPrompt(run.task.kind, { goal: task.goal, context, workspace: cwd,
+      const referenceAliases = [...(run.referenceScope?.roots.keys() ?? [])];
+      let prompt = buildWorkerPrompt(run.task.kind, { goal: task.goal, context, workspace: cwd, referenceAliases,
         allowedPaths: run.task.kind === 'repair' ? allowedPaths(run.project) : undefined });
+      if (run.task.kind === 'reply' && !db.prepare("SELECT id FROM events WHERE task_id=? AND event_type='analysis_reference_scope' LIMIT 1").get(run.task.id)) {
+        prompt = prepareReplyDecision(db, run.task.id, run.attempt.id, prompt, assembled?.items);
+      }
       const configuration = settings(db);
       const profile = object(object(configuration.codex_task_profiles)?.[run.task.kind]);
       const model = profile?.model ?? configuration.codex_model;
@@ -414,6 +455,8 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
         }
       }
       checkRunning(run);
+      if (referenceAliases.length) record(db, run.task.id, 'analysis_reference_scope', '', { attempt_id: run.attempt.id,
+        thread_id: thread, revision: run.attempt.revision, control_version: run.attempt.control_version, references: referenceAliases });
       store.prepareTurn(lease, run.attempt.id, assembled?.items);
       if (client.billing === 'subscription') {
         audit(db, 'scheduler', 'model.plan_run', run.task.id, { attempt_id: run.attempt.id, evidence_source: run.source,
@@ -502,9 +545,8 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
       try {
         if (assignedNode(db, task.project_id, env)) blocked = '项目已绑定远端节点，由 Python 已绑定节点承载；现场切换需单控制器';
       } catch { blocked = '远端节点配置无效，禁止派到本地'; }
-      if (!blocked && task.kind !== 'reply' && (/^[/\\]{2}/.test(project.repo_path)
-          || (task.kind === 'analysis' && project.reference_access !== 'workspace'))) {
-        blocked = '共享目录或跨项目只读资料范围由 Python 承载；现场切换需单控制器';
+      if (!blocked && task.kind !== 'reply' && /^[/\\]{2}/.test(project.repo_path)) {
+        blocked = '共享执行目录由 Python 承载；现场切换需单控制器';
       }
       if (blocked) {
         tx(db, () => {
@@ -620,6 +662,8 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
   });
 
   return {
+    isActive: taskId => runs.has(taskId),
+    canRunReply: () => settings(db).scheduler_enabled === true && !!driverFrom(env, store),
     async stop(taskId) {
       const run = runs.get(taskId);
       if (!run?.done) return false;

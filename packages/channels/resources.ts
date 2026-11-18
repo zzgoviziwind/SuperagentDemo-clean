@@ -33,7 +33,7 @@ export async function discard(base:string,path:string):Promise<void> {
   for(const n of await readdir(path)) await discard(path,join(path,n));
   await rmdir(path);
 }
-export async function accept(dir:string,name:unknown,body:Buffer,type:unknown,limit:number) {
+export function inspectAttachment(name:unknown,body:Buffer,type:unknown,limit:number) {
   const file=filename(name),mime=mimes[extname(file).toLowerCase()];
   if(!mime || mime!==String(type).split(';')[0].trim().toLowerCase() || !body.length || body.length>limit) invalid('attachment_type_or_size');
   let valid=false;
@@ -49,9 +49,13 @@ export async function accept(dir:string,name:unknown,body:Buffer,type:unknown,li
     }
   }
   if(!valid) invalid('attachment_content_mismatch');
+  return {filename:file,content_type:mime,size:body.length,sha256:createHash('sha256').update(body).digest('hex')};
+}
+export async function accept(dir:string,name:unknown,body:Buffer,type:unknown,limit:number) {
+  const metadata=inspectAttachment(name,body,type,limit),file=metadata.filename;
   const path=join(await directory(dir),file), out=await open(path,'wx');
   try{await out.writeFile(body);await out.sync();}finally{await out.close();}
-  return {local_path:path,filename:file,content_type:mime,size:body.length,sha256:createHash('sha256').update(body).digest('hex')};
+  return {local_path:path,...metadata};
 }
 export async function boundedBytes(response:Response,limit:number) {
   const expected=response.headers.get('content-length');
@@ -66,7 +70,7 @@ export async function boundedBytes(response:Response,limit:number) {
     return Buffer.concat(chunks);
   }finally{await reader.cancel().catch(()=>{});reader.releaseLock();}
 }
-export async function inventory(root:string) {
+export async function inventory(root:string,maxFiles=10,maxTotalBytes=40*MiB) {
   const files=new Map<string,number>();let total=0,dirs=0;
   async function visit(path:string) {
     const st=await lstat(path);
@@ -75,7 +79,7 @@ export async function inventory(root:string) {
       if(++dirs>32) invalid('dws_media_size_limit');
       for(const n of await readdir(path)) await visit(join(path,filename(n)));
     } else {
-      if(!st.isFile()||st.nlink!==1||st.size>10*MiB || files.size>=10 || (total+=st.size)>40*MiB) invalid('dws_media_size_limit');
+      if(!st.isFile()||st.nlink!==1||st.size>10*MiB || files.size>=maxFiles || (total+=st.size)>maxTotalBytes) invalid('dws_media_size_limit');
       files.set(relative(root,path).split(sep).join('/'),st.size);
     }
   }

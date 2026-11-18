@@ -20,10 +20,14 @@ function contained(parent: string, child: string) {
 function parts(input: unknown): string[] {
   if (typeof input !== 'string' || !input || input.length > 1024 || isAbsolute(input)) throw new Error('工作区相对路径无效');
   const items = input.replaceAll('\\', '/').split('/');
-  const forbidden = /^(?:\.|\.\.|\.git|\.env(?:\..*)?|\.aws|\.ssh|\.codex|\.agents|credentials|id_rsa|id_ed25519|con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
-  if (items.some(item => !item || /[\x00-\x1f:<>|"?*]/.test(item) || /[ .]$/.test(item) || forbidden.test(item)
-      || /\.(?:pem|key|pfx|p12)$/i.test(item) || /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])\./i.test(item))) throw new Error('路径包含受限文件名');
+  const forbidden = /^(?:\.|\.\.|\.git|\.env(?:\..*)?|\.aws|\.ssh|\.codex|\.agents|\.npmrc|\.netrc|\.pypirc|secrets\.json|credentials(?:\.json)?|id_rsa|id_ed25519|con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+  if (items.length > 40 || items.some(item => !item || /[\x00-\x1f:<>|"?*]/.test(item) || /[ .]$/.test(item) || forbidden.test(item)
+      || /\.(?:pem|key|pfx|p12|jks|keystore|p8|kdbx)$/i.test(item) || /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])\./i.test(item))) throw new Error('路径包含受限文件名');
   return items;
+}
+
+export async function resolveInspectionPath(root: string, path: string) {
+  return safePath(root, path === '.' ? [] : parts(path));
 }
 
 async function safePath(root: string, names: string[], allowMissing = false) {
@@ -117,8 +121,8 @@ async function readRegular(root: string, path: unknown, limit: number) {
   } finally { await f.close(); }
 }
 
-export async function readWorkspaceText(root: string, path: unknown): Promise<{ text: string; evidence: FileReadEvidence }> {
-  const { path: name, bytes } = await readRegular(root, path, 32_768);
+export async function readWorkspaceText(root: string, path: unknown, limit = 32_768): Promise<{ text: string; evidence: FileReadEvidence }> {
+  const { path: name, bytes } = await readRegular(root, path, Math.min(1_048_576, limit));
   const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   if (!text.trim() || /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(text)) throw new Error('没有可验证的文本内容');
   return { text, evidence: { source: 'host-filesystem-read', path: name, size: bytes.length, sha256: digest(bytes) } };

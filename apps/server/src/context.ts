@@ -134,7 +134,7 @@ export function registerContext(app:FastifyInstance,db:DatabaseSync) {
       }
       const result=db.prepare("INSERT INTO decisions(project_id,task_id,event_id,kind,content,status,revision,actor,created_at) VALUES(?,?,?,?,?,'active',?,?,?) RETURNING *")
         .get(d.project_id,d.task_id??null,d.event_id??null,d.kind,redact(d.content),t?.revision??null,req.principal.user_id,utc())!;
-      audit(db,req.principal.user_id,'context.decision.create',Number(result.id));
+      audit(db,req.principal.user_id,'context.decision.create',Number(result.id),{task_id:result.task_id,revision:result.revision,status:result.status});
       return result;
     });
     return res.code(201).send(row);
@@ -150,7 +150,7 @@ export function registerContext(app:FastifyInstance,db:DatabaseSync) {
       }
       if(row.status==='revoked') return row;
       if(row.status!=='active') fail(409,'该决定已被替代');
-      audit(db,req.principal.user_id,'context.decision.revoke',id);
+      audit(db,req.principal.user_id,'context.decision.revoke',id,{task_id:row.task_id,revision:row.revision,status:'revoked'});
       return db.prepare("UPDATE decisions SET status='revoked',revoked_at=?,revoked_by=?,revocation_reason=? WHERE id=? RETURNING *").get(utc(),req.principal.user_id,redact(reason),id);
     });
   });

@@ -35,7 +35,9 @@ export function admission(db:DatabaseSync,e:Source,access:Access|null) {
 }
 export function selectAdmissionProject(db:DatabaseSync,id:number,e:Source,access:Access,candidates:number[]) {
   const rows=db.prepare('SELECT id,enabled,name,dingtalk_chat_ids FROM projects WHERE enabled AND NOT archived AND id IN (SELECT value FROM json_each(?))').all(JSON.stringify(candidates));
-  const group=[e.metadata.conversation_title,e.metadata.chat_name,access.group_names[e.thread_id??'']].filter(Boolean).join('\n').toLowerCase();
+  const saved=db.prepare("SELECT value FROM governance_settings WHERE key='dingtalk_response_policy'").get();
+  const policyNames=saved?JSON.parse(String(saved.value))?.group_names:null;
+  const group=[e.metadata.conversation_title,e.metadata.chat_name,access.group_names[e.thread_id??''],policyNames?.[e.thread_id??'']].filter(Boolean).join('\n').toLowerCase();
   function named(input:string) {return rows.filter(r=>[String(r.name),...access.project_hints.find(h=>h.project_id===r.id)?.keywords??[]]
     .some(w=>w.trim() && input.includes(w.trim().toLowerCase())));}
   let matches=named(e.content.toLowerCase());

@@ -1,7 +1,7 @@
 import { spawnOwned } from '@superagent/windows-job';
 import { statSync } from 'node:fs';
-import { readFile, mkdtemp } from 'node:fs/promises';
-import { accept, directory, discard, fileMime, filename, inventory, invalid, MiB } from './resources.ts';
+import { readFile, mkdtemp, stat } from 'node:fs/promises';
+import { accept, directory, discard, fileMime, filename, inspectAttachment, inventory, invalid, MiB } from './resources.ts';
 import { basename, delimiter, extname, isAbsolute, join } from 'node:path';
 import { once } from 'node:events';
 import { StringDecoder } from 'node:string_decoder';
@@ -9,7 +9,7 @@ import type { Readable } from 'node:stream';
 import { ChannelError, CursorStore, utc } from './common.ts';
 import type { Incoming, Emit } from './common.ts';
 import type { Fields, Json } from '../storage/index.ts';
-import type { DingTalkHistoryBinding, DingTalkHistoryPage } from '../../apps/server/src/workbench/runtime.ts';
+import type { DingTalkHistoryBinding, DingTalkHistoryPage, DingTalkImageBinding, DingTalkSourceImage } from '../../apps/server/src/workbench/runtime.ts';
 
 export interface DwsConfig {
   executable:string|string[];profile:string;self_ids:string[];cwd?:string;kind?:'group'|'at-me'|'all-direct';chat_id?:string;
@@ -58,6 +58,13 @@ async function executable(c:DwsConfig,args:string[],env:NodeJS.ProcessEnv) {
   if(!command[0]) throw new ChannelError('dws_executable_unavailable');
   const childEnv:NodeJS.ProcessEnv={};
   for(const k of ['PATH','SystemRoot','WINDIR','HOME','APPDATA','LOCALAPPDATA','USERPROFILE','TEMP','TMP','LANG']) if(env[k]) childEnv[k]=env[k];
+  const configDir=env.DWS_CONFIG_DIR;
+  if(configDir){
+    // Windows also treats paths rooted on the current drive and UNC paths as absolute.
+    const localAbsolute=isAbsolute(configDir) && (process.platform!=='win32' || /^(?:\\\\\?\\)?[a-z]:[\\/]/i.test(configDir));
+    if(!localAbsolute || !(await stat(configDir).catch(()=>undefined))?.isDirectory()) throw new ChannelError('dws_config_dir_invalid');
+    childEnv.DWS_CONFIG_DIR=configDir;
+  }
   let binary=command[0];
   if(!isAbsolute(binary)) {
     if(basename(binary)!==binary) throw new ChannelError('dws_executable_unavailable');
@@ -89,14 +96,20 @@ async function runJson(c:DwsConfig,args:string[],env:NodeJS.ProcessEnv,signal:Ab
   }catch {throw new ChannelError(write?'dws_write_outcome_unknown':'dws_read_failed',write);}
   finally {signal.removeEventListener('abort',kill);if(p.exitCode===null && !p.signalCode) kill();await end.catch(()=>{});}
 }
-export async function downloadDws(c:DwsConfig,conversation:string,message:string,dir:string,env:NodeJS.ProcessEnv,signal:AbortSignal) {
+type MediaReadOptions<T> = {
+  maxFiles:number; maxTotalBytes:number;
+  verifyMessage?:(row:Record<string,unknown>,page:Record<string,unknown>)=>void;
+  consume:(name:string,body:Buffer,resourceId:unknown)=>Promise<T>|T;
+};
+async function readDwsMedia<T>(c:DwsConfig,conversation:string,message:string,dir:string,env:NodeJS.ProcessEnv,signal:AbortSignal,
+  options:MediaReadOptions<T>) {
   if(!conversation || !message || message.includes(',')) invalid('dws_media_scope_missing');
   await verifyDws(c,env,signal);
   const scratch=await mkdtemp(join(await directory(dir),'.dws-'));
   const stop=new AbortController(),active=AbortSignal.any([signal,stop.signal]);
   let probing:Promise<void>|undefined;
   const monitor=setInterval(()=>{
-    probing??=inventory(scratch).then(()=>{},()=>stop.abort()).finally(()=>{probing=undefined;});
+    probing??=inventory(scratch,options.maxFiles,options.maxTotalBytes).then(()=>{},()=>stop.abort()).finally(()=>{probing=undefined;});
   },50);
   try {
     const page=await runJson({...c,cwd:scratch},['chat','+messages-mget','--msg-ids',message,'--no-reactions','--no-threads',
@@ -105,19 +118,56 @@ export async function downloadDws(c:DwsConfig,conversation:string,message:string
     const ledger=page.resourceDownloads,items=ledger?.downloads;
     if(page.messages.length!==1 || page.messages[0].conversationId!==conversation || page.messages[0].messageId!==message ||
       ledger?.ok!==true || ledger.partial!==false || ledger.failedCount!==0 || ledger.failures?.length || !Array.isArray(items) ||
-      !items.length || items.length>10 || ledger.requestedCount!==items.length || ledger.downloadedCount!==items.length) invalid('dws_media_incomplete');
-    const files=await inventory(scratch),results=[];
+      !items.length || items.length>options.maxFiles || ledger.requestedCount!==items.length || ledger.downloadedCount!==items.length) invalid('dws_media_incomplete');
+    options.verifyMessage?.(page.messages[0],page);
+    const files=await inventory(scratch,options.maxFiles,options.maxTotalBytes),results:T[]=[];
     for(const item of items) {
       const path=item.localPath;
       if(typeof path!=='string'||!path.startsWith('downloads/') || !files.has(path) || files.get(path)!==item.sizeBytes ||
         !item.resourceId || !['fileId','mediaId'].includes(item.resourceType)||item.messageId!==message) invalid('dws_media_unverified');
       files.delete(path);active.throwIfAborted();
       const name=filename(basename(path));
-      results.push(await accept(dir,name,await readFile(join(scratch,path)),fileMime(name),10*MiB));
+      const body=await readFile(join(scratch,path));
+      if(body.length!==item.sizeBytes) invalid('dws_media_unverified');
+      results.push(await options.consume(name,body,item.resourceId));
     }
     if(files.size) invalid('dws_media_unlisted_files');
     return results;
   }finally{clearInterval(monitor);await probing;await discard(dir,scratch);}
+}
+export function downloadDws(c:DwsConfig,conversation:string,message:string,dir:string,env:NodeJS.ProcessEnv,signal:AbortSignal) {
+  return readDwsMedia(c,conversation,message,dir,env,signal,{maxFiles:10,maxTotalBytes:40*MiB,
+    consume:(name,body)=>accept(dir,name,body,fileMime(name),10*MiB)});
+}
+
+export async function readDwsSourceImages(c:DwsConfig,b:DingTalkImageBinding,dir:string,env:NodeJS.ProcessEnv,
+  signal:AbortSignal,resourceIds:ReadonlySet<string>):Promise<DingTalkSourceImage[]> {
+  const active=AbortSignal.any([signal,AbortSignal.timeout(30_000)]);
+  if(!Number.isSafeInteger(b.eventId) || b.eventId<=0 || c.profile!==b.profile || !b.peer || c.self_ids.includes(b.peer)
+    || !c.self_ids.length || new Set(b.selfIds).size!==new Set(c.self_ids).size || c.self_ids.some(id=>!b.selfIds.includes(id)))
+    invalid('dws_private_scope_mismatch');
+  // Some mget versions omit senderId. The complete peer history proves ownership of this exact message.
+  await readOwnDingTalk(c,b,env,active);
+  const seen=new Set<string>();
+  const images=await readDwsMedia(c,b.conversation,b.anchorId,dir,env,active,{
+    maxFiles:4,maxTotalBytes:20*MiB,
+    verifyMessage(row,page){
+      const sender=typeof row.senderId==='string' ? c.history?.sender_map?.[row.senderId]??row.senderId : undefined;
+      if((row.senderId!==undefined && sender!==b.peer) || row.singleChat===false || (page.profile!==undefined && page.profile!==b.profile)
+        || (row.profile!==undefined && row.profile!==b.profile)) invalid('dws_private_scope_mismatch');
+    },
+    consume(name,body,resourceId){
+      const meta=inspectAttachment(name,body,fileMime(name),10*MiB);
+      if(!meta.content_type.startsWith('image/')) return;
+      if(resourceIds.size && (typeof resourceId!=='string' || !resourceIds.has(resourceId))) invalid('dws_media_resource_mismatch');
+      if(seen.has(meta.sha256)) return;
+      seen.add(meta.sha256);
+      return {bytes:body,contentType:meta.content_type};
+    },
+  });
+  await verifyDws(c,env,active);
+  active.throwIfAborted();
+  return images.filter((image):image is NonNullable<typeof image>=>image!==undefined);
 }
 export async function verifyDws(c:DwsConfig,env:NodeJS.ProcessEnv,signal:AbortSignal) {
   const status=await runJson(c,['auth','status','--readonly','--format','json'],env,AbortSignal.any([signal,AbortSignal.timeout(5000)]));
@@ -125,6 +175,24 @@ export async function verifyDws(c:DwsConfig,env:NodeJS.ProcessEnv,signal:AbortSi
   const ids=[identity.openDingTalkId,identity.open_dingtalk_id,identity.userId,identity.user_id];
   if(status.authenticated===false || status.loggedIn===false || !ids.some(v=>typeof v==='string' && c.self_ids.includes(v)))
     throw new ChannelError('dws_account_mismatch');
+}
+export async function searchDwsGroups(c:DwsConfig,query:string,cursor:string,env:NodeJS.ProcessEnv,signal:AbortSignal) {
+  const args=['chat','+chat-search','--query',query.trim(),'--limit','20','--format','json'];
+  if(cursor) args.push('--cursor',cursor);
+  const page=await runJson(c,args,env,AbortSignal.any([signal,AbortSignal.timeout(25000)]));
+  if(!Array.isArray(page?.chats)) throw new ChannelError('dws_group_page_invalid');
+  const items=page.chats.flatMap((row:Record<string,unknown>|null)=>
+    typeof row?.openConversationId==='string'?[{id:row.openConversationId,name:typeof row.name==='string'&&row.name?row.name:'群名称未提供'}]:[]);
+  return {items,complete:page.complete===true && page.hasMore===false,has_more:page.hasMore??null,
+    stop_reason:page.stopReason??null,next_cursor:page.nextCursor==null?null:String(page.nextCursor)};
+}
+export async function readDwsGroup(c:DwsConfig,id:string,env:NodeJS.ProcessEnv,signal:AbortSignal) {
+  const page=await runJson(c,['chat','+conversation-info','--group',id,'--format','json'],env,
+    AbortSignal.any([signal,AbortSignal.timeout(25000)]));
+  const info=page?.conversationInfo;
+  if(info?.openConversationId!==id || info.singleChat!==false || typeof info.title!=='string' || !info.title.trim())
+    throw new ChannelError('dws_group_info_invalid');
+  return {id,name:info.title.trim()};
 }
 export async function replyDws(c:DwsConfig,target:Fields,content:string,actionId:string,env:NodeJS.ProcessEnv,signal:AbortSignal) {
   if(target.profile!==c.profile || !target.conversation_id || !target.message_id || !content.trim()) throw new ChannelError('dws_target_mismatch');

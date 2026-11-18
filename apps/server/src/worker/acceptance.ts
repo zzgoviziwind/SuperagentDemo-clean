@@ -10,14 +10,18 @@ import type { Row } from '../sql.js';
 type Decision = { accepted: boolean; revision: number };
 type Snapshot = Awaited<ReturnType<typeof fixtureWorkspaceSnapshot | typeof projectWorkspaceSnapshot>>;
 type WorkspaceRecheck = { path: string; attemptId: string; verificationId: number; snapshot: Snapshot; projectKey?: string };
-export type WorkerProject = { repo_path: string; base_branch: string; repositories: string; test_command: string; allowed_paths: string; reference_access: string };
+export type WorkerProject = { repo_path: string; base_branch: string; repositories: string; test_command: string; allowed_paths: string;
+  reference_access: string; reference_dirs: string };
 
 export function workerProject(db: DatabaseSync, id: number) {
-  return db.prepare(`SELECT repo_path,base_branch,repositories,test_command,allowed_paths,reference_access FROM projects
+  return db.prepare(`SELECT repo_path,base_branch,repositories,test_command,allowed_paths,reference_access,reference_dirs FROM projects
     WHERE id=? AND enabled AND NOT archived`).get(id) as WorkerProject | undefined;
 }
 
-export const workerProjectKey = (project: WorkerProject) => createHash('sha256').update(JSON.stringify(project)).digest('hex');
+export function workerProjectKey(project: WorkerProject) {
+  const { reference_dirs, ...base } = project;
+  return createHash('sha256').update(JSON.stringify(project.reference_access === 'directories' ? { ...base, reference_dirs } : base)).digest('hex');
+}
 
 function latestVerification(db: DatabaseSync, taskId: number, revision: number) {
   return db.prepare(`SELECT id,content,attempt_id FROM artifacts WHERE task_id=? AND revision=? AND kind='verification'

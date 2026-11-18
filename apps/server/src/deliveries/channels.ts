@@ -1,11 +1,13 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { DatabaseSync } from 'node:sqlite';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { join } from 'node:path';
 import { z } from 'zod';
 import { ChannelError, CursorStore } from '../../../../packages/channels/common.ts';
 import type { Incoming } from '../../../../packages/channels/common.ts';
 import { Redmine, RedminePoller, redmineAccountMap } from '../../../../packages/channels/redmine.ts';
-import { listenDws, readOwnDingTalk, replyDws, verifyDws } from '../../../../packages/channels/dingtalk.ts';
+import { listenDws, readDwsGroup, readDwsSourceImages, readOwnDingTalk, replyDws, searchDwsGroups, verifyDws } from '../../../../packages/channels/dingtalk.ts';
+import { sourceImageReceipt } from '../../../../packages/channels/source-image.ts';
 import type { Scope, DwsConfig } from '../../../../packages/channels/dingtalk.ts';
 import { cardConfig, cardReceiver, decodeCard } from '../../../../packages/channels/feishu.ts';
 import { notifyCard,upgradeNoticeTable } from '../../../../packages/channels/feishu-notices.ts';
@@ -16,7 +18,9 @@ import { ingestChannelEvent } from './echo.ts';
 import { fail, roleOf } from '../auth.js';
 import { admin } from '../sql.js';
 import { configureWorkbenchRuntime, workbenchRuntime } from '../workbench/runtime.ts';
-import type { DingTalkHistoryBinding } from '../workbench/runtime.ts';
+import type { DingTalkHistoryBinding, DingTalkImageBinding } from '../workbench/runtime.ts';
+import { unassignedContext } from '../workbench/semantic-engine.ts';
+import { WorkbenchStore, type Event } from '../workbench/store.ts';
 
 type Name='redmine'|'dingtalk';
 const names=['dingtalk','redmine'] as const;
@@ -196,6 +200,38 @@ function initialize(app:FastifyInstance,store:Storage,lease:Lease,root:string,en
     return refresh();
   }
   app.get('/api/v1/connectors',async()=>statuses());
+  async function groupDirectory<T>(reply:FastifyReply,lookup:(config:DwsConfig,signal:AbortSignal)=>Promise<T>,unavailable:string) {
+    const current=()=>channelConfig(db,env,'dingtalk');
+    const config=ding.safeParse(current());
+    if(!config.success) fail(409,'请先配置钉钉组织和本地程序');
+    if(!native || !config.data.enabled || stopped.has('dingtalk')) fail(409,'当前钉钉渠道未启用');
+    const stoppedOnChange=runs.get('dingtalk')?.abort.signal;
+    const signal=stoppedOnChange?AbortSignal.any([lifetime.signal,stoppedOnChange]):lifetime.signal;
+    const before=JSON.stringify(current());
+    let page;
+    try {page=await lookup({...config.data,cwd:root},signal);}
+    catch(err){
+      if(signal.aborted) fail(409,'钉钉配置或运行状态已变化');
+      if(err instanceof ChannelError && err.message==='dws_group_page_invalid') return reply.code(502).send({detail:'钉钉群搜索结果格式无法识别'});
+      if(err instanceof ChannelError && err.message==='dws_group_info_invalid') return reply.code(502).send({detail:'钉钉群资料未返回有效的群原名'});
+      return reply.code(503).send({detail:unavailable});
+    }
+    if(stopped.has('dingtalk') || signal.aborted || JSON.stringify(current())!==before) fail(409,'钉钉配置或运行状态已变化');
+    return page;
+  }
+  app.get('/api/v1/connectors/dingtalk/groups',async (req,reply)=>{
+    admin(req.principal);
+    const {q,cursor}=z.strictObject({
+      q:z.string().refine(v=>!!v.trim() && [...v].length<=100 && !v.includes('\0')),
+      cursor:z.string().refine(v=>[...v].length<=2000 && !v.includes('\0')).default(''),
+    }).parse(req.query);
+    return groupDirectory(reply,(c,s)=>searchDwsGroups(c,q,cursor,env,s),'钉钉群名称查询暂不可用，请检查网络后重试。已配置群可填写名称备注。');
+  });
+  app.get('/api/v1/connectors/dingtalk/group',async(req,reply)=>{
+    admin(req.principal);
+    const {chat_id}=z.strictObject({chat_id:z.string().min(1).refine(v=>[...v].length<=2000&&!v.includes('\0'))}).parse(req.query);
+    return groupDirectory(reply,(c,s)=>readDwsGroup(c,chat_id,env,s),'钉钉群原名暂不可用，请稍后重试');
+  });
   app.post('/api/v1/connectors/:name/:action',async req=>{
     admin(req.principal);
     const {name,action}=z.object({name:z.enum(names),action:z.enum(['start','stop'])}).parse(req.params);
@@ -240,17 +276,35 @@ function initialize(app:FastifyInstance,store:Storage,lease:Lease,root:string,en
       });
     });
   }
-  const readOwn=async(binding:DingTalkHistoryBinding,signal:AbortSignal)=>{
+  async function privateRead<T>(signal:AbortSignal,read:(config:DwsConfig,active:AbortSignal)=>Promise<T>) {
     if(!native || stopped.has('dingtalk')) throw new ChannelError('dws_disabled');
-    const current=()=>channelConfig(db,env,'dingtalk'),config=ding.parse(current());
-    if(!config.enabled) throw new ChannelError('dws_disabled');
-    const before=JSON.stringify(current()), active=AbortSignal.any([signal,lifetime.signal]);
+    const current=()=>channelConfig(db,env,'dingtalk'),saved=current();
+    if(saved?.enabled!==true) throw new ChannelError('dws_disabled');
+    const config=ding.parse(saved);
+    const stoppedOnChange=runs.get('dingtalk')?.abort.signal;
+    const before=JSON.stringify(current()), active=AbortSignal.any([signal,lifetime.signal,...(stoppedOnChange?[stoppedOnChange]:[])]);
     guard(active);
-    const page=await readOwnDingTalk({...config,cwd:root},binding,env,active);
+    const page=await read({...config,cwd:root},active);
     guard(active);
     if(stopped.has('dingtalk') || JSON.stringify(current())!==before) throw new ChannelError('dws_configuration_changed');
     return page;
-  };
-  if(native) configureWorkbenchRuntime(app,{...workbenchRuntime(app),readOwnDingTalk:readOwn});
-  return {prepare,statuses,reconcile,readOwnDingTalk:readOwn};
+  }
+  const readOwn=(binding:DingTalkHistoryBinding,signal:AbortSignal)=>
+    privateRead(signal,(config,active)=>readOwnDingTalk(config,binding,env,active));
+  const workbench=new WorkbenchStore(db);
+  const readImages=(binding:DingTalkImageBinding,signal:AbortSignal)=>privateRead(signal,async(config,active)=>{
+    const authorizedReceipt=()=>{
+      const receipt=sourceImageReceipt(db,binding);
+      const event=workbench.required<Event>('events',binding.eventId);
+      const context=unassignedContext(workbench,event,env,{allowBound:true,resolveRole:workbenchRuntime(app)?.resolveRole});
+      if(!context) throw new ChannelError('dws_source_unauthorized');
+      return receipt;
+    };
+    const receipt=authorizedReceipt(),base=env.SUPERAGENT_ATTACHMENTS_ROOT??join(root,'attachments');
+    const images=await readDwsSourceImages(config,binding,join(base,'triage'),env,active,receipt.resourceIds);
+    if(authorizedReceipt().snapshot!==receipt.snapshot) throw new ChannelError('dws_source_event_changed');
+    return images;
+  });
+  if(native) configureWorkbenchRuntime(app,{...workbenchRuntime(app),readOwnDingTalk:readOwn,readOwnDingTalkImages:readImages});
+  return {prepare,statuses,reconcile,readOwnDingTalk:readOwn,readOwnDingTalkImages:readImages};
 }

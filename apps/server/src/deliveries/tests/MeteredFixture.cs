@@ -30,7 +30,13 @@ class MeteredFixture
                 Emit(new { id, result = new { turn } });
                 var threadId = "offline-thread";
                 Emit(new { method = "turn/started", @params = new { threadId, turn } });
-                var item = new { type = "agentMessage", id = "message-1", text = "Offline budget verification" };
+                string reply = "Offline budget verification";
+                var parameters = (Dictionary<string, object>)frame["params"];
+                var input = (System.Collections.ArrayList)parameters["input"];
+                var prompt = (string)((Dictionary<string, object>)input[0])["text"];
+                if (prompt.Contains("offline-autoreply") && prompt.Contains("source_event_id") && prompt.Contains("guidance"))
+                    reply = Json.Serialize(new { decision = "send", reason = "offline source matched", reply = "Verified offline reply" });
+                var item = new { type = "agentMessage", id = "message-1", text = reply };
                 Emit(new { method = "item/completed", @params = new { threadId, turnId = turn.id, item } });
                 Emit(new { method = "turn/completed", @params = new { threadId, turn = new { turn.id, status = "completed" } } });
             } else Emit(new { id, error = new { code = -32601, message = "unsupported" } });

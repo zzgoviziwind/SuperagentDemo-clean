@@ -6,7 +6,7 @@
 
 - `FakeCodex.start({ cwd, scenario, exitAt, timeoutMs, turnResponseDelayMs })` 固定启动本包的 app-server 夹具。`cwd` 传入运行方独占的临时目录。`scenario` 可为 `reply`、`analysis`、`repair` 或 `approval`，默认 `reply`。Host 启用 `repairFixture` 时，`approval` 场景在收到批准后只允许改固定样例文件。
 - `startThread()` 默认 `read-only`。`startTurn(threadId, prompt)` 返回 `{ threadId, turnId }`，表示收到开始确认。用单个异步消费者读取 `events()`，按 thread/turn 处理 `turn/completed` 或 `runtime/disconnected`。`respondApproval(id, binding, 'approve' | 'reject')` 和 `respondReadTool(id, binding, text)` 只接受当前轮次的对应请求。离线审批通过 `serverRequest/resolved` 回传同轮请求确认。`close()` 返回是否已确认整树退出，`exited` 保留监督进程的业务退出码。
-- `openRestrictedCodex(options)` 为 Worker、Router 和 Watchdog 共同的受限入口。`source` 选固定夹具或服务端已固定的本机程序与登录目录。本机 `mode` 可选 `reply`、`analysis` 或 `repair`，默认 `reply`。reply 不允许工具；analysis 只接受同轮 Host `read_file` 回执；repair 使用独立工作区写入策略并拒绝提权。按原约定关闭插件、Hooks、Apps 和 MCP。通过 `account/read` 检查已登录类型及计划，只返回诊断需要的字段。
+- `openRestrictedCodex(options)` 为 Worker、Router 和 Watchdog 共同的受限入口。`source` 选固定夹具或服务端已固定的本机程序与登录目录。本机 `mode` 可选 `reply`、`analysis` 或 `repair`，默认 `reply`。reply 不允许工具；analysis 只接受同轮 Host 的文件列表、阅读和文本搜索回执；repair 使用独立工作区写入策略并拒绝提权。按原约定关闭插件、Hooks、Apps 和 MCP。通过 `account/read` 检查已登录类型及计划，只返回诊断需要的字段。
 - `resumeThread(threadId)` 校验响应的 thread ID 和真实 cwd；`steerTurn(binding, content)` 传递 `expectedTurnId` 并校验响应的 turn ID。期限、租约、同轮持久证据和预算由各消费方管理。共享卷和远端 daemon 暂由冻结的 Python 服务承载。
 - `FakeChannel.open(root)` 使用调用方独占的临时根目录。`send({ actionId, actionHash, target, content }, checkpoint?)` 将单份收件刷入临时文件，再原子发布到 `root/fake-channel-receipts`。`receipts()` 可在另一个进程中重开并读取。可执行测试中的独立发送进程用于验证发布前后退出。
 - 控制层在调用发送前持久化 `dispatching` 并校验授权、目标和版本。在异常或进程中断时，已进入发送的记录应等待核对。假收件保留每次实际写入，重复调用会产生第二条收件，使测试能揭示账本重发错误。

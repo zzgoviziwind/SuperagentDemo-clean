@@ -25,7 +25,8 @@ function event(db:DatabaseSync,task:number,type:string,content:string,data:objec
 // Called synchronously by the Worker before turn/start. The generated text is the actual input for that turn.
 export function prepareReplyDecision(db:DatabaseSync,taskId:number,attemptId:string,input:string,items?:readonly unknown[]) {
   const a=db.prepare(`SELECT a.revision,a.control_version FROM execution_attempts a JOIN tasks t ON t.id=a.task_id
-    WHERE a.id=? AND t.id=? AND a.phase='thread' AND a.status='running' AND a.revision=t.revision AND a.control_version=t.control_version`).get(attemptId,taskId);
+    WHERE a.id=? AND t.id=? AND t.kind='reply' AND NOT t.outcome_unknown AND t.status='running'
+      AND a.phase='thread' AND a.status='running' AND a.revision=t.revision AND a.control_version=t.control_version`).get(attemptId,taskId);
   const e=source(db,taskId);
   if(!e || !a) return input;
   const d=JSON.parse(String(e.data));
@@ -69,7 +70,9 @@ function collect(store:Storage,env:NodeJS.ProcessEnv) {
   for(const row of rows) {
     const task=Number(row.id),e=source(db,task);
     if(!e) continue;
-    const proof=JSON.parse(String(row.verification));
+    let proof;
+    try {proof=JSON.parse(String(row.verification));}catch{continue;}
+    if(!proof || typeof proof!=='object') continue;
     if(proof.host_checked!==true || proof.kind!==row.kind || proof.turn_status!=='completed' || proof.thread_id!==row.thread_id ||
       proof.turn_id!==row.turn_id || (row.kind==='reply' && proof.tool_less!==true)) continue;
     const fixture=proof.evidence_source==='offline-codex-fixture';

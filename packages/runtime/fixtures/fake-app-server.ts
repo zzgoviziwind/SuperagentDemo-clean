@@ -12,6 +12,7 @@ interface FixtureOptions {
   persistThreads?: boolean;
   holdForSteer?: boolean;
   projectPath?: string;
+  referenceFixturePath?: string;
 }
 
 interface Incoming {
@@ -37,6 +38,7 @@ const waiting = new Map<string, ActiveTurn>();
 let held: ActiveTurn | undefined;
 const history = `${process.cwd()}.threads.ndjson`;
 const repo = options.projectPath ?? '';
+const analysisPath = options.referenceFixturePath ?? (repo ? `${repo}/${analysisFile}` : analysisFile);
 if (repo && !/^[\p{L}\p{N}_-][\p{L}\p{N}_. -]*(?:\/[\p{L}\p{N}_-][\p{L}\p{N}_. -]*)*$/u.test(repo)) {
   throw new Error('Invalid fixture repository path');
 }
@@ -69,8 +71,8 @@ async function finish(binding: ActiveTurn, status: 'completed' | 'failed', steer
     const summary = steered ? '离线样例结果（已确认补充）' : '离线样例结果';
     const name = options.scenario === 'analysis' ? analysisFile : repairFile;
     await notify('item/completed', {
-      ...binding, item: { type: 'agentMessage', id: randomUUID(), text: options.projectPath !== undefined
-        ? JSON.stringify({ status: 'completed', summary, paths: [repo ? `${repo}/${name}` : name] }) : summary, simulated: true },
+      ...binding, item: { type: 'agentMessage', id: randomUUID(), text: options.projectPath !== undefined || options.referenceFixturePath
+        ? JSON.stringify({ status: 'completed', summary, paths: [options.scenario === 'analysis' ? analysisPath : repo ? `${repo}/${name}` : name] }) : summary, simulated: true },
     });
   }
   await notify('turn/completed', { threadId: binding.threadId, turn: { id: binding.turnId, status } });
@@ -100,7 +102,7 @@ async function turn(message: Incoming, threadId: string): Promise<void> {
       } });
     } else {
       await send({ id, method: 'item/tool/call', params: {
-        ...binding, callId: randomUUID(), tool: 'read_file', arguments: { path: repo ? `${repo}/${analysisFile}` : analysisFile },
+        ...binding, callId: randomUUID(), tool: 'read_file', arguments: { path: analysisPath },
       } });
     }
     return;

@@ -88,7 +88,7 @@ function references(store: WorkbenchStore, event: Event, projectId: number, prof
   return { reference: ref, fixedTarget: [...targets][0] };
 }
 
-function sourceAdmission(store: WorkbenchStore, event: Event, env: NodeJS.ProcessEnv) {
+function sourceAdmission(store: WorkbenchStore, event: Event, env: NodeJS.ProcessEnv, resolve?: typeofRole) {
   const data = event.data;
   const metadata = fields(data.metadata);
   const uncertain = metadata.uncertain_mentions;
@@ -109,7 +109,7 @@ function sourceAdmission(store: WorkbenchStore, event: Event, env: NodeJS.Proces
   const source = { source: event.source, actor_id: externalActor, thread_id: thread, content: event.content, metadata };
   const { actor, candidates } = admission(store.db, source, effectiveAccess);
   if (typeof actor?.user_id !== 'string') return;
-  const role = roleOf(env, actor.user_id);
+  const role = resolve ? resolve(actor.user_id) : roleOf(env, actor.user_id);
   if ((role !== 'admin' && role !== 'member') || !list(JSON.parse(String(actor.permissions ?? '[]'))).includes('request')) return;
   const direct = event.source === 'dingtalk' && metadata.dws_event_type === 'user_im_message_receive_o2o_all';
   if (event.source === 'dingtalk') {
@@ -160,12 +160,14 @@ export function admitSemantic(store: WorkbenchStore, event: Event, env: NodeJS.P
   return auth;
 }
 
-export function unassignedContext(store: WorkbenchStore, event: Event, env: NodeJS.ProcessEnv) {
-  const scope = sourceAdmission(store, event, env);
+type typeofRole = (user: string) => ReturnType<typeof roleOf>;
+export function unassignedContext(store: WorkbenchStore, event: Event, env: NodeJS.ProcessEnv,
+  options: { allowBound?: boolean; resolveRole?: typeofRole } = {}) {
+  const scope = sourceAdmission(store, event, env, options.resolveRole);
   const profile = scope?.metadata.profile;
   if (!scope?.direct || !scope.thread || typeof profile !== 'string' || !profile) return;
   const { projects } = currentBinding(store, event, scope);
-  if (projects.length === 1 && projects[0].enabled) return;
+  if (!options.allowBound && projects.length === 1 && projects[0].enabled) return;
   const { thread, externalActor, grants, actor } = scope;
   const at = Date.parse(event.created_at);
   if (!Number.isFinite(at)) return;

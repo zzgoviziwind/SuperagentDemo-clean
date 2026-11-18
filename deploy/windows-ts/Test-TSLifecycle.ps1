@@ -3,6 +3,10 @@ param(
     [Parameter(Mandatory)][string]$FirstInstaller,
     [Parameter(Mandatory)][string]$UpgradeInstaller,
     [Parameter(Mandatory)][string]$FailingInstaller,
+    [ValidatePattern('^[a-z0-9][a-z0-9_-]{0,63}$')][string]$FailingRelease = 'stage4-ts-failed-start',
+    [ValidatePattern('^[a-fA-F0-9]{64}$')][string]$FirstMainSha256,
+    [ValidatePattern('^[a-fA-F0-9]{64}$')][string]$UpgradeMainSha256,
+    [switch]$CheckUpgradeHealthVersion,
     [string]$EvidenceDirectory = ([IO.Path]::GetTempPath())
 )
 
@@ -21,6 +25,7 @@ $run = Join-Path ([IO.Path]::GetFullPath($EvidenceDirectory)) ('ts-life-' + [gui
 $instance = Join-Path $run ('Test ' + [char]0x7528 + [char]0x6237)
 $manager = Join-Path $instance 'SuperAgent.cmd'
 $fakeProject = Join-Path $run 'synthetic-project'
+$fingerprints = [Collections.Generic.List[object]]::new()
 [IO.Directory]::CreateDirectory($fakeProject) | Out-Null
 
 $port = $null
@@ -55,6 +60,7 @@ function Request-Local([string]$Resource, [string]$Method = 'GET', $Payload = $n
     $request = [Net.HttpWebRequest]::Create("http://127.0.0.1:$port$Resource")
     $request.Proxy = $null
     $request.AllowAutoRedirect = $false
+    $request.KeepAlive = $false
     $request.Timeout = 5000
     $request.ReadWriteTimeout = 5000
     $request.Method = $Method
@@ -72,23 +78,32 @@ function Request-Local([string]$Resource, [string]$Method = 'GET', $Payload = $n
     } finally { $response.Dispose() }
 }
 
-function Confirm-TS {
+function Confirm-TS([string]$Step, [string]$ExpectedMainSha256, [bool]$CheckHealthVersion = $false) {
     $diag = Get-Diagnose
     Assert-Same $diag.status 'running' 'Installed status'
     Assert-Same $diag.url "http://127.0.0.1:$port" 'Instance URL'
     $health = Request-Local '/health' | ConvertFrom-Json
     Assert-Same $health.implementation 'typescript' 'Actual TS health response'
     Assert-Same $health.status 'ok' 'Health status'
+    if ($CheckHealthVersion) { Assert-Same $health.version $diag.active 'Health version' }
     $index = Request-Local '/'
     $asset = [regex]::Match($index, 'src="(/assets/[^"]+)"').Groups[1].Value
     if (-not $asset -or -not (Request-Local $asset)) { throw 'Missing packaged React asset.' }
     $nodePath = (Get-Process -Id $diag.pid -ErrorAction Stop).Path
-    Assert-Same (Get-FileHash -LiteralPath $nodePath -Algorithm SHA256).Hash $node.nodeSha256 'Running official Node executable'
+    $runningNodeSha256 = (Get-FileHash -LiteralPath $nodePath -Algorithm SHA256).Hash
+    Assert-Same $runningNodeSha256 $node.nodeSha256 'Running official Node executable'
     $release = Join-Path $instance "releases/$($diag.active)"
     $manifest = Get-Content -LiteralPath (Join-Path $release 'release.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     Assert-Same $manifest.nodeRuntime.archiveSha256 $node.archiveSha256 'Official archive recorded in manifest'
     Assert-Same $manifest.nodeRuntime.source $node.url 'Official source recorded in manifest'
     $diag | Add-Member NoteProperty mainSha256 (Get-FileHash -LiteralPath (Join-Path $release 'payload/apps/server/dist/main.js')).Hash
+    if ($ExpectedMainSha256) {
+        Assert-Same $diag.mainSha256 $ExpectedMainSha256.ToUpperInvariant() 'Expected packaged entry'
+    }
+    $fingerprints.Add([ordered]@{
+        step = $Step; release = $diag.active; healthVersion = $health.version; pid = $diag.pid
+        entrySha256 = $diag.mainSha256; nodeSha256 = $runningNodeSha256; script = $asset
+    })
     return $diag
 }
 
@@ -110,7 +125,7 @@ Write-Output "Evidence directory: $run"
 Write-Output "Temporary port: $port"
 try {
     $null = Invoke-Checked $first @('-InstallRoot', $instance, '-Port', $port)
-    $a = Confirm-TS
+    $a = Confirm-TS 'install' $FirstMainSha256
     $project = Request-Local '/api/v1/projects' 'POST' @{ name = 'Synthetic lifecycle project'; repo_path = $fakeProject } | ConvertFrom-Json
     $firstTask = Add-SyntheticTask $project.id 'Synthetic vA task'
     Confirm-Task $firstTask 'Synthetic vA task'
@@ -118,7 +133,7 @@ try {
     Write-Output "PASS actual install $($a.active): main=$($a.mainSha256), PID $($a.pid), SQLite task $firstTask"
 
     $null = Invoke-Checked $upgrade @('-InstallRoot', $instance)
-    $b = Confirm-TS
+    $b = Confirm-TS 'upgrade' $UpgradeMainSha256 $CheckUpgradeHealthVersion
     Assert-Same $b.previous $a.active 'Rollback target'
     Assert-Same $b.data $a.data 'Persistent data path after upgrade'
     if ($a.mainSha256 -eq $b.mainSha256 -or $a.pid -eq $b.pid) { throw 'Upgrade did not activate a different TS build.' }
@@ -129,25 +144,30 @@ try {
 
     $failure = Invoke-Checked $bad @('-InstallRoot', $instance) 'Startup failed'
     $failure | Set-Content -LiteralPath (Join-Path $run 'failed-upgrade.txt') -Encoding UTF8
-    $restored = Confirm-TS
+    $restored = Confirm-TS 'failure-restoration' $UpgradeMainSha256 $CheckUpgradeHealthVersion
     Assert-Same $restored.active $b.active 'Restored release'
     Assert-Same $restored.previous $a.active 'Unchanged previous release'
     if ($restored.pid -eq $b.pid) { throw 'The failed candidate did not exercise the restart path.' }
-    $failedLog = Get-ChildItem -LiteralPath $restored.logRoot -Directory | Where-Object Name -Match '-stage4-ts-failed-start-'
+    $failedLog = Get-ChildItem -LiteralPath $restored.logRoot -Directory |
+        Where-Object Name -Match ('-' + [regex]::Escape($FailingRelease) + '-[0-9a-f]{8}$') |
+        Sort-Object Name -Descending | Select-Object -First 1
+    if (-not $failedLog) { throw 'Could not locate the failed candidate startup log.' }
     $stderr = Join-Path $failedLog.FullName 'stderr.log'
     if (-not (Select-String -LiteralPath $stderr -Pattern 'SyntaxError|Cannot use import')) {
         throw 'The actual TS startup failure was not recorded.'
     }
+    Copy-Item -LiteralPath $stderr -Destination (Join-Path $run 'failed-start.stderr.log')
     Confirm-Task $firstTask 'Synthetic vA task'
     Confirm-Task $secondTask 'Synthetic vB task'
     Write-Output "PASS failed real TS startup, automatic restoration, retained stderr and both tasks"
 
     $null = Invoke-Checked $manager @('-Action','Rollback')
-    $rollback = Confirm-TS
+    $rollback = Confirm-TS 'rollback' $FirstMainSha256
     Assert-Same $rollback.mainSha256 $a.mainSha256 'Actual old code after rollback'
     Confirm-Task $secondTask 'Synthetic vB task'
     $null = Invoke-Checked $manager @('-Action','Rollback')
-    Assert-Same (Confirm-TS).mainSha256 $b.mainSha256 'Actual new code after roll forward'
+    $forward = Confirm-TS 'roll-forward' $UpgradeMainSha256 $CheckUpgradeHealthVersion
+    Assert-Same $forward.mainSha256 $b.mainSha256 'Actual new code after roll forward'
     Write-Output 'PASS explicit rollback and roll forward on one database'
 
     $null = Invoke-Checked $manager @('-Action','Configure','-CodexMode','Disabled')
@@ -175,7 +195,7 @@ try {
     Write-Output 'PASS uninstall interruption and retry, managed release removal, retained data and closed port'
 
     $null = Invoke-Checked $upgrade @('-InstallRoot', $instance)
-    $reinstalled = Confirm-TS
+    $reinstalled = Confirm-TS 'reinstall' $UpgradeMainSha256 $CheckUpgradeHealthVersion
     Assert-Same $reinstalled.active $b.active 'Reinstalled release'
     Assert-Same $reinstalled.data $b.data 'Reused data directory after reinstall'
     if ($reinstalled.previous) { throw 'Reinstall must not retain a removed rollback target.' }
@@ -184,7 +204,12 @@ try {
     Assert-Same (Get-FileHash -LiteralPath $config).Hash $configHash 'Launch configuration after reinstall'
     Write-Output 'PASS reinstall with original port, configuration and both actual TS tasks'
 } finally {
-    if (Test-Path -LiteralPath $manager -PathType Leaf) {
-        $null = Invoke-Checked $manager @('-Action','Stop')
+    try {
+        if (Test-Path -LiteralPath $manager -PathType Leaf) {
+            $null = Invoke-Checked $manager @('-Action','Stop')
+        }
+    } finally {
+        ConvertTo-Json -InputObject @($fingerprints.ToArray()) -Depth 4 |
+            Set-Content -LiteralPath (Join-Path $run 'lifecycle-fingerprints.json') -Encoding UTF8
     }
 }

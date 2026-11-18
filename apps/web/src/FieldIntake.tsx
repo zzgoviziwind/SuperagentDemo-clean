@@ -11,13 +11,14 @@ type Draft = { title: string; detail: string; kind: string; quote?: string; note
 type Candidate = { id: number; draft: Draft; decision?: { task_id: number | null; request: { action: Action; title: string } } };
 type RecordEntry = { id: string; title: string; project_id: number };
 type OrganizerMode = 'offline_sample' | 'local_ocr_codex' | 'local_evidence';
+type OrganizerStatus = { mode: OrganizerMode; timeline?: boolean; ocr?: boolean };
 type FieldRecord = RecordEntry & { notes: string; organizer: OrganizerMode; timeline_imported?: boolean;
   screenshots: { id: number; filename: string; at_ms?: number }[]; candidates: Candidate[];
   media?: { video: boolean } | null };
 type MediaJob = { id: string; title: string; state: 'queued' | 'running' | 'ready' | 'failed'; phase: string; error?: string };
 type MediaStatus = { ready: boolean; reason?: string; jobs: MediaJob[] };
 const phases: Record<string, string> = { queued: '等待处理', transcribing: '语音转写', organizing: '归纳事项',
-  extracting: '按需抽帧', vision: '核对画面', ready: '待审核' };
+  extracting: '按需抽帧', vision: '核对画面' };
 type Target = { id: number; title: string; state_version: number };
 type Project = { id: string | number; name: string; enabled: boolean };
 
@@ -100,8 +101,7 @@ export function FieldIntake({ projects, onOpen }: { projects: Project[]; onOpen:
   const [record, setRecord] = useState<FieldRecord>();
   const [targets, setTargets] = useState<Target[]>([]);
   const [notes, setNotes] = useState('');
-  const [mode, setMode] = useState<OrganizerMode>();
-  const [ocrReady, setOcrReady] = useState(false);
+  const [organizer, setOrganizer] = useState<OrganizerStatus>();
   const [files, setFiles] = useState<File[]>([]);
   const [manifest, setManifest] = useState<File>();
   const [mediaFile, setMediaFile] = useState<File>();
@@ -113,12 +113,12 @@ export function FieldIntake({ projects, onOpen }: { projects: Project[]; onOpen:
 
   useEffect(() => {
     void request<RecordEntry[]>('/field-intake/records').then(setHistory).catch(e => setError(e.message));
-    void request<{ mode: OrganizerMode; ocr?: boolean }>('/field-intake/organizer').then(data => {
-      setMode(data.mode);
-      setOcrReady(data.ocr === true);
-    }).catch(e => setError(e.message));
+    void request<OrganizerStatus>('/field-intake/organizer').then(setOrganizer).catch(e => setError(e.message));
   }, []);
-  const supportsTimeline = mode === 'local_ocr_codex' || mode === 'local_evidence';
+  const mode = organizer?.mode;
+  const ocrReady = organizer?.ocr === true;
+  const supportsTimeline = organizer?.timeline === true || mode === 'local_ocr_codex' || mode === 'local_evidence';
+  const samplePreview = mode === 'offline_sample' && !supportsTimeline;
   const mediaActive = mediaStatus?.jobs.some(job => ['queued', 'running'].includes(job.state));
   useEffect(() => {
     if (!supportsTimeline) return;
@@ -208,8 +208,8 @@ export function FieldIntake({ projects, onOpen }: { projects: Project[]; onOpen:
     <div className="field-layout">
       <section aria-labelledby="field-record-heading">
         <h2 id="field-record-heading">录入现场材料</h2>
-        <p className="muted">{mode === 'offline_sample'
-          ? '独立预览按笔记逐行拆分，截图供人工核对。'
+        <p className="muted">{samplePreview ? '独立预览按笔记逐行拆分，截图供人工核对。'
+          : mode === 'offline_sample' ? '在本机逐行整理笔记，可导入时间轴，截图供人工核对。'
           : mode === 'local_ocr_codex'
             ? '可在本机识别截图，或导入已有转写和识别结果。提交给 Codex 整理的文字请先脱敏。'
             : mode === 'local_evidence'
@@ -246,13 +246,13 @@ export function FieldIntake({ projects, onOpen }: { projects: Project[]; onOpen:
             {mediaFile && files.map((file, index) => <label key={`${index}:${file.name}`}>{file.name} · 距原文件开头秒数
               <input type="number" name={`time-${index}`} min={0} max={2700} step={0.001} required /></label>)}
             <div className="actions"><button className="primary">{mediaFile ? '提交后台处理' : '整理候选事项'}</button>
-              {mode === 'offline_sample' && <button type="button" onClick={() => setNotes(example)}>填入模拟笔记</button>}</div>
+              {samplePreview && <button type="button" onClick={() => setNotes(example)}>填入模拟笔记</button>}</div>
           </fieldset>
         </form>
         {!!mediaStatus?.jobs.length && <section aria-label="后台处理">
           <h3>后台处理</h3>
           {mediaStatus.jobs.map(job => <article className="field-candidate" key={job.id}>
-            <strong>{job.title}</strong><span>{job.state === 'failed' ? job.error : phases[job.phase]}</span>
+            <strong>{job.title}</strong><span>{job.state === 'ready' ? '待审核' : job.state === 'failed' ? job.error : phases[job.phase]}</span>
             {job.state === 'ready' && <button disabled={busy} onClick={() => void run(async () => {
               const row = await request<FieldRecord>(`/field-intake/records/${job.id}`);
               setHistory(current => [row, ...current.filter(item => item.id !== job.id)]);
@@ -271,12 +271,12 @@ export function FieldIntake({ projects, onOpen }: { projects: Project[]; onOpen:
       </section>
       <section aria-labelledby="field-review-heading">
         <h2 id="field-review-heading" ref={reviewHeading} tabIndex={-1}>审核候选事项</h2>
-        {busy && <p role="status">{organizing && mode !== 'offline_sample'
+        {busy && <p role="status">{organizing && !samplePreview
           ? mediaFile ? '正在上传音视频…' : manifest ? '正在导入时间轴并整理候选事项…'
-            : mode === 'local_evidence' && !ocrReady ? '正在整理候选事项…' : '正在识别截图并整理现场笔记…' : '正在处理…'}</p>}
+            : mode !== 'local_ocr_codex' && !ocrReady ? '正在整理候选事项…' : '正在识别截图并整理现场笔记…' : '正在处理…'}</p>}
         {!record ? <p className="muted">提交截图或笔记后，在这里逐条核对并分派。</p> : <>
           <p><strong>{record.title}</strong> · {record.candidates.filter(item => !item.decision).length} 条待审核
-            {record.media ? ' · 音视频整理' : record.timeline_imported ? ' · 时间轴导入' : record.organizer === 'offline_sample' && ' · 模拟整理'}</p>
+            {record.media ? ' · 音视频整理' : record.timeline_imported ? ' · 时间轴导入' : samplePreview && record.organizer === 'offline_sample' && ' · 模拟整理'}</p>
           {record.screenshots.map(image => <a className="field-evidence" key={image.id} target="_blank" rel="noreferrer"
             href={`/api/v1/field-intake/records/${record.id}/screenshots/${image.id}`}>截图 {image.id}{image.at_ms !== undefined && ` · ${fieldTime(image.at_ms)}`} · {image.filename}</a>)}
           {record.candidates.map(item => <CandidateReview key={item.id} item={item} recordId={record.id} media={record.media} targets={targets} busy={busy}

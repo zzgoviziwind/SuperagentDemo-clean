@@ -58,7 +58,9 @@ function validate(value:z.infer<typeof project>,env:NodeJS.ProcessEnv) {
     if (!value.reference_dirs.length) fail(422,'请添加只读资料目录');
     value.reference_dirs=value.reference_dirs.map(directory);
     for(const p of value.reference_dirs) {
-      if (p===parse(p).root || within(p,homedir()) || within(homedir(),p) || (env.SystemRoot && within(env.SystemRoot,p)) ||
+      const anchor=parse(p).root,home=env.USERPROFILE||homedir();
+      const protectedDirs=[join(home,'AppData'),env.SystemRoot||join(anchor,'Windows'),...['ProgramData','Program Files','Program Files (x86)'].map(s=>join(anchor,s))];
+      if (p===anchor || within(p,home) || protectedDirs.some(d=>within(p,d)||within(d,p)) ||
           (roots?.length && !roots.some(r=>within(r,p)))) fail(422,'资料目录超出允许范围');
     }
   } else value.reference_dirs=[];
@@ -85,7 +87,7 @@ export function registerProjects(app:FastifyInstance,db:DatabaseSync,env:NodeJS.
         db.prepare("SELECT id FROM execution_attempts WHERE task_id=? AND status IN ('claimed','running','waiting_approval') LIMIT 1").get(id)) fail(409,'请先停止执行并核验状态');
       if(db.prepare("SELECT id FROM events WHERE task_id=? AND source='field' LIMIT 1").get(id)) fail(409,'含现场证据的事件不能更换项目');
       if(db.prepare('SELECT 1 FROM task_routes WHERE project_id=? AND task_id!=? AND route_key IN (SELECT route_key FROM task_routes WHERE task_id=?) LIMIT 1').get(p.id,id,id)) fail(409,'目标项目已有来源冲突');
-      const row=db.prepare("UPDATE tasks SET project_id=?,workspace_path=NULL,codex_thread_id=NULL,codex_turn_id=NULL,revision=revision+1,control_version=control_version+1,state_version=state_version+1,status='waiting_input',last_error='项目已更换，请确认后继续',updated_at=? WHERE id=? RETURNING *").get(p.id,utc(),id)!;
+      const row=db.prepare("UPDATE tasks SET project_id=?,workspace_path=NULL,codex_thread_id=NULL,codex_turn_id=NULL,revision=revision+1,control_version=control_version+1,state_version=state_version+1,status='waiting_input',last_error='项目已更换，旧工作区和结果保留为历史；请确认后继续',updated_at=? WHERE id=? RETURNING *").get(p.id,utc(),id)!;
       db.prepare('UPDATE task_routes SET project_id=? WHERE task_id=?').run(p.id,id);
       db.prepare('UPDATE worker_subscriptions SET enabled=0 WHERE task_id=?').run(id);
       db.prepare("UPDATE approvals SET status='expired' WHERE task_id=? AND status='pending'").run(id);
@@ -139,7 +141,7 @@ export function registerProjects(app:FastifyInstance,db:DatabaseSync,env:NodeJS.
         .get(v.source,v.actor_id,v.user_id,Number(v.enabled))!;
       db.prepare('INSERT INTO governance_identity_grants(identity_id,project_ids,permissions) VALUES(?,?,?) ON CONFLICT(identity_id) DO UPDATE SET project_ids=excluded.project_ids,permissions=excluded.permissions')
         .run(id,JSON.stringify(projects),JSON.stringify(v.permissions));
-      audit(db,req.principal.user_id,'identity.write',Number(id));
+      audit(db,req.principal.user_id,'identity.write',Number(id),{...v,project_ids:projects});
       return serialize(db.prepare(identityQuery+' WHERE i.id=?').get(id)!);
     });
   }});

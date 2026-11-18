@@ -16,4 +16,20 @@
 | `SUPERAGENT_FIELD_OCR_MODELS` | 含 `tessdata/chi_sim.traineddata` 和 `tessdata/eng.traineddata` 的目录。环境另需 Pillow 与 tesserocr |
 | `SUPERAGENT_FIELD_WHISPER_MODEL` | 含 `model.bin`、`config.json` 和 `tokenizer.json` 的已安装 faster-whisper 模型。环境另需 PyAV、NumPy、faster-whisper |
 
-处理进程使用固定脚本、受限环境、时间与输出上限。符合格式的音视频提交到本地处理队列，可选附按时间标记的截图。转写和现有 OCR 文字按原证据生成候选，现场记录阶段不调用外部模型。后端会在运行状态提供依赖缺失原因。后台任务中断后显示失败，用户可以在依赖就绪时明确重试。
+截图识别与语音识别可单独启用。处理含视频的 MP4 或 WebM 并抽帧时，Python 还需 Pillow。先在独立环境准备软件包与本机模型，然后在同一个 PowerShell 中选择需要注入的变量并重启。以下路径为示例。
+
+```powershell
+$manager = "$env:LOCALAPPDATA\SuperAgent\SuperAgent.cmd"
+$env:SUPERAGENT_FIELD_PYTHON = 'D:\SuperAgentTools\field-venv\Scripts\python.exe'
+$env:SUPERAGENT_FIELD_OCR_MODELS = 'D:\SuperAgentTools\models\ocr'
+$env:SUPERAGENT_FIELD_WHISPER_MODEL = 'D:\SuperAgentTools\models\whisper'
+& $manager -Action Configure -InjectEnvironment 'SUPERAGENT_FIELD_PYTHON,SUPERAGENT_FIELD_OCR_MODELS,SUPERAGENT_FIELD_WHISPER_MODEL'
+& $manager -Action Diagnose
+& $manager -Action Restart
+```
+
+`-InjectEnvironment` 替换整份已选名单。只启用一种处理时，从名单去掉另一个模型变量。实例已有认证、渠道或其他注入项时，一并保留所需名字。从同一个具备已选变量的启动环境重启、升级或回滚，`Diagnose` 会列出缺失名字。
+
+现场记录从 `/api/v1/field-intake/organizer` 读取截图识别与时间轴能力。基础版提供逐行整理与截图人工核对，同时接受时间轴导入。媒体能力和缺失提示来自 `/api/v1/field-intake/media-jobs`。看见媒体输入可用后，先用一段短录音验证本机转写和候选审核，再处理正式材料。失败任务在依赖就绪后可重试。
+
+辅助进程只调用包内固定脚本，使用受限环境、时间和输出上限。媒体队列在本机转写并按需抽帧。转写和已有 OCR 文字按原证据生成候选，人工审核后才创建或关联只读分析。批准实施消耗当前分析的状态版本，并创建独立修复任务。

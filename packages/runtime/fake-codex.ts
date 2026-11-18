@@ -1,11 +1,12 @@
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
-import { realpath, stat } from 'node:fs/promises';
-import { extname, isAbsolute } from 'node:path';
+import { lstat, open, realpath, stat } from 'node:fs/promises';
+import { basename, dirname, extname, isAbsolute } from 'node:path';
 import { Readable } from 'node:stream';
 import { TextDecoder } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { spawnOwned } from '@superagent/windows-job';
 import { offlineEnvironment } from './fixtures/environment.ts';
+import { readOnlyToolNames, readOnlyTools } from './readonly.ts';
 
 type JsonObject = Record<string, unknown>;
 
@@ -30,6 +31,7 @@ export interface FakeCodexOptions {
   persistThreads?: boolean;
   holdForSteer?: boolean;
   projectPath?: string;
+  referenceFixturePath?: string;
   signal?: AbortSignal;
 }
 
@@ -49,9 +51,10 @@ export interface RestrictedCodexDriver {
   startThread(sandbox?: 'read-only' | 'workspace-write'): Promise<string>;
   resumeThread(threadId: string): Promise<string>;
   startTurn(threadId: string, prompt: string, profile?: { model?: string; effort?: string }): Promise<TurnBinding>;
+  startTurnWithImages?(threadId: string, prompt: string, profile: {model?: string; effort?: string}, paths: readonly string[]): Promise<TurnBinding>;
   steerTurn(binding: TurnBinding, content: string): Promise<void>;
   respondApproval(id: string | number, binding: TurnBinding, decision: 'approve' | 'reject'): Promise<void>;
-  respondReadTool(id: string | number, binding: TurnBinding, text: string): Promise<void>;
+  respondReadTool(id: string | number, binding: TurnBinding, text: string, success?: boolean): Promise<void>;
   events(): AsyncIterable<CodexEvent>;
   close(): Promise<boolean>;
 }
@@ -205,6 +208,7 @@ export class FakeCodex {
       persistThreads: options.persistThreads === true,
       holdForSteer: options.holdForSteer === true,
       projectPath: options.projectPath,
+      referenceFixturePath: options.referenceFixturePath,
     })], cwd, offlineEnvironment(cwd));
     return new FakeCodex(owned, cwd, timeoutMs, true, options.scenario === 'analysis' ? 'analysis'
       : !options.scenario || options.scenario === 'reply' ? 'reply' : 'repair', options.signal).initialize();
@@ -289,9 +293,8 @@ export class FakeCodex {
     const result = await this.request('thread/start', { ...this.threadOptions(sandbox),
       ...(this.fixtureMode || this.mode === 'repair' ? {} : this.mode === 'reply'
         ? { developerInstructions: '仅根据用户输入直接回复。禁止调用工具或访问文件。' }
-        : { developerInstructions: '只允许通过 Host 提供的 read_file 读取当前工作区的文本。禁止 shell、联网和修改文件。',
-          dynamicTools: [{ type: 'function', name: 'read_file', description: '读取工作区内有界文本文件',
-            inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'], additionalProperties: false } }] }),
+        : { developerInstructions: '只允许使用 Host 提供的只读工具访问本轮明确列出的工作区和资料别名。禁止 shell、联网和修改文件。',
+          dynamicTools: readOnlyTools }),
     });
     return this.acknowledgedId(result, 'thread');
   }
@@ -308,8 +311,40 @@ export class FakeCodex {
   }
 
   async startTurn(threadId: string, prompt: string, profile: { model?: string; effort?: string } = {}): Promise<TurnBinding> {
+    return this.sendTurn(threadId, prompt, profile, []);
+  }
+
+  async startTurnWithImages(threadId: string, prompt: string, profile: {model?: string; effort?: string}, paths: readonly string[]) {
+    if (!paths.length || paths.length > 4) throw new Error('Invalid assessment image count');
+    const root = await realpath(this.cwd);
+    let total = 0;
+    const images: JsonObject[] = [];
+    for (const path of paths) {
+      if (!isAbsolute(path) || dirname(path) !== root || (await realpath(path)) !== path ||
+          !/^source-[1-9][0-9]*-[0-9a-f-]{36}\.(png|jpg|gif|webp)$/.test(basename(path))) throw new Error('Invalid staged image path');
+      const info = await lstat(path);
+      total += info.size;
+      if (!info.isFile() || info.nlink !== 1 || info.size < 12 || info.size > 10*1024*1024 || total > 20*1024*1024)
+        throw new Error('Invalid staged image size or type');
+      const file = await open(path, 'r');
+      try {
+        const header = Buffer.alloc(12);
+        const { bytesRead } = await file.read(header, 0, header.length, 0);
+        const type = extname(path);
+        const valid = type === '.png' && header.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex'))
+          || type === '.jpg' && header.subarray(0,3).equals(Buffer.from('ffd8ff','hex'))
+          || type === '.gif' && ['GIF87a','GIF89a'].includes(header.toString('ascii',0,6))
+          || type === '.webp' && header.toString('ascii',0,4)==='RIFF' && header.toString('ascii',8,12)==='WEBP';
+        if (bytesRead !== header.length || !valid) throw new Error('Invalid staged image signature');
+      } finally { await file.close(); }
+      images.push({type:'localImage',path});
+    }
+    return this.sendTurn(threadId, prompt, profile, images);
+  }
+
+  private async sendTurn(threadId: string, prompt: string, profile: {model?: string; effort?: string}, images: JsonObject[]): Promise<TurnBinding> {
     const result = await this.request('turn/start', {
-      threadId, input: [{ type: 'text', text: prompt, text_elements: [] }],
+      threadId, input: [{ type: 'text', text: prompt, text_elements: [] }, ...images],
       ...(this.fixtureMode ? {} : { model: profile.model, effort: profile.effort }),
     });
     const turnId = this.acknowledgedId(result, 'turn');
@@ -336,13 +371,13 @@ export class FakeCodex {
     await this.respond(id, { decision: selected });
   }
 
-  async respondReadTool(id: string | number, binding: TurnBinding, text: string): Promise<void> {
+  async respondReadTool(id: string | number, binding: TurnBinding, text: string, success = true): Promise<void> {
     if (!this.fixtureMode && this.mode !== 'analysis') throw new Error('Local driver does not relay tool results outside analysis');
     const request = this.expectServerRequest(id, binding, toolMethod);
-    if (request.params.tool !== 'read_file' || request.params.namespace != null || typeof text !== 'string') {
+    if (typeof request.params.tool !== 'string' || !readOnlyToolNames.has(request.params.tool) || request.params.namespace != null || typeof text !== 'string') {
       throw new Error('Unsupported fake tool response');
     }
-    await this.respond(id, { success: true, contentItems: [{ type: 'inputText', text }] });
+    await this.respond(id, { success, contentItems: [{ type: 'inputText', text }] });
   }
 
   /** Single consumer. Buffered frames are available even after the subprocess exits. */

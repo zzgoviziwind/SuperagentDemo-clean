@@ -8,6 +8,7 @@ import { trace } from './trace.ts';
 import { roleOf } from '../auth.ts';
 import { workbenchRuntime } from './runtime.ts';
 import { ensureSemantic } from './session-writes.ts';
+import { callCanonical } from './canonical.ts';
 
 const inboxStatuses = new Set(['all', 'pending_confirmation', 'routed', 'ignored', 'dismissed',
   'manually_linked', 'self_echo', 'self_echo_candidate', 'semantic_pending']);
@@ -123,6 +124,24 @@ export function registerReceipts(app: FastifyInstance, store: WorkbenchStore): v
     const principal = requireAdmin(request);
     const body = fields(request.body);
     const id = body.event_id == null ? undefined : integer(body.event_id, 'event_id');
+    const retryPattern = '/api/v1/events/:id/retry-routing';
+    if (store.row('governance_settings', 'key', 'semantic_routing_enabled')?.value !== true
+      && app.hasRoute({ method: 'POST', url: retryPattern })) {
+      const rows = store.rows<Event>('events', `WHERE task_id IS NULL AND external_id IS NOT NULL
+        AND source IN ('dingtalk','redmine') AND json_extract(data,'$.routing_status')='pending_confirmation'
+        AND NOT EXISTS (SELECT 1 FROM semantic_routing_jobs WHERE event_id=events.id)
+        AND (? IS NULL OR id=?) ORDER BY id LIMIT 100`, id ?? null, id ?? null);
+      const routed_event_ids: number[] = [];
+      for (const row of rows) {
+        try {
+          const result = await callCanonical(app, request, retryPattern, `/api/v1/events/${row.id}/retry-routing`, {});
+          if (fields(result.data).routing_status === 'routed') routed_event_ids.push(row.id);
+        } catch (error) {
+          if (fields(error).statusCode !== 409) throw error;
+        }
+      }
+      return { checked: rows.length, routed_event_ids };
+    }
     const schedule = workbenchRuntime(app)?.scheduleSemantic;
     if (!schedule) fail(409, '语义分派调度服务尚未接入');
     let result;
@@ -142,9 +161,8 @@ export function registerReceipts(app: FastifyInstance, store: WorkbenchStore): v
     const id = integer(request.params.event_id, 'event_id');
     const body = fields(request.body);
     const evidence = requiredText(body.evidence, 4000, '需填写核验说明并等待模型退出');
-    const parsed = decisionSchema.safeParse(body.decision);
-    if (!parsed.success) fail(409, '判定字段、目标或版本无效');
-    const decision = parsed.data;
+    const raw = fields(body.decision);
+    if (raw !== body.decision) fail(409, '判定字段、目标或版本无效');
     const historyOnly = store.write(() => {
       const job = store.row<RoutingJob>('semantic_routing_jobs', 'event_id', id);
       const event = store.row<Event>('events', 'id', id);
@@ -153,21 +171,25 @@ export function registerReceipts(app: FastifyInstance, store: WorkbenchStore): v
       if (['dismissed', 'manually_linked'].includes(String(event.data.routing_status))) {
         fail(409, '消息已关闭或人工关联，请从事件中心处理');
       }
-      if (event.data.routing_status === 'routed' || (job.status === 'ignored' && isDeepStrictEqual(job.decision, decision))) {
+      if (event.data.routing_status === 'routed' || (job.status === 'ignored' && isDeepStrictEqual(job.decision, raw))) {
         const time = now();
         ensureSemantic(store, job, time);
-        const data = JSON.stringify({ status: 'correction_recorded_without_reapply', decision });
+        const data = JSON.stringify({ status: 'correction_recorded_without_reapply', decision: raw });
         store.db.prepare(`INSERT INTO event_routing_messages(event_id,role,content,data,created_at)
           VALUES (?, 'system', ?, ?, ?)`).run(id, evidence, data, time);
         store.db.prepare('UPDATE event_routing_sessions SET state_version=state_version+1 WHERE event_id=?').run(id);
         return { ...job, newly_applied: false };
       }
-      if (job.status === 'running') fail(409, '需填写核验说明并等待模型退出');
-      if (decision.action === 'dispatch' && !correctionTasks(app, store, job).some(task =>
-        task.id === decision.task_id && task.state_version === decision.state_version)) fail(409, '目标或版本不在授权快照中');
+      if (job.status === 'running' || job.status === 'unknown') fail(409, '需填写核验说明并等待模型退出');
       return null;
     });
     if (historyOnly) return historyOnly;
+    const parsed = decisionSchema.safeParse(raw);
+    if (!parsed.success) fail(409, '判定字段、目标或版本无效');
+    const decision = parsed.data;
+    const job = store.row<RoutingJob>('semantic_routing_jobs', 'event_id', id);
+    if (!job || (decision.action === 'dispatch' && !correctionTasks(app, store, job).some(task =>
+      task.id === decision.task_id && task.state_version === decision.state_version))) fail(409, '目标或版本不在授权快照中');
     const apply = workbenchRuntime(app)?.applySemanticCorrection;
     if (!apply) fail(409, '语义分派执行服务尚未接入');
     let applied;

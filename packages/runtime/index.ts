@@ -7,3 +7,5 @@ export { prepareProjectWorkspace, projectVerificationCommand, projectWorkspaceSn
 export type { FileReadEvidence, ProjectBaseline, ProjectRepository } from './project-workspace.ts';
 export { openRestrictedCodex } from './driver.ts';
 export type { RestrictedCodexOptions } from './driver.ts';
+export { inspectReadOnly, pinReferenceRoot, readOnlyToolNames } from './readonly.ts';
+export type { PinnedReference, ReadOnlyEvidence, ReferencePolicy } from './readonly.ts';

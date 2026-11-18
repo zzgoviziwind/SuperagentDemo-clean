@@ -132,7 +132,7 @@ test('本机 Redmine HTTP 核验账号、两阶段发送、丢失回执不重发
   const db=new DatabaseSync(join(f.dir,'superagent.db'));
   db.prepare("UPDATE events SET data=json_set(data,'$.metadata.redmine_endpoint',?,'$.project_external_id','7') WHERE id=?").run(base,f.event);
   db.exec(`UPDATE projects SET redmine_project_ids='[7]';
-    INSERT INTO governance_identities(source,actor_id,user_id,enabled) VALUES('redmine','9','owner',1);
+    INSERT INTO governance_identities(source,actor_id,user_id,enabled) VALUES('redmine','9','owner',1),('redmine','5','owner',1);
     INSERT INTO governance_identity_grants(identity_id,project_ids,permissions) SELECT id,'[1]','["request"]' FROM governance_identities`);
   const h=host(f.dir,false,false,{LOCAL_TEST_REDMINE_KEY:'offline-key'});
   try {

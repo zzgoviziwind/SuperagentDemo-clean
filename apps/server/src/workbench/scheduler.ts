@@ -3,19 +3,21 @@ import { isAbsolute, join, relative } from 'node:path';
 import { mkdir, realpath } from 'node:fs/promises';
 import type { DatabaseSync } from 'node:sqlite';
 import type { Lease } from '../../../../packages/storage/src/index.ts';
+import { directory } from '../../../../packages/channels/resources.ts';
 import { settleBudget } from '../budget.js';
 import { roleOf } from '../auth.ts';
 import type { TurnBinding } from '../../../../packages/runtime/index.ts';
 import { invokeWorkbenchModel, pinnedWorkbenchDriver, type InvocationResult,
   type WorkbenchModelDriver, type WorkbenchModelKind } from './model-driver.ts';
 import { workbenchModelPrompt, type PromptCatalog } from './prompts.ts';
-import type { SemanticDecision, SessionBinding, WorkbenchRuntime } from './runtime.ts';
+import type { AssessmentImage, SemanticDecision, SessionBinding, WorkbenchRuntime } from './runtime.ts';
 import { admitSemantic, applyDecision, modelDecision, semanticContext, semanticState,
   unassignedContext, validAssessment } from './semantic-engine.ts';
 import { ensureSemantic } from './session-writes.ts';
 import type { RoutingJob } from './sessions.ts';
 import { fail, fields, now, type Event, type Fields, type Task, WorkbenchStore } from './store.ts';
 import { localThreadReader } from './thread-reader.ts';
+import { clearInterruptedAssessmentImages, stageAssessmentImages } from './source-images.ts';
 
 export interface WorkbenchSchedulerOptions {
   lease: Lease;
@@ -24,7 +26,7 @@ export interface WorkbenchSchedulerOptions {
   driver?: WorkbenchModelDriver;
   pollMs?: number;
   timeoutMs?: number;
-  ports?: Pick<WorkbenchRuntime, 'readThread' | 'readOwnDingTalk' | 'hasStoppedSession' | 'hasStoppedWatchdog'>;
+  ports?: Pick<WorkbenchRuntime, 'readThread' | 'readOwnDingTalk' | 'readOwnDingTalkImages' | 'hasStoppedSession' | 'hasStoppedWatchdog'>;
   stopWorker?(taskId: number): Promise<boolean>;
   workerPrompts?: () => PromptCatalog;
   onError?(error: unknown): void;
@@ -204,6 +206,10 @@ export function createWorkbenchScheduler(db: DatabaseSync, options: WorkbenchSch
       settleBudget(db, Number(reservation.id), mayHaveSent ? null : 0,
         mayHaveSent ? null : { source: 'local_pre_dispatch', evidence: '重启时记录未到派发阶段' }, 'workbench');
     }
+    try {
+      const interrupted = db.prepare("SELECT id FROM workbench_model_runs WHERE kind='assessment' AND status='unknown'").all();
+      clearInterruptedAssessmentImages(options.stateRoot, interrupted.map(row => String(row.id)));
+    } catch (error) { options.onError?.(error); }
   }
 
   function claimSemantic(): Work | undefined {
@@ -557,6 +563,79 @@ export function createWorkbenchScheduler(db: DatabaseSync, options: WorkbenchSch
     });
   }
 
+  function runAssessment(id: string, context: Fields, stillAuthorized: () => boolean, images: readonly AssessmentImage[] = []) {
+    if (!started || closing || !driver.available()) {
+      return Promise.resolve({ thread_id: null, turn_id: null, error: '模型未配置，尚未执行评估' });
+    }
+    const prior = store.row('workbench_model_runs', 'id', id);
+    if (prior) return Promise.resolve({ thread_id: prior.thread_id as string | null, turn_id: prior.turn_id as string | null,
+      error: '已有评估轮次等待回执核验，禁止重复派发' });
+    if (active) fail(409, '工作台模型正在执行，请稍后重试评估');
+    const scope = Number(context.event_id);
+    if (!/^comparison-[0-9a-f]{32}$/.test(id) || !Number.isSafeInteger(scope) || scope < 1) fail(422, '评估轮次标识无效');
+    write(() => {
+      const time = now();
+      db.prepare(`INSERT INTO workbench_model_runs(id,kind,scope_id,item_id,lease_epoch,phase,status,evidence_source,created_at,updated_at)
+        VALUES (?,'assessment',?,NULL,?,'claimed','running',?,?,?)`).run(id, scope, options.lease.epoch, driver.source, time, time);
+    });
+    const executeAssessment = async () => {
+      let outcome: InvocationResult;
+      let staged: Awaited<ReturnType<typeof stageAssessmentImages>> | undefined;
+      let imageTurn: string | undefined;
+      try {
+        const root = await realpath(options.stateRoot);
+        const cwd = await directory(join(root, 'workbench-model', id));
+        if (!stillAuthorized()) throw new Error('来源授权已变化');
+        if (images.length) staged = await stageAssessmentImages(cwd, images);
+        const phase = (update: () => { changes: number | bigint }) => write(() => {
+          if (!update().changes) fail(409, '评估轮次归属已变化');
+        });
+        outcome = await invokeWorkbenchModel(db, driver, {
+          id, kind: 'semantic', cwd, prompt: workbenchModelPrompt('semantic', context), taskId: null,
+          imagePaths: staged?.paths,
+          signal: AbortSignal.any([shutdown.signal, AbortSignal.timeout(timeoutMs)]),
+          onThread: thread => phase(() => db.prepare(`UPDATE workbench_model_runs SET thread_id=?,phase='thread',updated_at=?
+            WHERE id=? AND status='running' AND lease_epoch=?`).run(thread, now(), id, options.lease.epoch)),
+          prepareTurn: reservation => phase(() => {
+            if (!stillAuthorized()) fail(409, '来源授权或状态在派发前已变化');
+            return db.prepare(`UPDATE workbench_model_runs SET reservation_id=?,phase='turn_intent',updated_at=?
+              WHERE id=? AND status='running' AND lease_epoch=?`).run(reservation, now(), id, options.lease.epoch);
+          }),
+          bindTurn: binding => {
+            phase(() => db.prepare(`UPDATE workbench_model_runs SET turn_id=?,phase='turn_bound',updated_at=?
+              WHERE id=? AND thread_id=? AND status='running' AND lease_epoch=?`)
+              .run(binding.turnId, now(), id, binding.threadId, options.lease.epoch));
+            if (staged?.paths.length) imageTurn = binding.turnId;
+          },
+        });
+      } catch {
+        outcome = { answered: false, unknown: false, reason: '评估运行目录未能准备', treeExited: true };
+      } finally {
+        if (staged) {
+          try { await staged.clear(); } catch (error) {
+            options.onError?.(error);
+            outcome = { answered: false, unknown: true, reason: '评估原图清理未确认，请人工核验', treeExited: outcome!.treeExited };
+          }
+        }
+      }
+      return write(() => {
+        const status = outcome.answered ? 'completed' : outcome.unknown ? 'unknown' : 'failed';
+        const error = outcome.answered ? undefined : outcome.reason;
+        const row = db.prepare(`UPDATE workbench_model_runs SET status=?,last_error=?,tree_exited=?,updated_at=?
+          WHERE id=? AND status='running' AND lease_epoch=? RETURNING thread_id,turn_id`)
+          .get(status, error ?? null, Number(outcome.treeExited), now(), id, options.lease.epoch);
+        if (!row) fail(409, '评估轮次归属已变化');
+        return { thread_id: row.thread_id as string | null, turn_id: row.turn_id as string | null,
+          ...(imageTurn ? { image_turn_id: imageTurn } : {}),
+          ...(outcome.answered ? { text: outcome.items.at(-1) } : { error }) };
+      });
+    };
+    const result = executeAssessment();
+    const tracking = result.then(() => {}, () => {}).finally(() => { if (active === tracking) active = undefined; });
+    active = tracking;
+    return result;
+  }
+
   return {
     ...options.ports,
     readThread: options.ports?.readThread ?? (!options.driver && [undefined, 'codex'].includes(env.SUPERAGENT_DRIVER)
@@ -578,6 +657,9 @@ export function createWorkbenchScheduler(db: DatabaseSync, options: WorkbenchSch
     tick,
     resolveRole: user => roleOf(env, user),
     projectRouterAvailable: () => driver.available(),
+    assessmentAvailable: () => driver.available(),
+    assessmentImagesAvailable: () => driver.imagesAvailable?.() === true,
+    runAssessment,
     wakeProjectRouter() { wake(0); },
     async scheduleSemantic(eventId) {
       const result = schedule(eventId);
@@ -590,7 +672,12 @@ export function createWorkbenchScheduler(db: DatabaseSync, options: WorkbenchSch
       return wasStopped(binding.kind, binding.id, options.ports?.hasStoppedSession
         && (() => options.ports!.hasStoppedSession!(binding)));
     },
-    async hasStoppedWatchdog(id) {
+    async hasStoppedWatchdog(id, runId) {
+      if (runId) {
+        const run = store.row('workbench_model_runs', 'id', runId);
+        if (run?.scope_id === id && run.kind === 'watchdog' && run.status !== 'running' && run.tree_exited === 1) return true;
+        return await options.ports?.hasStoppedWatchdog?.(id, runId) ?? false;
+      }
       return wasStopped('watchdog', id, options.ports?.hasStoppedWatchdog && (() => options.ports!.hasStoppedWatchdog!(id)));
     },
     async runWatchdog(taskId) {

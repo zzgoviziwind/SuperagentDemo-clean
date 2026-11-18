@@ -1,10 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import type { DatabaseSync } from 'node:sqlite';
 import { registerBridge } from './bridge.ts';
+import { registerAssessments } from './assessments.ts';
 import { registerEventGroups } from './event-groups.ts';
 import { registerEventStream } from './event-stream.ts';
 import { registerReceipts } from './receipts.ts';
 import { registerSessions } from './sessions.ts';
+import { registerSessionActions } from './session-actions.ts';
 import { postSessionMessage, reconcileSession } from './session-writes.ts';
 import { fields, WorkbenchStore } from './store.ts';
 import { registerTasks } from './tasks.ts';
@@ -14,7 +16,8 @@ import { registerPromptCatalog, type PromptCatalog } from './prompts.ts';
 import type { WorkbenchScheduler } from './scheduler.ts';
 
 export { codexThreadReader, configureWorkbenchRuntime } from './runtime.ts';
-export type { DingTalkHistoryBinding, DingTalkHistoryPage, SemanticDecision, SessionBinding, WorkbenchRuntime } from './runtime.ts';
+export type { AssessmentImage, DingTalkHistoryBinding, DingTalkHistoryPage, DingTalkImageBinding, DingTalkSourceImage,
+  SemanticDecision, SessionBinding, WorkbenchRuntime } from './runtime.ts';
 export { createWorkbenchScheduler, enqueueSemanticReceipt } from './scheduler.ts';
 export type { WorkbenchScheduler, WorkbenchSchedulerOptions } from './scheduler.ts';
 export type { PromptCatalog, WorkerPromptKind } from './prompts.ts';
@@ -33,11 +36,13 @@ export function registerWorkbench(app: FastifyInstance, db: DatabaseSync, runtim
   registerPromptCatalog(app, workerPrompts ?? scheduler?.workerPrompts);
   registerEventGroups(app, store);
   registerSessions(app, store);
+  registerSessionActions(app, store);
   app.post<{ Params: { id: string } }>('/api/v1/sessions/:id/messages',
     request => postSessionMessage(app, store, request, request.params.id, fields(request.body)));
   app.post<{ Params: { id: string } }>('/api/v1/sessions/:id/reconcile',
     request => reconcileSession(app, store, request, request.params.id, fields(request.body)));
   registerReceipts(app, store);
+  registerAssessments(app, store);
   registerEventStream(app, store);
   registerWatchdog(app, store);
   registerBridge(app, store);

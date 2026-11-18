@@ -1,10 +1,11 @@
-import { copyFileSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { once } from 'node:events';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { spawnOwned } from '@superagent/windows-job';
-import { FakeCodex } from '../../../../packages/runtime/index.ts';
+import { FakeCodex, type CodexEvent } from '../../../../packages/runtime/index.ts';
 import { offlineEnvironment } from '../../../../packages/runtime/fixtures/environment.ts';
 import { openStorage, type Storage } from '../../../../packages/storage/src/index.ts';
 import { registerAuth } from '../auth.ts';
@@ -13,9 +14,10 @@ import { registerIntake } from '../intake.ts';
 import { registerChannels, connectorStatuses } from '../deliveries/channels.ts';
 import { buildWorkerPrompt, WORKER_PROMPTS } from '../worker/prompts.ts';
 import { createWorkbenchScheduler, enqueueSemanticReceipt, registerWorkbench,
-  type WorkbenchModelDriver, type WorkbenchModelKind } from './index.ts';
+  type WorkbenchModelClient, type WorkbenchModelDriver, type WorkbenchModelKind } from './index.ts';
 import { fields, now } from './store.ts';
 import { readCodexThread } from './thread-reader.ts';
+import type { WorkbenchSchedulerOptions } from './scheduler.ts';
 
 const base = realpathSync(tmpdir());
 const prefix = '/api/v1';
@@ -27,17 +29,53 @@ const identities = [
 ];
 const env = { SUPERAGENT_USERS_JSON: JSON.stringify(identities) };
 
+async function imageProtocolFixture(cwd: string, thread: string, prompt: string, paths: readonly string[]) {
+  const script = [
+    "import { readFileSync, realpathSync } from 'node:fs';",
+    "import { dirname } from 'node:path';",
+    "let body = ''; for await (const part of process.stdin) body += part;",
+    "const { method, params } = JSON.parse(body);",
+    "const [text, ...images] = params.input;",
+    "const png = '89504e470d0a1a0a';",
+    "if (method !== 'turn/start' || text.type !== 'text' || !images.length || !images.every(({type,path}) =>",
+    "  type === 'localImage' && dirname(realpathSync(path)) === process.cwd() && readFileSync(path).subarray(0,8).toString('hex') === png)) process.exit(7);",
+    "const binding = {threadId: params.threadId, turnId: 'offline-image-turn'};",
+    "const frames = [{method:'item/completed', params:{...binding, item:{type:'agentMessage', id:'offline-image-result',text:'离线样例结果', simulated:true}}},",
+    "  {method:'turn/completed', params:{...binding, turn:{id:binding.turnId, status:'completed'}}}];",
+    "process.stdout.write(JSON.stringify({ binding, frames }));",
+  ].join('\n');
+  const owned = await spawnOwned(process.execPath, ['--input-type=module', '-e', script], { cwd, env: offlineEnvironment(cwd) });
+  const child = owned.child;
+  let output = '';
+  child.stdout.setEncoding('utf8').on('data', chunk => { output += chunk; });
+  const closed = once(child, 'close');
+  child.stdin.end(JSON.stringify({ method: 'turn/start', params: { threadId: thread,
+    input: [{ type: 'text', text: prompt }, ...paths.map(path => ({ type: 'localImage', path }))] } }));
+  const timer = setTimeout(owned.terminate, 5_000);
+  try {
+    const [code] = await closed;
+    if (code !== 0) throw new Error('离线图片协议未确认');
+    const reply = JSON.parse(output);
+    if (reply.binding.threadId !== thread || typeof reply.binding.turnId !== 'string' || reply.frames.length !== 2)
+      throw new Error('离线图片轮次归属无效');
+    return { binding: reply.binding as { threadId: string; turnId: string }, frames: reply.frames as CodexEvent[] };
+  } finally { clearTimeout(timer); }
+}
+
 function fixture(text: (kind: WorkbenchModelKind) => unknown, meter = false,
   exitAt?: 'before_turn_response') {
   const submitted: { thread: string; kind: WorkbenchModelKind; prompt: string; turn?: string }[] = [];
   const observed: { thread: unknown; turn: unknown; text: unknown }[] = [];
+  const imageInputs: { path: string; bytes: Buffer }[] = [];
   const startupErrors: string[] = [];
-  const driver: WorkbenchModelDriver = { source: 'offline-codex-fixture', available: () => true,
+  const driver: WorkbenchModelDriver = { source: 'offline-codex-fixture', available: () => true, imagesAvailable: () => true,
     async open(cwd, kind, signal) {
       const client = await FakeCodex.start({ cwd, scenario: 'reply', persistThreads: true, exitAt, signal }).catch(error => {
         startupErrors.push(String(error));
         throw error;
       });
+      let imageFrames: CodexEvent[] | undefined;
+      const startImages = (client as WorkbenchModelClient).startTurnWithImages?.bind(client);
       return { billing: meter ? 'metered' : 'fixture', startThread: mode => client.startThread(mode),
         resumeThread: thread => client.resumeThread(thread), async startTurn(thread, prompt, profile) {
           const evidence: (typeof submitted)[number] = { thread, prompt, kind };
@@ -45,8 +83,18 @@ function fixture(text: (kind: WorkbenchModelKind) => unknown, meter = false,
           const binding = await client.startTurn(thread, prompt, profile);
           evidence.turn = binding.turnId;
           return binding;
+        }, async startTurnWithImages(thread, prompt, profile, paths) {
+          for (const path of paths) imageInputs.push({ path, bytes: readFileSync(path) });
+          const evidence: (typeof submitted)[number] = { thread, prompt, kind };
+          submitted.push(evidence);
+          const result = startImages ? { binding: await startImages(thread, prompt, profile, paths), frames: undefined }
+            : await imageProtocolFixture(cwd, thread, prompt, paths);
+          const { binding, frames } = result;
+          imageFrames = frames;
+          evidence.turn = binding.turnId;
+          return binding;
         }, close: () => client.close(), async *events() {
-          for await (const packet of client.events()) {
+          for await (const packet of imageFrames ?? client.events()) {
             const item = fields(packet.params.item);
             if (packet.method === 'item/completed' && item.type === 'agentMessage') {
               if (item.simulated !== true || item.text !== '离线样例结果') throw new Error('预期独立假协议的本轮响应');
@@ -61,7 +109,7 @@ function fixture(text: (kind: WorkbenchModelKind) => unknown, meter = false,
         } };
     },
   };
-  return { driver, observed, submitted, startupErrors };
+  return { driver, observed, submitted, startupErrors, imageInputs };
 }
 
 describe('冻结 SQLite 工作台调度', () => {
@@ -78,7 +126,8 @@ describe('冻结 SQLite 工作台调度', () => {
     const source = process.env.WORKBENCH_FROZEN_DB;
     if (source) copyFileSync(source, join(root, 'sample.db'));
   }
-  async function boot(driver: WorkbenchModelDriver, pollMs = 0, stopWorker?: (taskId: number) => Promise<boolean>) {
+  async function boot(driver: WorkbenchModelDriver, pollMs = 0, stopWorker?: (taskId: number) => Promise<boolean>,
+    ports?: WorkbenchSchedulerOptions['ports']) {
     storage = openStorage(join(root, 'sample.db'), { stateRoot: root });
     const { lease } = storage.startController('workbench-' + Math.random());
     app = Fastify();
@@ -88,8 +137,8 @@ describe('冻结 SQLite 工作台调度', () => {
     registerAuth(app, env);
     registerIntake(app, db(), env);
     registerControls(app, db());
-    registerChannels(app, storage, lease, root, env);
-    const runtime = createWorkbenchScheduler(db(), { lease, stateRoot: root, driver, env, pollMs, stopWorker });
+    registerChannels(app, storage, lease, root, ports ? { ...env, SUPERAGENT_DRIVER: 'fixture' } : env);
+    const runtime = createWorkbenchScheduler(db(), { lease, stateRoot: root, driver, env, pollMs, stopWorker, ports });
     registerWorkbench(app, db(), runtime);
     await app.ready();
     return runtime;
@@ -390,6 +439,16 @@ describe('冻结 SQLite 工作台调度', () => {
     db().prepare(`INSERT INTO workbench_model_runs(id,kind,scope_id,item_id,lease_epoch,phase,status,
       evidence_source,created_at,updated_at) VALUES('rollback-run','watchdog',1,NULL,?,'turn_intent','running','fixture',?,?)`)
       .run(lease.epoch, now(), now());
+    const comparison = 'comparison-' + 'b'.repeat(32);
+    const dir = join(root, 'workbench-model', comparison);
+    mkdirSync(dir, { recursive: true });
+    const abandoned = join(dir, 'source-3-12345678-1234-4321-9134-1234567890ab.png');
+    const unrelated = join(dir, 'unrelated.png');
+    writeFileSync(abandoned, 'abandoned-image');
+    writeFileSync(unrelated, 'other file');
+    db().prepare(`INSERT INTO workbench_model_runs(id,kind,scope_id,item_id,lease_epoch,phase,status,
+      evidence_source,created_at,updated_at) VALUES(?,'assessment',3,NULL,?,'turn_intent','running','fixture',?,?)`)
+      .run(comparison, lease.epoch, now(), now());
     db().prepare(`INSERT INTO conversation_bridge_operations(actor_id,request_key,payload_hash,status,created_at,updated_at)
       VALUES('admin','rollback-bridge','fixture','pending',?,?)`).run(now(), now());
     runtime.recoverOnly();
@@ -397,8 +456,123 @@ describe('冻结 SQLite 工作台调度', () => {
       .toMatchObject({ status: 'unknown', phase: 'turn_intent' });
     expect(db().prepare("SELECT status FROM conversation_bridge_operations WHERE request_key='rollback-bridge'").get()?.status)
       .toBe('unknown');
+    expect(existsSync(abandoned)).toBe(false);
+    expect(readFileSync(unrelated, 'utf8')).toBe('other file');
     expect(await runtime.tick()).toBe(false);
     expect(wire.submitted).toEqual([]);
     await runtime.close();
   });
+
+  it('并发评估真实假协议调用和私聊证据，关闭模型分派时手动调度仍可重试确定性分派', async () => {
+    sample();
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP44KAAAAN0AVEsSGUpAAAAAElFTkSuQmCC', 'base64');
+    let ids: number[] = [];
+    const wire = fixture(() => ({ project_status: 'suggested', proposed_project_id: 91301,
+      evidence_event_ids: ids, reason: '同一报告问题', missing_context: '',
+      relationship: 'same_issue', relationship_reason: '两条消息描述同一个显示行为' }));
+    const prior = new Date(Date.now() - 120_000).toISOString();
+    const at = new Date(Date.now() - 60_000).toISOString();
+    const reader = vi.fn(async () => ({ complete: true, conversationId: 'assessment-thread', messages: [
+      { conversationId: 'assessment-thread', senderId: 'self', messageId: 'previous',
+        occurredAt: prior, text: '请确认报告显示问题' },
+      { conversationId: 'assessment-thread', senderId: 'private-actor', messageId: 'two',
+        occurredAt: at, text: '第二条报告消息' },
+    ] }));
+    const readImages = vi.fn(async () => [{ contentType: 'image/png', bytes: png }]);
+    await boot(wire.driver, 0, undefined, { readOwnDingTalk: reader, readOwnDingTalkImages: readImages });
+    const project = seed();
+    setting('semantic_routing_enabled', false);
+    setting('watchdog_enabled', false);
+    setting('connectors.dingtalk', { enabled: true, profile: 'p', self_ids: ['self'], executable: ['disabled-test'] });
+    db().prepare("INSERT INTO governance_identities(id,source,actor_id,user_id,enabled) VALUES(91302,'dingtalk','private-actor','alice',1)").run();
+    db().prepare('INSERT INTO governance_identity_grants(identity_id,project_ids,permissions) VALUES(?,?,?)')
+      .run(91302, JSON.stringify([project]), '["request"]');
+    for (const message of ['one', 'two']) {
+      const event = await post('/events', { source: 'dingtalk', event_type: 'message.received',
+        external_id: 'assessment-' + message, actor_id: 'private-actor', thread_id: 'assessment-thread',
+        content: message === 'two' ? '[图片消息](mediaId=synthetic-png)' : '请核对报告显示',
+        occurred_at: at, metadata: { profile: 'p', message_id: message,
+          dws_event_type: 'user_im_message_receive_o2o_all' } });
+      expect(event.statusCode, event.body).toBe(200);
+      ids.push(event.json().id);
+    }
+    expect((await post('/routing/assessments', { event_ids: ids }, 'viewer')).statusCode).toBe(403);
+    db().prepare("UPDATE events SET data=json_set(data,'$.thread_id','foreign') WHERE id=?").run(ids[0]);
+    expect((await post('/routing/assessments', { event_ids: ids })).statusCode).toBe(422);
+    db().prepare("UPDATE events SET data=json_set(data,'$.thread_id','assessment-thread') WHERE id=?").run(ids[0]);
+    expect(readImages).not.toHaveBeenCalled();
+    const requests = await Promise.all(Array.from({ length: 4 }, () => post('/routing/assessments', { event_ids: ids })));
+    expect(requests.map(row => row.statusCode)).toEqual([200, 200, 200, 200]);
+    expect(requests.map(row => row.json())).toEqual(Array(4).fill(requests[0].json()));
+    expect(wire.observed, requests[0].body).toHaveLength(1);
+    expect(requests[0].json()).toMatchObject({ status: 'assessed', event_ids: ids, thread_id: wire.observed[0].thread,
+      turn_id: wire.observed[0].turn, evidence_turn_id: wire.observed[0].turn, visual_inputs: [ids[1]],
+      evidence: [{ tool: 'chat_evidence', status: 'verified', message_count: 1 },
+        { tool: 'source_image', event_id: ids[1], status: 'verified', images: [{ content_type: 'image/png', bytes: png.length }] }],
+      decision: { relationship: 'same_issue', proposed_project_id: project } });
+    expect(wire.observed).toHaveLength(1);
+    expect(reader).toHaveBeenCalledTimes(1);
+    expect(readImages).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ eventId: ids[1], anchorId: 'two',
+      peer: 'private-actor', conversation: 'assessment-thread', profile: 'p', selfIds: ['self'] }), expect.any(AbortSignal));
+    expect(wire.imageInputs).toHaveLength(1);
+    expect(wire.imageInputs[0].bytes).toEqual(png);
+    expect(existsSync(wire.imageInputs[0].path)).toBe(false);
+    expect(wire.submitted[0].prompt).toContain('"visual_input_event_ids":[' + ids[1] + ']');
+    expect(wire.submitted[0].prompt).not.toContain(png.toString('base64'));
+    expect(db().prepare('SELECT count(*) AS n FROM event_targets WHERE event_id IN (?,?)').get(...ids)?.n).toBe(0);
+    const recorded = db().prepare("SELECT details FROM governance_audit WHERE action='event.readonly_assessment' AND resource=?")
+      .get(requests[0].json().assessment_id);
+    expect(JSON.parse(String(recorded?.details))).toEqual(requests[0].json());
+    expect(recorded?.details).not.toContain(wire.imageInputs[0].path);
+    expect(recorded?.details).not.toContain(png.toString('base64'));
+    await close();
+    await boot(wire.driver, 0, undefined, { readOwnDingTalk: reader, readOwnDingTalkImages: readImages });
+    const replay = await post('/routing/assessments', { event_ids: ids });
+    expect(replay.json()).toEqual(requests[0].json());
+    expect(wire.submitted).toHaveLength(1);
+    expect(readImages).toHaveBeenCalledTimes(1);
+    db().exec("UPDATE governance_identities SET enabled=0 WHERE id=91301");
+    const pending = await post('/events', incoming('manual-schedule'));
+    const pendingId = pending.json().id;
+    expect(pending.json().data.routing_status).toBe('pending_confirmation');
+    db().exec("UPDATE governance_identities SET enabled=1 WHERE id=91301");
+    const scheduled = await post('/routing/schedule', { event_id: pendingId });
+    expect(scheduled.statusCode, scheduled.body).toBe(200);
+    expect(scheduled.json()).toEqual({ checked: 1, routed_event_ids: [pendingId] });
+    expect(wire.observed).toHaveLength(1);
+
+    readImages.mockImplementationOnce(async () => []);
+    const missing = await post('/routing/assessments', { event_ids: ids, request_key: 'missing-image' });
+    expect(missing.json()).toMatchObject({ status: 'incomplete', evidence_turn_id: null, visual_inputs: [],
+      evidence: [expect.anything(), { tool: 'source_image', event_id: ids[1], status: 'unavailable', error: 'no_verified_image' }] });
+    readImages.mockImplementationOnce(async () => [{ contentType: 'image/png', bytes: Buffer.from('not a PNG') }]);
+    const invalid = await post('/routing/assessments', { event_ids: ids, request_key: 'invalid-image' });
+    expect(invalid.json()).toMatchObject({ status: 'incomplete', visual_inputs: [],
+      evidence: [expect.anything(), { tool: 'source_image', event_id: ids[1], status: 'unavailable', error: 'no_verified_image' }] });
+
+    const beforeRevoked = wire.submitted.length;
+    readImages.mockImplementationOnce(async () => {
+      db().prepare("UPDATE events SET data=json_set(data,'$.metadata.message_id','replaced') WHERE id=?").run(ids[1]);
+      return [{ contentType: 'image/png', bytes: png }];
+    });
+    const revoked = await post('/routing/assessments', { event_ids: ids, request_key: 'revoked-image' });
+    expect(revoked.json()).toMatchObject({ status: 'incomplete', evidence: [], thread_id: null, visual_inputs: [] });
+    expect(wire.submitted).toHaveLength(beforeRevoked);
+
+    db().prepare("UPDATE events SET data=json_set(data,'$.metadata.message_id','two','$.attachments',json('[]')),content='没有原图' WHERE id=?").run(ids[1]);
+    const beforeText = readImages.mock.calls.length;
+    const textOnly = await post('/routing/assessments', { event_ids: ids, request_key: 'text-only' });
+    expect(textOnly.json()).toMatchObject({ status: 'incomplete', evidence_turn_id: null, visual_inputs: [],
+      evidence: [{ tool: 'chat_evidence', status: 'verified', message_count: 1 }] });
+    expect(readImages).toHaveBeenCalledTimes(beforeText);
+    expect(wire.imageInputs).toHaveLength(1);
+
+    db().prepare("UPDATE events SET content='[图片消息](mediaId=synthetic-png)' WHERE id=?").run(ids[1]);
+    wire.driver.imagesAvailable = () => false;
+    const unsupported = await post('/routing/assessments', { event_ids: ids, request_key: 'unsupported-image-driver' });
+    expect(unsupported.json()).toMatchObject({ status: 'incomplete', evidence_turn_id: null, visual_inputs: [],
+      evidence: [expect.anything(), { tool: 'source_image', event_id: ids[1], status: 'unavailable',
+        error: 'model_image_input_unavailable' }] });
+    expect(readImages).toHaveBeenCalledTimes(beforeText);
+  }, 60_000);
 });

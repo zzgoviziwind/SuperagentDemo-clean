@@ -29,12 +29,20 @@ export async function preparePythonRollback(env:NodeJS.ProcessEnv) {
   const store=openStorage(path,{stateRoot:root});
   try {
     const {lease,recovery}=store.startController(randomUUID());
-    if(store.db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='workbench_model_runs'").get())
-      createWorkbenchScheduler(store.db,{lease,stateRoot:root,env,pollMs:0}).recoverOnly();
+    createWorkbenchScheduler(store.db,{lease,stateRoot:root,env,pollMs:0}).recoverOnly();
     store.sweepDeliveries(lease);
+    const unfinished=store.db.prepare(`SELECT EXISTS(SELECT 1 FROM workbench_model_runs WHERE status='running')
+      OR EXISTS(SELECT 1 FROM conversation_bridge_operations WHERE status='pending')
+      OR EXISTS(SELECT 1 FROM execution_attempts WHERE status IN ('claimed','running','waiting_approval'))
+      OR EXISTS(SELECT 1 FROM delivery_records WHERE json_extract(result,'$.write_status') IN ('claimed','dispatching')) AS present`).get();
+    if(unfinished?.present) throw new Error('仍有未完成恢复的派发记录，请先核验备份和主库');
     const deliveryIds=store.db.prepare("SELECT action_id FROM delivery_records WHERE json_extract(result,'$.write_status')='unknown' ORDER BY action_id")
       .all().map(row=>row.action_id);
     const tasks=store.db.prepare('SELECT id FROM tasks WHERE outcome_unknown ORDER BY id').all().map(row=>row.id);
-    return {prepared:true,database:path,backup:file,recovery,unknown_delivery_ids:deliveryIds,unknown_task_ids:tasks};
+    const approvals=store.db.prepare("SELECT id FROM approvals WHERE status='unknown' ORDER BY id").all().map(row=>row.id);
+    const models=store.db.prepare("SELECT id FROM workbench_model_runs WHERE status='unknown' ORDER BY id").all().map(row=>row.id);
+    const bridge=store.db.prepare("SELECT id FROM conversation_bridge_operations WHERE status='unknown' ORDER BY id").all().map(row=>row.id);
+    return {prepared:true,database:path,backup:file,recovery,unknown_delivery_ids:deliveryIds,unknown_task_ids:tasks,
+      unknown_approval_ids:approvals,unknown_model_run_ids:models,unknown_bridge_operation_ids:bridge};
   } finally { store.close(); }
 }

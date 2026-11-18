@@ -22,6 +22,61 @@ const standing={direct_messages:'reply',group_messages:'off',delivery:'auto_send
 function save(db:DatabaseSync,key:string,value:unknown) {db.prepare('INSERT OR REPLACE INTO governance_settings VALUES(?,?,?)').run(key,JSON.stringify(value),new Date().toISOString());}
 const red={enabled:true,base_url:'https://fixture.invalid',project_ids:[7],user_id:5};
 
+test('群目录 HTTP 管理权限、当前配置、两页只读 DWS、25 秒超时与停用',{timeout:55000},async()=>{
+  const f=input('群目录'),log=join(f.dir,'commands.log');
+  const script=fileURLToPath(new URL('../../../../../packages/channels/tests/fake-dws.mjs',import.meta.url));
+  const cfg={enabled:true,profile:'offline-profile',self_ids:['operator'],executable:[process.execPath,script,log]};
+  const route='/connectors/dingtalk/groups',path=(q:string,cursor='')=>route+'?'+new URLSearchParams({q,...(cursor?{cursor}:{})});
+  const commands=()=>existsSync(log)?readFileSync(log,'utf8').trim().split('\n').map(line=>JSON.parse(line) as string[]):[];
+  const searches=()=>commands().filter(a=>a.includes('+chat-search'));
+  const h=host(f.dir,false);
+  try{
+    const address=await h.address(),call=client(address);
+    await call(path('医院'),'GET',undefined,409);
+    await call('/settings','PATCH',{'connectors.dingtalk':cfg,dingtalk_response_policy:{...standing,direct_messages:'off'}});
+    for(const role of ['member','viewer']) await call(path('医院'),'GET',undefined,403,role);
+    for(const url of [route,path('  '),path('医'.repeat(101)),path('医院','x'.repeat(2001))]) await call(url,'GET',undefined,422);
+    assert.equal(searches().length,0);
+    const first=await call(path(' 医院 '));
+    assert.deepEqual(first,{items:[{id:'cid-1',name:'医院研发群'}],complete:false,has_more:true,next_cursor:'opaque +/页=2',stop_reason:'single_page'});
+    const second=await call(path('医院',first.next_cursor));
+    assert.deepEqual(second,{items:[{id:'cid-2',name:'群名称未提供'}],complete:true,has_more:false,next_cursor:null,stop_reason:null});
+    const exact=['--profile',cfg.profile,'chat','+chat-search','--query','医院','--limit','20','--format','json'];
+    assert.deepEqual(searches(),[exact,[...exact,'--cursor',first.next_cursor]]);
+    const info='/connectors/dingtalk/group?chat_id=';
+    await call(info+'cid-1','GET',undefined,403,'viewer');
+    await call(info,'GET',undefined,422);
+    assert.deepEqual(await call(info+'cid-1'),first.items[0]);
+    assert.deepEqual(commands().at(-1),['--profile',cfg.profile,'chat','+conversation-info','--group','cid-1','--format','json']);
+    for(const id of ['wrong-id','private','no-title']) await call(info+id,'GET',undefined,502);
+    assert.match((await call(path('坏页'),'GET',undefined,502)).detail,/格式/);
+    for(const q of ['坏 JSON','DWS 拒绝']) assert.match((await call(path(q),'GET',undefined,503)).detail,/查询暂不可用/);
+    const start=Date.now();
+    const response=await fetch(address+'/api/v1'+path('等待超时'),{headers:{authorization:'Bearer fixture-admin'},signal:AbortSignal.timeout(33000)});
+    assert.equal(response.status,503);assert.match((await response.json() as {detail:string}).detail,/查询暂不可用/);
+    assert.ok(Date.now()-start>=24000);
+    const timeoutPid=Number(readFileSync(log+'.search-pid','utf8'));
+    assert.throws(()=>process.kill(timeoutPid,0),{code:'ESRCH'});
+    const pending=call(path('查询中停用'),'GET',undefined,409);
+    await until(()=>readFileSync(log+'.search-pid','utf8'),id=>Number(id)!==timeoutPid);
+    await call('/connectors/dingtalk/stop','POST',{});
+    await pending;
+    const count=searches().length;
+    await call(path('医院'),'GET',undefined,409);
+    await call('/settings','PATCH',{'connectors.dingtalk':{...cfg,enabled:false}});
+    await call(path('医院'),'GET',undefined,409);
+    assert.equal(searches().length,count);
+    await call(info+'cid-1','GET',undefined,409);
+    assert.ok(commands().every(a=>a.includes('+chat-search') || a.includes('+conversation-info')));
+  }finally{await h.stop();}
+  const fixture=host(f.dir,true);
+  try{
+    const call=client(await fixture.address()),count=searches().length;
+    await call('/settings','PATCH',{'connectors.dingtalk':cfg});
+    await call(path('医院'),'GET',undefined,409);assert.equal(searches().length,count);
+  }finally{await fixture.stop();}
+});
+
 test('本机 HTTP 按量假 Worker，预算为零不派发，单轮预留、未知用量、核验与人审',{timeout:30000},async()=>{
   const f=input('按量预算'),db=new DatabaseSync(join(f.dir,'superagent.db'));
   const exe=join(f.dir,'metered.exe'),log=join(f.dir,'observed-turns.txt');
@@ -30,7 +85,19 @@ test('本机 HTTP 按量假 Worker，预算为零不派发，单轮预留、未�
     fileURLToPath(new URL('./MeteredFixture.cs',import.meta.url))],{cwd:f.dir,timeout:10000});
   db.prepare('UPDATE projects SET repo_path=?').run(f.dir);
   db.exec("UPDATE tasks SET kind='reply'");
-  const h=host(f.dir,false,false,{SUPERAGENT_CODEX_EXECUTABLE:exe,SUPERAGENT_CODEX_HOME:f.dir});
+  const received:string[]=[],redmine=createServer(async(req,res)=>{
+    if(req.headers['x-redmine-api-key']!=='offline') return void res.writeHead(403).end();
+    if(req.url==='/users/current.json') return void res.end('{"user":{"id":5}}');
+    if(req.url?.startsWith('/issues.json?')) return void res.end('{"issues":[],"total_count":0}');
+    if(req.url==='/issues/88.json'){
+      if(req.method==='GET') return void res.end('{"issue":{"id":88,"project":{"id":7}}}');
+      if(req.method==='PUT'){let raw='';for await(const chunk of req) raw+=chunk;received.push(JSON.parse(raw).issue.notes);return void res.writeHead(204).end();}
+    }
+    res.writeHead(404).end();
+  });
+  redmine.listen(0,'127.0.0.1');await once(redmine,'listening');
+  const base='http://127.0.0.1:'+(redmine.address() as {port:number}).port;
+  const h=host(f.dir,false,false,{SUPERAGENT_CODEX_EXECUTABLE:exe,SUPERAGENT_CODEX_HOME:f.dir,BUDGET_TEST_REDMINE:'offline'});
   try{
     const call=client(await h.address());
     await call('/settings','PATCH',{budget_reservation_estimate_micros:10,
@@ -62,7 +129,22 @@ test('本机 HTTP 按量假 Worker，预算为零不派发，单轮预留、未�
     assert.equal(ledger.spent_micros,3);assert.equal(ledger.reserved_micros,0);
     assert.equal((await call('/budget-reservations')).length,1);
     assert.deepEqual(readFileSync(log,'utf8').trim().split('\n'),['turn/start']);
-  }finally{await h.stop();db.close();}
+    await call('/settings','PATCH',{scheduler_enabled:false,external_delivery_enabled:true,
+      'connectors.redmine':{...red,base_url:base,api_key_env:'BUDGET_TEST_REDMINE'}});
+    await call('/budgets/global','PATCH',{hard_limit_micros:13});
+    const auto=await call('/tasks','POST',{kind:'reply',title:'自动回复',goal:'判断来信',project_id:1});
+    const now=new Date().toISOString();
+    db.prepare("INSERT INTO events(task_id,source,event_type,content,data,created_at) VALUES(?,'redmine','issue.comment','offline-autoreply',?,?)")
+      .run(auto.id,JSON.stringify({routing_status:'routed',issue_id:88,project_external_id:'7',actor_id:'9',occurred_at:now,
+        metadata:{redmine_endpoint:base,external_user_id:'5'}}),now);
+    await call('/settings','PATCH',{scheduler_enabled:true});
+    const list=()=>call('/tasks/'+auto.id+'/deliveries');
+    const [sent]=await until(list,rows=>rows[0]?.delivery?.write_status==='succeeded');
+    assert.equal((await call('/deliveries/'+sent.id+'/publish','POST')).write_status,'succeeded');
+    assert.deepEqual(received,['Verified offline reply']);
+    assert.equal((await call('/budget-reservations')).filter((r:any)=>r.task_id===auto.id && r.status==='unknown').length,1);
+    assert.deepEqual(readFileSync(log,'utf8').trim().split('\n'),['turn/start','turn/start']);
+  }finally{await h.stop();db.close();redmine.closeAllConnections();await new Promise<void>(r=>redmine.close(()=>r()));}
 });
 
 test('DWS 原私聊消息附件经实际 HTTP 入站核验，错误回话账单没有产物',{timeout:18000},async()=>{
@@ -213,14 +295,22 @@ test('HTTP 入站重新获取 Redmine 附件、大小失败、管理员重试与
   const base='http://127.0.0.1:'+(server.address() as {port:number}).port,h=host(f.dir,false,false,{OFFLINE_ATTACHMENT_KEY:'offline-key'});
   try{
     const call=client(await h.address());
-    await call('/settings','PATCH',{'connectors.redmine':{...red,base_url:base,api_key_env:'OFFLINE_ATTACHMENT_KEY'}});
+    const cfg={...red,base_url:base,api_key_env:'OFFLINE_ATTACHMENT_KEY'};
+    await call('/settings','PATCH',{'connectors.redmine':cfg});
     async function incoming(issue:number) {return call('/events','POST',{source:'redmine',external_id:'resource-'+issue,event_type:'issue.comment',
       actor_id:'9',project_external_id:'7',issue_id:issue,thread_id:String(issue),content:'请分析附件',metadata:{redmine_endpoint:base,external_user_id:'5'},
       attachments:[{id:12,filename:'忽略',local_path:'无效路径',content_url:base+'/event-url-must-never-be-used'}]});}
     const r=await incoming(41),status=(id:number)=>db.prepare('SELECT status FROM event_attachment_jobs WHERE event_id=?').get(id)?.status;
     await until(()=>status(r.id),s=>s==='failed');assert.equal(gets,1);
     const retry='/events/'+r.id+'/retry-attachments';
-    await call(retry,'POST',{},403,'member');valid=true;await call(retry,'POST',{});
+    await call(retry,'POST',{},403,'member');
+    await call('/settings','PATCH',{'connectors.redmine':{...cfg,enabled:false}});
+    const blocked=await call(retry,'POST',{});
+    assert.equal(blocked.data.attachments_error_code,'disabled');assert.equal(status(r.id),'failed');assert.equal(gets,1);
+    valid=true;
+    await call('/settings','PATCH',{'connectors.redmine':cfg});
+    const accepted=await call(retry,'POST',{});
+    assert.equal(accepted.data.attachments_status,'pending');assert.equal(accepted.data.attachments_error_code,undefined);
     await until(()=>status(r.id),s=>s==='completed');await call(retry,'POST',{},409);assert.equal(gets,2);
     const artifact=(await call('/tasks/'+r.task_id)).artifacts.find((a:any)=>a.kind==='source_attachment'),saved=JSON.parse(artifact.content);
     assert.equal(saved.sha256,createHash('sha256').update(data).digest('hex'));assert.deepEqual(readFileSync(saved.local_path),data);
@@ -232,4 +322,56 @@ test('HTTP 入站重新获取 Redmine 附件、大小失败、管理员重试与
     assert.equal((await call('/tasks/'+stale.task_id)).artifacts.filter((a:any)=>a.kind==='source_attachment').length,0);
     assert.equal(other,0);
   }finally{release();await h.stop();db.close();server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));}
+});
+
+test('HANDOFF-119 附件重试在 HTTP 返回前持久化 disabled 或 no_source，立即停机仍可核验',{timeout:18000},async()=>{
+  for(const reason of ['disabled','no_source'] as const){
+    const f=input('handoff-119-'+reason),path=join(f.dir,'superagent.db');
+    const db=new DatabaseSync(path),calls:string[]=[];
+    const server=createServer((req,res)=>{
+      calls.push(req.url??'');
+      if(req.url==='/users/current.json') return void res.end('{"user":{"id":5}}');
+      if(req.url?.startsWith('/issues.json?')) return void res.end('{"issues":[],"total_count":0}');
+      res.writeHead(404).end();
+    });
+    server.listen(0,'127.0.0.1');await once(server,'listening');
+    const base='http://127.0.0.1:'+(server.address() as {port:number}).port;
+    try{
+      db.prepare("UPDATE tasks SET status='paused' WHERE id=?").run(f.task);
+      db.prepare("UPDATE events SET id=100, data=json_set(data,'$.metadata.redmine_endpoint',?) WHERE id=?").run(base,f.event);
+      db.prepare("INSERT INTO event_attachment_jobs VALUES(100,?,1,1,'failed','[]')").run(f.task);
+      db.prepare("INSERT INTO events(id,task_id,source,event_type,content,data,created_at) SELECT 101,task_id,source,event_type,content,data,created_at FROM events WHERE id=100").run();
+      db.prepare("INSERT INTO event_attachment_jobs VALUES(101,?,1,1,'pending','[]')").run(f.task);
+      save(db,'connectors.redmine',{...red,base_url:base,enabled:reason==='no_source',api_key_env:'OFFLINE_KEY'});
+      const oldVersion=db.prepare('SELECT state_version FROM tasks WHERE id=?').get(f.task)!.state_version;
+      const fixture=reason==='disabled';
+      const h=host(f.dir,fixture,false,{OFFLINE_KEY:'offline',...(fixture?{SUPERAGENT_SERVICE_MODE:'preview'}:{})});
+      try{
+        const call=client(await h.address()),url='/events/100/retry-attachments';
+        assert.equal(db.prepare("SELECT status FROM event_attachment_jobs WHERE event_id=101").get()!.status,'failed');
+        assert.equal(db.prepare("SELECT json_extract(data,'$.attachments_error_code') code FROM events WHERE id=101").get()!.code,reason);
+        await call(url,'POST',{},403,'member');
+        const first=await call(url,'POST',{});
+        assert.equal(first.data.attachments_status,'failed');
+        const receipts=[first,...await Promise.all(Array.from({length:3},()=>call(url,'POST',{})))];
+        for(const row of receipts){
+          assert.equal(row.data.attachments_status,'failed');
+          assert.equal(row.data.attachments_error_code,reason);
+        }
+        assert.equal(receipts.filter(r=>!r.duplicate).length,1);
+      }finally{await h.stop();}
+      const reopened=new DatabaseSync(path,{readOnly:true});
+      try{
+        const row=reopened.prepare("SELECT j.status,j.results,e.data FROM event_attachment_jobs j JOIN events e ON e.id=j.event_id WHERE j.event_id=100").get()!;
+        assert.equal(row.status,'failed');assert.deepEqual(JSON.parse(String(row.results)),[]);
+        assert.equal(JSON.parse(String(row.data)).attachments_error_code,reason);
+        const task=reopened.prepare('SELECT status,state_version FROM tasks WHERE id=?').get(f.task)!;
+        assert.equal(task.status,'paused');assert.equal(task.state_version,oldVersion);
+        assert.equal(reopened.prepare("SELECT COUNT(*) n FROM governance_audit WHERE action='event.retry_attachments' AND resource='100'").get()!.n,1);
+        assert.equal(reopened.prepare("SELECT COUNT(*) n FROM artifacts WHERE kind='source_attachment'").get()!.n,0);
+        assert.ok(!existsSync(join(f.dir,'attachments')));
+        assert.ok(calls.every(url=>url==='/users/current.json' || url.startsWith('/issues.json?')));
+      }finally{reopened.close();}
+    }finally{db.close();server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));}
+  }
 });

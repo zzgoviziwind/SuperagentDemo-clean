@@ -15,7 +15,9 @@
 |2.5|`GET /events/stream`|冻结 HTTP 契约|管理员可读全量通知，成员只收到所属任务的通知，viewer 仅收到心跳。支持 `after` 和 `Last-Event-ID`。连接最多保留 30 秒，重连时重新认证。|
 |3.2|`GET /sessions`、`GET /sessions/:id`、`GET /sessions/:id/transcript`、`GET /sessions/:id/coordination`|`SessionWorkbench.tsx`、`ThreadTranscript.tsx`、`CoordinationPanel.tsx`|管理员可见 Worker、项目 Router 与语义分流会话。成员只看所属 Worker。查看者无会话可见性。历史取已有消息及产物，完整 Codex 记录需要运行时。|
 |3.2|`POST /sessions/:id/messages`、`POST /sessions/:id/reconcile`|`SessionWorkbench.tsx`|Worker 发言复用任务消息入口。项目 Router 关闭时保存便笺。语义复核保存原上下文与排队消息。未知结果解除前须确认进程退出。|
+|3.2|`POST /sessions/:id/handoff`、`POST /sessions/:id/coordination`、`POST /sessions/:id/coordination/:request_id/apply`|`HandoffPanel.tsx`、`CoordinationPanel.tsx`|接管仅适用于已停止、可见的本机 Worker，同一任务版本只生成一次。调配要求来源与目标可见且项目相同。管理员应用时复核来源映射、项目绑定、目标 owner 和版本。重放只返回原记录，追加关联不迁移原任务。|
 |3.2|`GET /routing/jobs`、`POST /routing/schedule`、`POST /routing/jobs/:event_id/correction`|`RoutingPanel.tsx`|仅管理员。纠正候选按来源身份、所属项目及任务权限过滤。已路由事件的纠正只追加历史。新分派将持久化结果与运行时回执对照。|
+|3.2|`POST /routing/assessments`|多消息事项研判|仅管理员。比较同一授权钉钉私聊中 2–5 条未分派原件。结果记录独立模型轮次和实际历史证据，过程中不产生投递或修改关联。同一身份与输入快照并发共享一次评估和审计。可通过新的 `request_key` 明确提交重新评估。|
 |3.2|`GET /operations/watchdog`、`POST /operations/watchdog/tasks/:task_id/run`、`POST /operations/watchdog/:run_id/messages`|`OperationsPanel.tsx`|仅管理员。读取真实巡检记录。运行由开关、正在执行和未知记录共同约束。纠正保留审计事件。|
 |2.6|`GET /conversation-providers`、`GET /conversation-providers/bridge/{status,sessions,sessions/:id,operations/:key}`、`POST /conversation-providers/bridge/operations`、`POST /conversation-providers/mcp`|`ConversationProvidersPanel.tsx` 及 HTTP 桥接契约|桥接使用平台 Bearer，复用会话权限，历史分页绑定快照。创建、发言和控制复用主入口。相同请求键重放回执，未知或进行中的操作禁止自动重放。MCP 使用无状态 HTTP JSON-RPC。|
 
@@ -57,5 +59,26 @@ registerWorkbench(app, store.db, scheduler);
 ## 交接与缺口
 
 - 投递组负责 `GET /tasks/:id/deliveries`。事件跟踪读取已保存投递记录。入站、事件重试、普通任务与上下文由总控负责，triage 由工作台负责。
-- 委派入口提交子任务和事件。子 Worker 结果回流、协调写入与交接、项目研判的主动取图及批量比较仍需单独集成。
+- 委派入口提交子任务和事件。子 Worker 结果回流与单事件项目研判的主动取图仍需单独集成。
+- 多消息评估从所选的同一获准钉钉私聊收取原图。渠道核验 profile、当前账号、私聊对方、原消息和资源回执。工作台按事件编号绑定本轮图片，允许 PNG、JPEG、GIF、WebP，单张至多 10 MiB，整轮至多 4 张和 20 MiB。派发前再次核验来源快照。确认图片输入的轮次才填写 `evidence_turn_id` 和依顺序排列的 `visual_inputs`。审计只存格式、字节数、SHA-256 和轮次等证据摘要，运行暂存文件在本轮结束时清理。没有图片、原图缺失、历史未核实或驱动不支持图片时返回 `incomplete`。
 - 本轮使用离线假协议和冻结库副本。受信本机 Codex 账号、真实 DWS、浏览器和安装器需要各自的联调证据。
+
+### 原图驱动兼容
+
+TypeScript 运行需要共享 Codex 客户端提供 `startTurnWithImages(threadId, prompt, profile, paths)`，用已有只读线程和预算流程发送原生 `turn/start.input[].type=localImage`。未提供该能力时，带图评估产生 `model_image_input_unavailable` 证据和 `incomplete`，图片读取端口不会被调用。
+
+保留冻结 Python 时，使用发布回滚流程切换控制器，或把独立 DB 副本和临时工作目录交给冻结版本并仅监听回环。并行运行时，Python 与 TypeScript 服务使用独立数据库。复放副本关闭后台分流、巡检和真实渠道监听，原图读取及 Codex 使用离线替身。冻结版本从 `.rewrite-oracle` 启动 `superagent.main:app`，由同一管理员调用 `POST /api/v1/routing/assessments` 并提交 `event_ids`。原入口重新校验来源和项目授权，用 `TriageEvidence.call('source_image', …)` 读取该次请求允许的原消息，必要时在同一线程以原生图片续跑，并在该数据库记录本轮审计。TypeScript 评估只接受其自身发出的轮次回执。
+
+兼容入口应核对本轮每个应取图事件的 `source_image.status=verified`，以及相应的 `visual_inputs` 和 `turn_id`。冻结 Python 的 `assessed` 只证明曾尝试读取所需证据。输入没有图片或原图核对失败时，对调用方仍报告 `incomplete`。
+
+## B328 五项 409 裁决
+
+|请求|当前源码复放与裁决|
+|---|---|
+|`POST /event-groups/10/sync-own-dingtalk`|保留 409。B328 配置关闭历史读取，同步需要可用的读取适配器。已确认私聊且确实无新增时返回 200 和 `added: 0`。|
+|`POST /operations/watchdog/sample-run/messages`|保留 409。旧未知记录缺对应巡检的进程退出证据，其他巡检的退出记录不能解锁该轮。|
+|`POST /routing/jobs/103/correction`|恢复 200。与历史忽略决定相同的旧格式可补记证据，原分派状态与关联维持原值。应用新决定仍须满足完整契约。|
+|`POST /routing/schedule`|恢复 200，B328 样本检查一条并确定性分派事件 101。关闭语义开关时复用入站重试权限及规则，模型调用数为零。|
+|`POST /sessions/router:1/reconcile`|保留 409。无法确认旧未知会话的进程退出，仅凭文本不会解锁后续模型派发。|
+
+用 B328 原始合成底库的九个独立 SQLite 副本，在当前总控入口共复放 21 个请求。评估、接管、申请和应用各以四客户端并发运行，全部返回 200。每类并发结果一致，并核对只有一条对应的审计、接管、申请或新关联。九份副本的 SQLite 完整性检查均通过，底库散列保持 `5bc2b8435c673c4ebd74ae918e17ae2f72077ba6f1e725304f8ecfe9e067e93e`。这些是当前源码的复验证据。下一份安装包的独立验收仍需以新指纹记录。
