@@ -26,6 +26,16 @@ Worker 集成入口是 `prepareReplyDecision(db,taskId,attemptId,prompt,manifest
 
 `POST /api/v1/events/:id/retry-attachments` 供管理员重试失败的附件任务。下载重新从配置的渠道读取原工单或原消息的清单，核对实际文件、大小和来源，在当前版本内落入 source_attachment。过期版本不追加产物。
 
+`POST /api/v1/tasks/:id/retry-attachments` 接收 `{expected_state_version}`，供任务负责人或管理员在附件阻塞时批量重试。开始前核对全部失败附件的来源与渠道。普通补充来信造成版本变化时，后台丢弃旧批次并按新版本重新读取。更换项目或目标时仍按原隔离要求处理。附件准备失败或在途时 Worker 等待。已核验的图片按原事件编号投入后续 Worker，每轮最多四张、合计 20 MiB。
+
+## TypeScript 飞书卡片
+
+启用卡片模式并配置本应用的 App ID、App Secret、收件人 Open ID 和 SuperAgent 任务负责人。飞书后台已启用长连接回调时，在 Windows 启动配置中注入 `SUPERAGENT_FEISHU_TRANSPORT=ws`。卡片发送等待长连接建立。默认的 HTTP 模式继续使用签名、加密密钥、验证令牌及 `/callbacks/feishu/card`。两种方式均核对应用、点击者、原卡片和任务状态。
+
+卡片覆盖 Worker 工具审批、附件重试、补充与恢复、失败重试、回复发送与未知结果对账、执行退出对账及结果验收。操作沿用原业务权限，完成后更新原卡片。真实飞书接收、表单提交和原卡片更新需用目标应用现场验收。
+
+待研判的未分派收件单独通知已绑定的管理员。卡片仅含事件编号与本机工作台链接，不包含原消息或写入操作，因此无需等待回调连接。每 15 秒至多投递一条，发送前重新核对事件状态。投递账本按事件编号去重，结果未知或渠道拒绝时在事件中心可见。卡片链接适用于运行 SuperAgent 的电脑。
+
 ### 附件重试终态
 
 保留冻结库的 `event_attachment_jobs.status=failed` 和 `results=[]`。在同一事务中，事件的 `data.attachments_status` 也置为 `failed`，`attachments_error` 给出中文说明，`attachments_error_code` 区分以下情形。

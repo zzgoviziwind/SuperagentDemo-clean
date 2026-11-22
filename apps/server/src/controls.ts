@@ -17,7 +17,7 @@ const legacyEngineErrors = new Set([
 ]);
 const transition:Record<string,Record<string,string>>={
   start:{queued:'queued'},pause:{queued:'paused',waiting_resource:'paused',waiting_input:'paused',running:'waiting_resource',waiting_approval:'waiting_resource'},
-  resume:{paused:'queued',waiting_input:'queued',cancelled:'queued'},retry:{failed:'queued'},
+  resume:{paused:'queued',waiting_input:'queued',cancelled:'queued'},retry:{failed:'queued'},rerun:{review_ready:'queued'},
   cancel:{queued:'cancelled',paused:'cancelled',waiting_input:'cancelled',waiting_resource:'cancelled',running:'waiting_resource',waiting_approval:'waiting_resource',review_ready:'cancelled',failed:'cancelled',completed:'cancelled'},
 };
 const version=z.int().positive().nullable().optional();
@@ -33,15 +33,13 @@ export async function stopFenced(db:DatabaseSync,id:number,controlVersion:number
   let stopped=false;
   try { stopped=await worker?.stop(id)??false; } catch { /* no confirmation */ }
   tx(db,()=>{
-    const task=db.prepare('SELECT control_version,revision,last_error FROM tasks WHERE id=?').get(id);
+    const task=db.prepare('SELECT control_version,last_error FROM tasks WHERE id=?').get(id);
     if(task?.control_version!==controlVersion || task.last_error!=='正在停止执行') return;
     const now=utc();
     let next=stopped?target:'waiting_resource';
     let error=stopped?null:'执行退出结果未知，请核验';
     if(next==='queued') {
-      const jobs=db.prepare('SELECT status FROM event_attachment_jobs WHERE task_id=? AND revision=? AND control_version=?').all(id,task.revision,task.control_version);
-      if(jobs.some(j=>j.status==='failed')) { next='waiting_input';error='附件获取或校验失败，请核验来源后重试'; }
-      else if(jobs.some(j=>j.status==='pending'||j.status==='processing')) { next='waiting_resource';error='正在准备来源附件'; }
+      ({status:next,error}=attachmentGate(db,id));
     }
     db.prepare('UPDATE tasks SET status=?,last_error=?,outcome_unknown=?,updated_at=?,state_version=state_version+1 WHERE id=?').run(
       next,error,Number(!stopped),now,id);
@@ -49,6 +47,14 @@ export async function stopFenced(db:DatabaseSync,id:number,controlVersion:number
       .run(stopped?'abandoned':'unknown',now,now,id,controlVersion);
     record(db,id,stopped?'stop_confirmed':'stop_unknown','',{target,control_version:controlVersion});
   });
+}
+export function attachmentGate(db:DatabaseSync,id:number) {
+  const jobs=db.prepare(`SELECT status FROM event_attachment_jobs WHERE task_id=? AND event_id>
+    COALESCE((SELECT MAX(id) FROM events WHERE task_id=? AND event_type='project_rebound'),0)
+    AND status IN ('pending','processing','failed')`).all(id,id);
+  if(jobs.some(j=>j.status!=='failed')) return {status:'waiting_resource',error:'正在准备来源附件'};
+  if(jobs.length) return {status:'waiting_input',error:'附件获取或校验失败，请核验来源后重试'};
+  return {status:'queued',error:null};
 }
 export function registerControls(app:FastifyInstance,db:DatabaseSync,worker?:WorkerControl) {
   app.post('/api/v1/tasks/:id/controls',async req=>{
@@ -58,12 +64,17 @@ export function registerControls(app:FastifyInstance,db:DatabaseSync,worker?:Wor
       const t=checkTask(db,id,req.principal,expected_state_version);
       const analyze=action==='analyze' && t.kind==='reply' && ['paused','waiting_input','review_ready','completed','cancelled','failed'].includes(String(t.status));
       const recoverEngine = action==='resume' && t.kind==='reply' && t.status==='waiting_resource' && legacyEngineErrors.has(String(t.last_error));
+      const retryResource=action==='resume' && t.status==='waiting_resource' && !recoverEngine
+        && t.last_error!=='正在准备来源附件' && !attachmentGate(db,id).error;
       const transitions=Object.hasOwn(transition,action)?transition[action]:undefined;
-      const state=analyze || recoverEngine?'queued':transitions && Object.hasOwn(transitions,String(t.status))?transitions[String(t.status)]:undefined;
+      const state=analyze || recoverEngine || retryResource?'queued':transitions && Object.hasOwn(transitions,String(t.status))?transitions[String(t.status)]:undefined;
       if(!state) fail(409,'当前状态不支持此操作');
-      if((recoverEngine || analyze || t.status==='cancelled') && worker?.isActive?.(id)) fail(409,'执行尚未退出，请稍后继续');
+      if((recoverEngine || retryResource || analyze || t.status==='cancelled') && worker?.isActive?.(id)) fail(409,'执行尚未退出，请稍后继续');
       if(recoverEngine && !worker?.canRunReply?.()) fail(409,'请启用自动调度并连接本机回复引擎后重试');
-      const newRevision=Number(t.status==='cancelled'||analyze);
+      if(action==='rerun' && db.prepare(`SELECT 1 FROM reply_drafts d JOIN delivery_records l ON l.action_id='reply-'||d.approval_id
+        WHERE d.task_id=? AND json_extract(l.result,'$.write_status') IN ('claimed','dispatching','unknown') LIMIT 1`).get(id))
+        fail(409,'请先核对渠道发送结果');
+      const newRevision=Number(t.status==='cancelled'||analyze||action==='rerun');
       const stop=active(t.status) && (action==='cancel'||action==='pause');
       db.prepare('UPDATE tasks SET status=?,revision=revision+?,control_version=control_version+1,state_version=state_version+1,updated_at=?,last_error=?,kind=?,codex_thread_id=?,codex_turn_id=? WHERE id=?')
         .run(state,newRevision,utc(),stop?'正在停止执行':null,analyze?'analysis':t.kind,analyze?null:t.codex_thread_id,analyze?null:t.codex_turn_id,id);

@@ -5,6 +5,7 @@ import type { Event, Fields, Principal, Task, WorkbenchStore } from './store.ts'
 import { fail, fields, integer, now, page, principalOf, queryText, requireAdmin, requiredText } from './store.ts';
 import { syncDingTalkHistory } from './dingtalk-history.ts';
 import { workbenchRuntime } from './runtime.ts';
+import { upgradeTriageNotices } from '../../../../packages/channels/feishu-notices.ts';
 
 const externalSources = new Set(['dingtalk', 'redmine']);
 const terminal = new Set(['completed', 'cancelled']);
@@ -17,7 +18,7 @@ function visibleMessage(event: Event): boolean {
 }
 
 function actionable(event: Event): boolean {
-  return visibleMessage(event) && event.data.routing_status !== 'self_context'
+  return visibleMessage(event) && !['self_context','context_only'].includes(String(event.data.routing_status))
     && !(event.source === 'web' && humanMessages.has(event.event_type));
 }
 
@@ -52,7 +53,10 @@ function groupProjection(store: WorkbenchStore, task: Task) {
     && event.data.revision === task.revision && event.data.control_version === task.control_version);
   const decision = current.findLast(event => event.event_type === 'reply_decision')?.data.decision ?? null;
   if (task.kind === 'reply' && status === 'review_ready' && !task.outcome_unknown) {
-    if (current.some(event => event.event_type === 'reply_sent')) status = 'reply_sent';
+    const sent=store.db.prepare(`SELECT 1 FROM reply_drafts d JOIN approvals a ON a.id=d.approval_id
+      JOIN delivery_records l ON l.action_id='reply-'||a.id WHERE d.task_id=? AND a.revision=? AND a.control_version=?
+      AND json_extract(l.result,'$.write_status')='succeeded' LIMIT 1`).get(task.id,task.revision,task.control_version);
+    if (sent || current.some(event => event.event_type === 'reply_sent')) status = 'reply_sent';
     else if (decision === 'skip') status = 'reply_skipped';
   }
   return { events, results, group: { ...task, worker_id: `worker:${task.id}`, event_count: events.length,
@@ -91,6 +95,21 @@ export function noActionReason(event: Pick<Event,'source'|'event_type'|'content'
 }
 
 const closedReceiptStatuses = ['ignored', 'self_echo', 'dismissed'];
+const unassignedSources = `task_id IS NULL AND source IN ('dingtalk', 'redmine') AND external_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM event_targets target WHERE target.event_id=events.id)`;
+
+export function nextTriageNotice(store: WorkbenchStore, eventId?: number): number | undefined {
+  const rows = store.db.prepare(`SELECT id,source,event_type,content,data FROM events WHERE ${unassignedSources}
+    AND json_extract(data,'$.routing_status')='pending_confirmation'
+    AND json_extract(data,'$.routing_reason') IS NOT 'private_policy_hold'
+    AND (? IS NULL OR id=?) AND NOT EXISTS (SELECT 1 FROM feishu_triage_notices n
+      WHERE n.event_id=events.id AND n.status!='retrying') ORDER BY id`).iterate(eventId ?? null, eventId ?? null);
+  for (const row of rows) {
+    const event = { source: String(row.source), event_type: String(row.event_type), content: String(row.content),
+      data: fields(JSON.parse(String(row.data))) };
+    if (!noActionReason(event)) return Number(row.id);
+  }
+}
 
 function receiptView(event: Event) {
   const status = event.data.routing_status;
@@ -194,17 +213,16 @@ function casefold(input: string): string {
   }).join('');
 }
 
-function index(store: WorkbenchStore, principal: Principal, query: Fields) {
+function index(store: WorkbenchStore, principal: Principal, query: Fields, feishuTriageEnabled: boolean) {
   const { start, limit } = page(query, 'offset', 30);
   const project = query.project_id === undefined ? undefined : integer(query.project_id, 'project_id');
   const search = casefold(queryText(query.q, 'q').trim());
   const source = queryText(query.source, 'source');
   const status = queryText(query.status, 'status');
+  const eventId = query.event_id === undefined ? undefined : integer(query.event_id, 'event_id');
   let items = visibleTasks(store, principal, project).map(task => indexGroup(store, task));
   if (principal.role === 'admin' && project === undefined) {
-    const unassigned = store.rows<Event>('events', `WHERE task_id IS NULL
-      AND source IN ('dingtalk', 'redmine') AND external_id IS NOT NULL
-      AND id NOT IN (SELECT event_id FROM event_targets) ORDER BY id`);
+    const unassigned = store.rows<Event>('events', `WHERE ${unassignedSources} ORDER BY id`);
     for (const rows of receiptBundles(unassigned)) {
       const first = rows[0];
       const messages = rows.map(receiptView);
@@ -213,11 +231,13 @@ function index(store: WorkbenchStore, principal: Principal, query: Fields) {
         event: { id: first.id, project_id: null, worker_id: null, project_assessment: first.data.project_assessment ?? null } });
     }
   }
+  if (eventId !== undefined) items = items.filter(item => item.messages.some(event => event.id === eventId));
   if (search) items = items.filter(item => casefold([item.group?.title ?? '', ...item.messages.map(e => e.content)]
     .join('\n')).includes(search));
   if (source) items = items.filter(item => item.messages.some(event => event.source === source));
   const counts: Record<string, number> = {};
   for (const item of items) counts[item.state] = (counts[item.state] ?? 0) + 1;
+  if (query.counts_only === '1') return { counts };
   if (status === 'needs_action') items = items.filter(item => ['review', 'attention'].includes(item.state));
   else if (status === 'finished') items = items.filter(item => ['completed', 'closed'].includes(item.state));
   else if (['triage', 'active', 'closed'].includes(status)) items = items.filter(item => item.state === status);
@@ -230,7 +250,11 @@ function index(store: WorkbenchStore, principal: Principal, query: Fields) {
   const ordered = items.map(item => ({ item, latest: latest(item) }))
     .sort((a, b) => Number(a.item.state === 'closed') - Number(b.item.state === 'closed')
       || descending(a.latest, b.latest) || descending(a.item.key, b.item.key));
-  return { items: ordered.slice(start, start + limit).map(row => row.item), total: items.length,
+  const notice = store.db.prepare('SELECT status FROM feishu_triage_notices WHERE event_id=?');
+  return { items: ordered.slice(start, start + limit).map(({ item }) => item.state !== 'triage' || item.group ? item : {
+    ...item, messages: item.messages.map(event => ({ ...event,
+      triage_notice_status: notice.get(event.id)?.status ?? (feishuTriageEnabled ? null : 'disabled') })),
+  }), total: items.length,
     counts, has_more: start + limit < items.length };
 }
 
@@ -351,9 +375,10 @@ function triage(store: WorkbenchStore, body: Fields, principal: Principal) {
 }
 
 export function registerEventGroups(app: FastifyInstance, store: WorkbenchStore): void {
+  upgradeTriageNotices(store.db);
   const root = '/api/v1/event-groups';
   app.get(root, request => visibleTasks(store, principalOf(request)).map(task => groupProjection(store, task).group));
-  app.get(`${root}/index`, request => index(store, principalOf(request), fields(request.query)));
+  app.get(`${root}/index`, request => index(store, principalOf(request), fields(request.query), app.hasDecorator('feishuTriageDelivery')));
   app.post(`${root}/triage`, request => triage(store, fields(request.body),
     requireAdmin(request, '仅管理员可处理未分派的来源消息')));
   app.post<{ Params: { id: string } }>(`${root}/:id/sync-own-dingtalk`, async request => {

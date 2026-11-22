@@ -11,15 +11,19 @@ import { fields, now } from './store.ts';
 
 const routingSources = new Set(['dingtalk', 'redmine']);
 const allowedKinds = new Set(['analysis', 'repair', 'reply']);
-const appendable = new Set(['queued', 'paused', 'waiting_input', 'review_ready', 'failed']);
+const appendable = new Set(['queued', 'running', 'waiting_approval', 'waiting_resource', 'paused', 'waiting_input', 'review_ready', 'failed']);
+
+export function semanticGroupRequest(content: string, routeMentions: unknown, mentioned: unknown) {
+  return (routeMentions === true && mentioned === true) || /[？?]|请|分析|排查|检查|修复|修改|实现|新增|调整/u.test(content);
+}
 
 const decisionSchema = z.strictObject({
-  action: z.enum(['create', 'dispatch', 'ignore', 'confirm']),
+  action: z.enum(['create', 'dispatch', 'context', 'ignore', 'confirm']),
   kind: z.enum(['analysis', 'repair', 'reply']),
   task_id: z.int().positive().nullable(),
   state_version: z.int().positive().nullable(),
   reason: z.string().trim().min(1).max(2000),
-}).refine(d => d.action === 'dispatch' ? d.task_id !== null && d.state_version !== null
+}).refine(d => ['dispatch','context'].includes(d.action) ? d.task_id !== null && d.state_version !== null
   : d.task_id === null && d.state_version === null);
 
 export function modelDecision(value: unknown): SemanticDecision | undefined {
@@ -35,7 +39,11 @@ export interface Admission {
   externalActor?: string;
   reference?: string;
   fixedTarget?: number;
-  candidates: { id: number; title: string; kind: string; state_version: number }[];
+  direct?: boolean;
+  candidates: { id: number; title: string; kind: string; state_version: number; project_id: number; status: string;
+    messages?: { event_id: number; content: string; direction: string }[] }[];
+  historical?: Admission['candidates'];
+  history?: { event_id: number; content: string; direction: string }[];
 }
 
 const string = (value: unknown) => typeof value === 'string' && value ? value : undefined;
@@ -49,8 +57,8 @@ function intent(text: string) {
   return read && write ? 'conflict' : write ? 'repair' : read ? 'analysis' : undefined;
 }
 
-function rulesAllow(store: WorkbenchStore, event: Event, auth: Admission, kind: string): boolean {
-  const blocked = evaluateRules(store.db, event.source, auth.project.id, kind,
+function rulesAllow(store: WorkbenchStore, event: Event, auth: Admission, kind: string, projectId=auth.project.id): boolean {
+  const blocked = evaluateRules(store.db, event.source, projectId, kind,
     { thread_id: auth.thread, actor_id: auth.externalActor });
   return !blocked.has('pause') && !blocked.has('quiet');
 }
@@ -74,7 +82,7 @@ function references(store: WorkbenchStore, event: Event, projectId: number, prof
     const matched = store.db.prepare(`SELECT DISTINCT e.task_id FROM events e JOIN tasks t ON t.id=e.task_id
       WHERE e.source='dingtalk' AND t.project_id=? AND json_extract(e.data,'$.thread_id')=?
       AND COALESCE(json_extract(e.data,'$.metadata.profile'),'')=? AND json_extract(e.data,'$.metadata.message_id')=?
-      AND json_extract(e.data,'$.routing_status') IN ('routed','manually_linked','self_context')`).all(projectId, thread, profile, quote);
+      AND json_extract(e.data,'$.routing_status') IN ('routed','manually_linked','self_context','context_only')`).all(projectId, thread, profile, quote);
     if (matched.length !== 1) return;
     targets.add(Number(matched[0].task_id));
   }
@@ -116,8 +124,7 @@ function sourceAdmission(store: WorkbenchStore, event: Event, env: NodeJS.Proces
     if (direct ? policy.direct_messages === 'off' : policy.group_messages === 'off'
       || (policy.group_messages === 'mentions' && metadata.at_me !== true)
       || (policy.group_messages === 'requests' && policy.group_scope === 'selected' && !list(policy.group_chat_ids).includes(thread))) return;
-    if (!direct && !(cfg.dingtalk_route_all_mentions === true && metadata.at_me === true)
-      && !/[？?]|请|分析|排查|检查|修复|修改|实现|新增|调整/u.test(event.content)) return;
+    if (!direct && !semanticGroupRequest(event.content, cfg.dingtalk_route_all_mentions, metadata.at_me)) return;
   }
   return { source, actor: actor.user_id, role, grants: list(JSON.parse(String(actor.project_ids ?? '[]'))),
     direct, policy, effectiveAccess, candidates, externalActor, thread, metadata };
@@ -130,33 +137,53 @@ function currentBinding(store: WorkbenchStore, event: Event, scope: NonNullable<
   const key = event.source === 'dingtalk' ? 'dingtalk_chat_ids' : 'redmine_project_ids';
   let projects = externalProject ? store.rows('projects', `WHERE archived=0 AND EXISTS (
     SELECT 1 FROM json_each(${key}) WHERE CAST(value AS TEXT)=?)`, externalProject) : [];
+  const fallback = !projects.length && direct && typeof policy.default_project_id === 'number';
   if (!projects.length && direct && typeof policy.default_project_id === 'number') {
     projects = store.rows('projects', 'WHERE id=? AND NOT archived', policy.default_project_id);
   }
   if (effectiveAccess) {
     const chosen = selectAdmissionProject(store.db, event.id, source, effectiveAccess, candidates ?? []);
-    return { projects: chosen.projects, clarification: chosen.clarification };
+    return chosen;
   }
-  return { projects, clarification: false };
+  return { projects, clarification: false, fallback };
 }
 
 export function admitSemantic(store: WorkbenchStore, event: Event, env: NodeJS.ProcessEnv): Admission | undefined {
   const scope = sourceAdmission(store, event, env);
   if (!scope) return;
   const { actor, role, grants, externalActor, thread, metadata } = scope;
-  const { projects, clarification } = currentBinding(store, event, scope);
+  const { projects, clarification, fallback } = currentBinding(store, event, scope);
   if (clarification) return;
   if (projects.length !== 1 || !projects[0].enabled || typeof projects[0].id !== 'number' || projects[0].archived) return;
   const project = store.row<Admission['project']>('projects', 'id', projects[0].id)!;
   if (!grants.some(id => String(id) === String(project.id))) return;
   const pointers = references(store, event, project.id, string(metadata.profile) ?? '', thread);
   if (!pointers) return;
-  const auth: Admission = { project, actor, role, thread, externalActor, ...pointers, candidates: [] };
-  auth.candidates = store.rows<Task>('tasks', 'WHERE project_id=? ORDER BY updated_at DESC,id DESC LIMIT 100', project.id)
-    .filter(task => appendable.has(task.status) && !task.outcome_unknown && allowedKinds.has(task.kind)
-      && (role === 'admin' || store.taskOwner(task) === auth.actor)
-      && (auth.fixedTarget === undefined || auth.fixedTarget === task.id) && rulesAllow(store, event, auth, task.kind))
-    .map(({ id, title, kind, state_version }) => ({ id, title, kind, state_version }));
+  const direct = scope.direct && !!thread && !!metadata.profile;
+  const auth: Admission = { project, actor, role, thread, externalActor, direct, ...pointers, candidates: [] };
+  const conversation = direct ? store.rows<Event>('events', `WHERE source='dingtalk' AND external_id IS NOT NULL
+    AND id<? AND json_extract(data,'$.thread_id')=? AND json_extract(data,'$.metadata.profile')=?
+    AND json_extract(data,'$.metadata.conversation_type')='direct'
+    AND (json_extract(data,'$.actor_id')=? OR json_extract(data,'$.metadata.self_authored')=1)
+    AND julianday(created_at)>=julianday(?,'-7 days') ORDER BY id DESC LIMIT 80`,
+  event.id, thread!, String(metadata.profile), externalActor, event.created_at) : [];
+  const taskIds = [...new Set(conversation.flatMap(row => row.task_id === null ? [] : [row.task_id]))];
+  const evidence = (row:Event) => ({event_id:row.id,content:row.content.slice(0,1200),
+    direction:fields(row.data.metadata).self_authored===true?'own_account':'received'});
+  const authorized = store.rows<Task>('tasks', `WHERE project_id IN (SELECT id FROM projects WHERE enabled AND NOT archived)
+    AND (project_id=? OR id IN (SELECT value FROM json_each(?))) AND NOT outcome_unknown
+    ORDER BY (id IN (SELECT value FROM json_each(?))) DESC,
+      (status NOT IN ('completed','cancelled')) DESC,updated_at DESC,id DESC LIMIT 100`,
+  project.id,JSON.stringify(fallback?taskIds:[]),JSON.stringify(taskIds))
+    .filter(task => grants.some(id=>String(id)===String(task.project_id)) && allowedKinds.has(task.kind)
+      && ((role === 'admin' && task.project_id === project.id) || store.taskOwner(task) === auth.actor)
+      && (auth.fixedTarget === undefined || auth.fixedTarget === task.id) && rulesAllow(store, event, auth, task.kind, task.project_id));
+  const candidates = authorized.map(({id,title,kind,state_version,project_id,status}) => ({id,title,kind,state_version,project_id,status,
+    messages:conversation.filter(row=>row.task_id===id).slice(0,6).reverse().map(evidence)}));
+  auth.candidates = candidates.filter(task=>appendable.has(task.status)
+    && (direct || !['running','waiting_approval','waiting_resource'].includes(task.status)));
+  auth.historical = candidates.filter(task=>['completed','cancelled'].includes(task.status)).slice(0,12);
+  auth.history = conversation.filter(row=>row.task_id===null || authorized.some(task=>task.id===row.task_id)).slice(0,20).reverse().map(evidence);
   return auth;
 }
 
@@ -219,6 +246,7 @@ export function validAssessment(value: unknown, snapshot: unknown, current: Retu
 
 export function semanticContext(event: Event, auth: Admission) {
   return { mode: 'project_routing', project_id: auth.project.id, project_name: auth.project.name, tasks: auth.candidates,
+    previous_tasks: auth.historical, history: auth.history,
     source: event.source, event_id: event.id, content: event.content.slice(0, 20_000),
     issue_id: event.data.issue_id ?? null, fixed_target: auth.fixedTarget ?? null };
 }
@@ -230,21 +258,27 @@ export function semanticState(store: WorkbenchStore, event: Event, status: strin
   const attempt = { attempt: history.length + 1, started_at: time, steps: [
     { stage: 'slow_filter', status: status === 'semantic_pending' ? 'pending' : 'passed',
       reason, at: time, detail: { routing_session_id: `semantic:${event.id}` } },
-    { stage: 'router', status: status === 'routed' ? 'passed' : 'skipped', reason, at: time },
+    { stage: 'router', status: ['routed','context_only'].includes(status) ? 'passed' : 'skipped', reason, at: time },
   ] };
   const data = { ...event.data, ...extra, routing_status: status, routing_reason: reason, _lifecycle: [...history, attempt] };
   store.db.prepare('UPDATE events SET data=?,task_id=? WHERE id=?').run(JSON.stringify(data), taskId, event.id);
 }
 
-function attach(store: WorkbenchStore, event: Event, auth: Admission, taskId: number, adding: boolean) {
+function attach(store: WorkbenchStore, event: Event, auth: Admission, taskId: number, adding: boolean,nextKind?:string) {
   const time = now();
   let messageId = event.id;
   if (!adding) {
-    const data = { ...event.data, source_event_id: event.id, routing_status: 'delivered', actor: auth.actor };
+    const task = store.required<Task>('tasks',taskId);
+    const interrupt = auth.direct && ['running','waiting_approval'].includes(task.status);
+    const next = interrupt ? 'waiting_resource' : ['paused','waiting_resource','failed'].includes(task.status) ? task.status
+      : auth.direct ? 'queued' : 'waiting_input';
+    const data = { ...event.data, source_event_id: event.id, routing_status: 'delivered', actor: auth.actor,
+      requires_interrupt: !!interrupt,auto_resume_after_interrupt:!!interrupt };
     messageId = Number(store.db.prepare(`INSERT INTO events(task_id,source,event_type,content,data,created_at)
       VALUES (?,?,'message',?,?,?)`).run(taskId, event.source, event.content, JSON.stringify(data), time).lastInsertRowid);
     store.db.prepare(`UPDATE tasks SET revision=revision+1,state_version=state_version+1,control_version=control_version+1,
-      status=CASE WHEN status='paused' THEN status ELSE 'waiting_input' END,updated_at=? WHERE id=?`).run(time, taskId);
+      status=?,kind=COALESCE(?,kind),last_error=CASE WHEN ? THEN '正在停止执行' ELSE last_error END,updated_at=? WHERE id=?`)
+      .run(next,nextKind??null,Number(!!interrupt),time,taskId);
     store.db.prepare("UPDATE approvals SET status='expired' WHERE task_id=? AND status='pending'").run(taskId);
   }
   store.db.prepare('INSERT INTO event_targets(event_id,task_id,message_event_id,created_at) VALUES(?,?,?,?)')
@@ -271,15 +305,29 @@ export function applyDecision(store: WorkbenchStore, event: Event, auth: Admissi
       decision.action === 'ignore' ? 'semantic_ignored' : 'semantic_confirmation_required');
     return { status: decision.action === 'ignore' ? 'ignored' : 'rejected' };
   }
-  if (decision.action === 'dispatch') {
+  if (decision.action === 'dispatch' || decision.action === 'context') {
     const candidates = list(fields(snapshot).tasks).map(fields);
     const target = auth.candidates.find(task => task.id === decision.task_id && task.state_version === decision.state_version);
     if (!target || !candidates.some(row => row.id === target.id && row.state_version === target.state_version)
-      || !rulesAllow(store, event, auth, target.kind)) {
+      || !rulesAllow(store, event, auth, target.kind, target.project_id)) {
       semanticState(store, event, 'pending_confirmation', 'semantic_target_or_version_changed');
       return { status: 'rejected' };
     }
-    attach(store, event, auth, target.id, false);
+    if (decision.action==='context') {
+      if (!auth.direct || list(event.data.attachments).length || event.data.issue_id || intent(event.content)==='repair') {
+        semanticState(store,event,'pending_confirmation','semantic_context_requires_review');
+        return {status:'rejected'};
+      }
+      semanticState(store,event,'context_only','semantic_context_only',{actor:auth.actor},target.id);
+    } else {
+      const nextKind=auth.direct && ((target.kind==='reply' && decision.kind==='analysis') || intent(event.content)==='analysis')
+        ? 'analysis' : target.kind;
+      if (!rulesAllow(store,event,auth,nextKind,target.project_id)) {
+        semanticState(store,event,'pending_confirmation','semantic_authorization_changed');
+        return {status:'rejected'};
+      }
+      attach(store,event,auth,target.id,false,nextKind);
+    }
     return { status: 'applied', taskId: target.id };
   }
   if (decision.kind === 'repair' && intent(event.content) !== 'repair') {

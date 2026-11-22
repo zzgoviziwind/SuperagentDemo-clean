@@ -44,7 +44,7 @@ export interface AssessmentImage extends DingTalkSourceImage {
 }
 
 export interface SemanticDecision {
-  action: 'create' | 'dispatch' | 'ignore' | 'confirm';
+  action: 'create' | 'dispatch' | 'context' | 'ignore' | 'confirm';
   kind: 'analysis' | 'repair' | 'reply';
   task_id: number | null;
   state_version: number | null;

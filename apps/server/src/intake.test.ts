@@ -8,6 +8,9 @@ import { draftFor, seed } from '../../../packages/storage/tests/helpers.ts';
 import { registerAuth } from './auth.js';
 import { ingestChannelEvent } from './deliveries/echo.ts';
 import { registerIntake } from './intake.js';
+import { assembleContext } from './context.ts';
+import { admitSemantic, applyDecision, semanticContext } from './workbench/semantic-engine.ts';
+import { WorkbenchStore, type Event } from './workbench/store.ts';
 
 const endpoint='https://fixture.invalid';
 const clock=Date.UTC(2026,10,18,0,0,0,500);
@@ -52,8 +55,113 @@ function fixture(writeStatus:'succeeded'|'unknown'|'dispatching'='succeeded') {
   return {db,event,post,task,claim,ledger,bindings,audits,tasks};
 }
 
+test('同一私聊跨默认项目研判补充，保留自己的发言和无效片段且不打断 Worker',async()=>{
+  const {db,post}=fixture();
+  db.exec(`UPDATE projects SET name='医院甲';
+    INSERT INTO projects(name,repo_path,repositories,base_branch,test_command,allowed_paths,dingtalk_chat_ids,redmine_project_ids,enabled,created_at)
+      SELECT '共享测试',repo_path,repositories,base_branch,test_command,allowed_paths,'[]','[]',1,created_at FROM projects WHERE id=1;
+    INSERT INTO governance_settings(key,value,updated_at) VALUES
+     ('dingtalk_request_access','{"mode":"all","owner_user_id":"owner","project_ids":[1,2],"project_hints":[{"project_id":1,"keywords":["甲医院"]}],"on_unmatched":"default","default_project_id":2}',datetime('now')),
+     ('semantic_routing_enabled','true',datetime('now'))`);
+  const occurred=new Date(Date.now()-60000).toISOString();
+  const send=async(message:string,content:string,offset:number,self=false)=>{
+    const response=await post({source:'dingtalk',event_type:'message.received',external_id:'profile:chat:'+message,
+      thread_id:'chat',project_external_id:'chat',actor_id:self?'own':'peer',content,
+      occurred_at:new Date(Date.parse(occurred)+offset*1000).toISOString(),
+      metadata:{message_id:message,profile:'profile',conversation_type:'direct',dws_event_type:'user_im_message_receive_o2o_all',self_authored:self}});
+    expect(response.statusCode,response.body).toBe(200);
+    return response.json();
+  };
+  const first=await send('hello','你好，甲医院好像有个问题',0);
+  const taskId=Number(first.task_id);
+  db.prepare("UPDATE tasks SET status='running' WHERE id=?").run(taskId);
+  await send('own','具体是什么问题？',1,true);
+  const passive=await send('piece','你用',2);
+  expect(passive.data.routing_status).toBe('semantic_pending');
+  const store=new WorkbenchStore(db);
+  const route=(id:number,action:'context'|'dispatch')=>{
+    const event=store.required<Event>('events',id);
+    const auth=admitSemantic(store,event,env)!;
+    const context=semanticContext(event,auth);
+    expect(context.project_id).toBe(2);
+    expect(context.tasks.find(row=>row.id===taskId)).toMatchObject({project_id:1,status:'running'});
+    expect(context.history?.some(row=>row.direction==='own_account'&&row.content==='具体是什么问题？')).toBe(true);
+    return applyDecision(store,event,auth,{action,kind:'reply',task_id:taskId,state_version:1,reason:'同一对话的后续'},context);
+  };
+  expect(route(passive.id,'context')).toMatchObject({status:'applied',taskId});
+  expect(db.prepare('SELECT status,revision,state_version FROM tasks WHERE id=?').get(taskId))
+    .toEqual({status:'running',revision:1,state_version:1});
+  const useful=await send('detail','这个报告的结果没有同步',3);
+  expect(route(useful.id,'dispatch')).toMatchObject({status:'applied',taskId});
+  expect(db.prepare('SELECT status,revision FROM tasks WHERE id=?').get(taskId)).toEqual({status:'waiting_resource',revision:2});
+  expect(assembleContext(db,taskId).prompt).toContain('你用');
+  expect(assembleContext(db,taskId).prompt).toContain('这个报告的结果没有同步');
+});
+
 const fast=(event:{data:{_lifecycle:{steps:{stage:string}[]}[]}})=>
   event.data._lifecycle.at(-1)!.steps.find(s=>s.stage==='fast_filter')!;
+
+test('已匹配项目的群消息明确记录未研判原因，可识别的请求仍进入语义队列', async()=>{
+  const { db, post }=fixture();
+  db.exec(`UPDATE projects SET dingtalk_chat_ids='["fixture-chat"]' WHERE id=1;
+    INSERT INTO governance_settings(key,value,updated_at) VALUES
+      ('dingtalk_request_access','{"mode":"all","owner_user_id":"owner","project_ids":[1]}',datetime('now')),
+      ('semantic_routing_enabled','true',datetime('now'))`);
+  const payload={ source:'dingtalk',event_type:'message.received',thread_id:'fixture-chat',project_external_id:'fixture-chat',
+    actor_id:'peer',metadata:{profile:'fixture',conversation_type:'group',dws_event_type:'user_im_message_receive_group',at_me:false} };
+  const blocked=await post({...payload,external_id:'group-blocked',content:'之前的问题还是会出现'});
+  expect(blocked.statusCode).toBe(200);
+  expect(blocked.json()).toMatchObject({task_id:null,data:{routing_status:'pending_confirmation',routing_reason:'semantic_request_not_recognized'}});
+  expect(db.prepare('SELECT event_id FROM semantic_routing_jobs WHERE event_id=?').get(blocked.json().id)).toBeUndefined();
+  const queued=await post({...payload,external_id:'group-queued',content:'请排查之前的问题'});
+  expect(queued.statusCode).toBe(200);
+  expect(queued.json().data.routing_status).toBe('semantic_pending');
+});
+
+test('私聊引用优先沿用原消息已绑定的项目，混合历史不会回落到默认项目', async()=>{
+  const {db,post}=fixture();
+  db.exec(`UPDATE projects SET name='甲医院';
+    INSERT INTO projects(name,repo_path,repositories,base_branch,test_command,allowed_paths,dingtalk_chat_ids,redmine_project_ids,enabled,created_at)
+      SELECT '乙医院',repo_path,repositories,base_branch,test_command,allowed_paths,'[]','[]',1,created_at FROM projects WHERE id=1;
+    INSERT INTO governance_settings(key,value,updated_at) VALUES
+      ('dingtalk_request_access','{"mode":"all","owner_user_id":"owner","project_ids":[1,2],"on_unmatched":"default","default_project_id":2}',datetime('now'))`);
+  const send=async(message:string,content:string,replyTo?:string)=>{
+    const response=await post({source:'dingtalk',event_type:'message.received',external_id:message,
+      thread_id:'mixed-chat',project_external_id:'mixed-chat',actor_id:'peer',content,
+      metadata:{message_id:message,profile:'profile',conversation_type:'direct',
+        dws_event_type:'user_im_message_receive_o2o_all',reply_to_message_id:replyTo}});
+    expect(response.statusCode,response.body).toBe(200);
+    return response.json();
+  };
+  const first=await send('first','甲医院这个报告有问题');
+  const other=await send('other','乙医院说的是另一份报告');
+  expect(first.task_id).toBeTruthy();
+  expect(other.task_id).toBeTruthy();
+  expect(other.task_id).not.toBe(first.task_id);
+  const supplement=await send('follow-up','我补到了相关日志','first');
+  expect(supplement).toMatchObject({task_id:first.task_id,data:{routing_status:'routed'}});
+  expect(fast(supplement)).toMatchObject({detail:{selected_project_id:1}});
+  const conflict=await send('conflict','乙医院的日志','first');
+  expect(conflict).toMatchObject({task_id:null,data:{routing_status:'pending_confirmation'}});
+
+  db.exec("INSERT INTO governance_settings(key,value,updated_at) VALUES ('semantic_routing_enabled','true',datetime('now'))");
+  const passive=await send('passive','还有一点');
+  expect(passive.data.routing_status).toBe('semantic_pending');
+  const store=new WorkbenchStore(db);
+  const event=store.required<Event>('events',passive.id);
+  const auth=admitSemantic(store,event,env)!;
+  const target=auth.candidates.find(row=>row.id===first.task_id)!;
+  expect(applyDecision(store,event,auth,{action:'context',kind:'reply',task_id:target.id,
+    state_version:target.state_version,reason:'原事件的补充片段'},semanticContext(event,auth)))
+    .toMatchObject({status:'applied',taskId:first.task_id});
+
+  const quotedContext=await send('quoted-context','新日志里还有这一条','passive');
+  expect(quotedContext).toMatchObject({task_id:first.task_id,data:{routing_status:'routed'}});
+  expect(fast(quotedContext)).toMatchObject({detail:{selected_project_id:1}});
+  const conflictingContext=await send('conflicting-context','乙医院的日志','passive');
+  expect(conflictingContext.task_id).toBeNull();
+  expect(admitSemantic(store,store.required<Event>('events',conflictingContext.id),env)).toBeUndefined();
+});
 
 test.each(['succeeded','unknown','dispatching'] as const)('公开与渠道入库共用 Redmine 回声事务 %s',async writeStatus=>{
   const f=fixture(writeStatus), before=f.ledger(), tasks=f.tasks();

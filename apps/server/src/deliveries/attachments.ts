@@ -7,7 +7,8 @@ import type { Attachment } from '../../../../packages/channels/resources.ts';
 import { directory, discard } from '../../../../packages/channels/resources.ts';
 import { Redmine } from '../../../../packages/channels/redmine.ts';
 import { downloadDws } from '../../../../packages/channels/dingtalk.ts';
-import { admin, audit, serialize, tx, utc, type Row } from '../sql.js';
+import { admin, audit, owned, serialize, tx, utc, type Row } from '../sql.js';
+import { ChannelError } from '../../../../packages/channels/common.ts';
 import { fail } from '../auth.js';
 import { background,checkController } from './background.ts';
 
@@ -23,7 +24,9 @@ export function registerAttachments(app:FastifyInstance,store:Storage,lease:Leas
   configFor:(name:'redmine'|'dingtalk')=>any,available:(name:'redmine'|'dingtalk')=>boolean) {
   const db=store.db,base=env.SUPERAGENT_ATTACHMENTS_ROOT??join(root,'attachments');
   const jobSql=`SELECT j.*,e.source,e.data,p.redmine_project_ids,t.project_id,t.revision current_revision,t.control_version current_control,
-    p.enabled,p.archived,t.outcome_unknown,t.status task_status FROM event_attachment_jobs j LEFT JOIN events e ON e.id=j.event_id AND e.task_id=j.task_id
+    p.enabled,p.archived,t.outcome_unknown,t.status task_status,
+    (SELECT MAX(id) FROM events WHERE task_id=j.task_id AND event_type IN ('goal_changed','project_rebound')) scope_change
+    FROM event_attachment_jobs j LEFT JOIN events e ON e.id=j.event_id AND e.task_id=j.task_id
     LEFT JOIN tasks t ON t.id=j.task_id LEFT JOIN projects p ON p.id=t.project_id`;
   function sourceFailure(job:Row):SourceFailure|null {
     const name=job.source;
@@ -36,7 +39,7 @@ export function registerAttachments(app:FastifyInstance,store:Storage,lease:Leas
     if(!hasSource) return 'no_source';
     return !available(name) || configFor(name)?.enabled!==true ? 'disabled' : null;
   }
-  function settle(job:Row,results:Attachment[],error:string|null,code:SourceFailure|null=null,from:'pending'|'processing'='processing') {
+  function settle(job:Row,results:Attachment[],error:string|null,code:string|null=null,from:'pending'|'processing'='processing') {
     const {task_id:task,event_id:id,revision,control_version:control}=job,now=utc();
     const status=error?'failed':'completed';
     if(!db.prepare("UPDATE event_attachment_jobs SET status=?,results=? WHERE event_id=? AND revision=? AND control_version=? AND status=?")
@@ -49,7 +52,8 @@ export function registerAttachments(app:FastifyInstance,store:Storage,lease:Leas
       db.prepare("INSERT INTO events(task_id,event_type,source,data,content,created_at) VALUES(?,'message','runtime',?,?,?)")
         .run(task,JSON.stringify({source_event_id:id,attachments:results}),'来源附件已核验。\n'+results.map(r=>r.local_path).join('\n'),now);
     }
-    const siblings=db.prepare("SELECT status FROM event_attachment_jobs WHERE task_id=? AND revision=? AND control_version=?").all(task,revision,control);
+    const siblings=db.prepare(`SELECT status FROM event_attachment_jobs WHERE task_id=? AND event_id >
+      COALESCE((SELECT MAX(id) FROM events WHERE task_id=? AND event_type='project_rebound'),0)`).all(task,task);
     if(siblings.some(s=>['pending','processing'].includes(String(s.status)))) return;
     const failed=siblings.some(s=>s.status==='failed');
     db.prepare(`UPDATE tasks SET status=?,last_error=?,state_version=state_version+1,updated_at=? WHERE id=? AND revision=? AND control_version=?
@@ -67,7 +71,17 @@ export function registerAttachments(app:FastifyInstance,store:Storage,lease:Leas
   });
   background(app,'channel-attachments',async signal=>{
     checkController(store,lease,signal);
-    const job=db.prepare(jobSql+" WHERE j.status='pending' ORDER BY j.event_id LIMIT 1").get();
+    const job=tx<Row|undefined>(db,()=>{
+      const next=db.prepare(jobSql+` WHERE j.status='pending'
+        AND j.event_id>COALESCE((SELECT MAX(id) FROM events WHERE task_id=t.id AND event_type='project_rebound'),0)
+        AND t.last_error IS NOT '正在停止执行' AND NOT t.outcome_unknown
+        AND t.status IN ('queued','waiting_resource','waiting_input','review_ready','failed')
+        ORDER BY j.event_id LIMIT 1`).get();
+      if(!next) return;
+      db.prepare("UPDATE event_attachment_jobs SET revision=?,control_version=? WHERE event_id=?")
+        .run(next.current_revision,next.current_control,next.event_id);
+      return {...next,revision:next.current_revision,control_version:next.current_control};
+    });
     if(!job) return;
     const id=Number(job.event_id),task=Number(job.task_id),name=job.source;
     const code=sourceFailure(job);
@@ -103,12 +117,18 @@ export function registerAttachments(app:FastifyInstance,store:Storage,lease:Leas
         results=await downloadDws(cfg,data.thread_id,m.message_id,batchDir,env,bounded);
       }
       tx(db,()=>{recheck();settle(job,results,null);retained=true;});
-    }catch{
+    }catch(error){
       if(!signal.aborted) tx(db,()=>{
         checkController(store,lease,signal);
         const current=db.prepare(jobSql+' WHERE j.event_id=?').get(id);
+        if(current && current.scope_change===job.scope_change &&
+          (current.current_revision!==job.revision || current.current_control!==job.control_version)) {
+          db.prepare("UPDATE event_attachment_jobs SET status='pending' WHERE event_id=? AND status='processing'").run(id);
+          return;
+        }
         const code=current?sourceFailure(current):null;
-        settle(job,[],code?attachmentFailures[code]:'附件获取或校验失败，请核验来源、权限及下载限制后重试',code);
+        const diagnostic=error instanceof ChannelError && /^[a-z0-9_]{1,80}$/.test(error.message)?error.message:'attachment_read_failed';
+        settle(job,[],code?attachmentFailures[code]:'附件获取或校验失败（'+diagnostic+'），请核对来源后重试',code??diagnostic);
       });
     }finally{if(batchDir && !retained) await discard(parent,batchDir);}
   });
@@ -129,6 +149,28 @@ export function registerAttachments(app:FastifyInstance,store:Storage,lease:Leas
       audit(db,req.principal.user_id,'event.retry_attachments',id,{task_id:j.task_id});
       if(code) settle({...j,revision:j.current_revision,control_version:j.current_control},[],attachmentFailures[code],code,'pending');
       return receipt(false);
+    });
+  });
+  app.post('/api/v1/tasks/:id/retry-attachments',async req=>{
+    const {id}=z.object({id:z.coerce.number().int().positive()}).parse(req.params);
+    const {expected_state_version}=z.strictObject({expected_state_version:z.int().positive()}).parse(req.body);
+    return tx(db,()=>{
+      checkController(store,lease,new AbortController().signal);
+      const task=owned(db,id,req.principal);
+      if(task.state_version!==expected_state_version || task.outcome_unknown || !['waiting_input','waiting_resource'].includes(String(task.status))
+        || (task.status==='waiting_resource' && task.last_error!=='正在准备来源附件')) fail(409,'任务状态已变化或附件不可重试');
+      const jobs=db.prepare(jobSql+` WHERE j.task_id=? AND j.status='failed' AND j.event_id>
+        COALESCE((SELECT MAX(id) FROM events WHERE task_id=? AND event_type='project_rebound'),0)`).all(id,id);
+      if(!jobs.length || jobs.some(j=>sourceFailure(j))) fail(409,'附件来源或渠道未就绪');
+      for(const j of jobs) {
+        db.prepare("UPDATE event_attachment_jobs SET revision=?,control_version=?,status='pending',results='[]' WHERE event_id=?")
+          .run(task.revision,task.control_version,j.event_id);
+        db.prepare("UPDATE events SET data=json_remove(json_set(data,'$.attachments_status','pending'),'$.attachments_error','$.attachments_error_code') WHERE id=?")
+          .run(j.event_id);
+      }
+      db.prepare("UPDATE tasks SET status='waiting_resource',last_error='正在准备来源附件',state_version=state_version+1,updated_at=? WHERE id=?").run(utc(),id);
+      audit(db,req.principal.user_id,'task.retry_attachments',id,{event_ids:jobs.map(j=>j.event_id)});
+      return {status:'pending',count:jobs.length};
     });
   });
 }

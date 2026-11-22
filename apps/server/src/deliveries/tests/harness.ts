@@ -19,7 +19,7 @@ before(async()=>{
   await build({entryPoints:[fileURLToPath(new URL('./fixture-host.ts',import.meta.url))],outfile:executable,
     alias:{'@superagent/windows-job':'./packages/windows-job/index.mjs'},
     platform:'node',target:'node24',format:'esm',bundle:true,plugins:[{name:'installed-dependencies',setup(b){
-      b.onResolve({filter:/^(fastify|@fastify\/static|zod)$/},args=>({path:pathToFileURL(require.resolve(args.path)).href,external:true}));
+      b.onResolve({filter:/^(fastify|@fastify\/static|zod|@larksuiteoapi\/node-sdk)$/},args=>({path:pathToFileURL(require.resolve(args.path)).href,external:true}));
     }}]});
   await build({entryPoints:['packages/runtime/fixtures/fake-app-server.ts'],outfile:join(root,'fixtures','fake-app-server.ts'),platform:'node',target:'node24',format:'esm',bundle:true});
   await build({entryPoints:['apps/server/src/deliveries/replies.ts'],outfile:join(root,'reply.mjs'),platform:'node',target:'node24',format:'esm',bundle:true,

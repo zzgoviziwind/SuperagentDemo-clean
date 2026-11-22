@@ -1,4 +1,5 @@
 import type { Event, Fields, WorkbenchStore } from './store.ts';
+import type { DatabaseSync } from 'node:sqlite';
 import { fail, fields, now } from './store.ts';
 import type { DingTalkHistoryBinding, WorkbenchRuntime } from './runtime.ts';
 
@@ -35,21 +36,34 @@ function historyBinding(store: WorkbenchStore, rows: Event[], until: string): Di
     ? history.history_timezone : undefined, senderMap: fields(history.sender_map) };
 }
 
-function candidates(store: WorkbenchStore, binding: DingTalkHistoryBinding) {
-  return store.rows<Event>('events', `WHERE source = 'dingtalk' AND task_id IN (SELECT id FROM tasks)
-    AND json_extract(data, '$.thread_id') = ? AND json_extract(data, '$.metadata.profile') = ?
-    AND json_extract(data, '$.metadata.conversation_type') = 'direct'
-    AND json_extract(data, '$.routing_status') IN ('routed','manually_linked')`, binding.conversation, binding.profile);
+export function dingtalkContextTarget(db: DatabaseSync, profile: string, conversation: string, time: string,
+  peer?: string, quote?: string) {
+  const rows = db.prepare(`SELECT e.task_id, julianday(json_extract(e.data,'$.occurred_at')) AS at
+    FROM events e JOIN tasks t ON t.id=e.task_id JOIN projects p ON p.id=t.project_id
+    WHERE e.source='dingtalk' AND e.external_id IS NOT NULL AND p.enabled AND NOT p.archived
+    AND json_extract(e.data,'$.thread_id')=? AND json_extract(e.data,'$.metadata.profile')=?
+    AND (json_extract(e.data,'$.routing_status') IN ('routed','manually_linked','self_context')
+      OR (? IS NOT NULL AND json_extract(e.data,'$.routing_status')='context_only'))
+    AND ((? IS NOT NULL AND json_extract(e.data,'$.metadata.message_id')=?) OR
+      (? IS NULL AND json_extract(e.data,'$.metadata.conversation_type')='direct'
+        AND NOT COALESCE(json_extract(e.data,'$.metadata.self_authored'),0)
+        AND (? IS NULL OR json_extract(e.data,'$.actor_id')=?)
+        AND julianday(json_extract(e.data,'$.occurred_at')) BETWEEN julianday(?,'-30 minutes') AND julianday(?)))
+    ORDER BY at DESC,e.id DESC LIMIT 2`).all(conversation,profile,quote??null,quote??null,quote??null,quote??null,peer??null,peer??null,time,time);
+  const [latest,other]=rows;
+  if (!latest || (other && other.task_id!==latest.task_id && (quote || latest.at===other.at))) return;
+  return Number(latest.task_id);
 }
 
 export async function syncDingTalkHistory(
   store: WorkbenchStore, groupId: number, getRows: () => Event[], actor: string, runtime?: WorkbenchRuntime,
+  signal:AbortSignal=AbortSignal.timeout(30_000),
 ) {
   const binding = historyBinding(store, getRows(), now());
   if (!runtime?.readOwnDingTalk) fail(409, '钉钉历史读取未接入，请手动补充');
   let page;
   try {
-    page = await runtime.readOwnDingTalk(binding, AbortSignal.timeout(30_000));
+    page = await runtime.readOwnDingTalk(binding, signal);
   } catch {
     fail(409, '未能完整核对原钉钉会话，请稍后重试或手动补充');
   }
@@ -69,16 +83,12 @@ export async function syncDingTalkHistory(
     }
   }
   return store.write(() => {
+    signal.throwIfAborted();
     const current = historyBinding(store, getRows(), binding.until);
     if (JSON.stringify(current) !== JSON.stringify(binding)) fail(409, '事件来源已变化，请刷新后再同步');
-    const sources = candidates(store, binding);
     let added = 0;
     for (const row of own) {
-      const time = zonedTime(row.occurredAt);
-      const recent = sources.filter(event => typeof event.data.occurred_at === 'string'
-        && zonedTime(event.data.occurred_at) >= time - 30 * 60_000 && zonedTime(event.data.occurred_at) <= time);
-      const targets = new Set(recent.map(event => event.task_id));
-      if (targets.size !== 1 || !targets.has(groupId)) continue;
+      if (dingtalkContextTarget(store.db,binding.profile,binding.conversation,row.occurredAt,binding.peer) !== groupId) continue;
       const key = `${binding.profile}:${binding.conversation}:${row.messageId}`;
       if (key.length > 255) fail(409, '钉钉消息标识无效');
       const metadata: Fields = { profile: binding.profile, message_id: row.messageId, sender_name: row.senderName ?? null,
@@ -88,11 +98,28 @@ export async function syncDingTalkHistory(
         thread_id: binding.conversation, project_external_id: binding.conversation, issue_id: null,
         content: row.text, occurred_at: row.occurredAt, attachments: [], metadata, routing_status: 'self_context' };
       const result = store.db.prepare(`INSERT INTO events(task_id,source,external_id,event_type,content,data,created_at)
-        VALUES (?,'dingtalk',?,'message.received',?,?,?) ON CONFLICT(source,external_id) DO NOTHING`)
+        VALUES (?,'dingtalk',?,'message.received',?,?,?) ON CONFLICT(source,external_id) DO UPDATE SET
+        task_id=excluded.task_id,data=excluded.data WHERE events.task_id IS NULL
+        AND json_extract(events.data,'$.metadata.self_authored')=1
+        AND json_extract(events.data,'$.routing_reason')='self_context_unmatched'`)
         .run(groupId, key, row.text, JSON.stringify(data), now());
       added += Number(result.changes);
     }
     if (added) store.audit(actor, 'event_group.sync_own_dingtalk', groupId, { added });
     return { added };
   });
+}
+
+export function recentDingTalkAnchors(store:WorkbenchStore, profile:string, after:number, hours:number,
+  conversation?:string,peer?:string) {
+  return store.rows<Event>('events',`WHERE id IN (SELECT MAX(e.id) FROM events e JOIN tasks t ON t.id=e.task_id
+    JOIN projects p ON p.id=t.project_id
+    WHERE e.source='dingtalk' AND e.external_id IS NOT NULL AND p.enabled AND NOT p.archived
+    AND t.status NOT IN ('completed','cancelled') AND t.id>?
+    AND json_extract(e.data,'$.metadata.profile')=? AND json_extract(e.data,'$.metadata.conversation_type')='direct'
+    AND json_extract(e.data,'$.routing_status') IN ('routed','manually_linked')
+    AND julianday(json_extract(e.data,'$.occurred_at'))>=julianday('now',?)
+    AND (? IS NULL OR json_extract(e.data,'$.thread_id')=?)
+    AND (? IS NULL OR json_extract(e.data,'$.actor_id')=?) GROUP BY t.id) ORDER BY task_id LIMIT 1`,
+  after,profile,'-'+hours+' hours',conversation??null,conversation??null,peer??null,peer??null);
 }

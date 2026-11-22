@@ -2,7 +2,7 @@ function Confirm-EnvironmentName([string]$Name) {
     if ($Name -ceq 'DWS_CONFIG_DIR') { return }
     $allowed = 'API_TOKEN', 'USERS_JSON', 'SESSION_SECRET', 'ALLOWED_REPO_ROOTS', 'ATTACHMENTS_ROOT',
         'FIELD_PYTHON', 'FIELD_OCR_MODELS', 'FIELD_WHISPER_MODEL', 'CONTEXT_MODE', 'WORKER_MAX_RUN_MS',
-        'EXECUTION_NODES', 'PROJECT_EXECUTION_NODES', 'FEISHU_ENABLED', 'FEISHU_MODE', 'FEISHU_APP_ID',
+        'EXECUTION_NODES', 'PROJECT_EXECUTION_NODES', 'FEISHU_ENABLED', 'FEISHU_MODE', 'FEISHU_TRANSPORT', 'FEISHU_APP_ID',
         'FEISHU_APP_SECRET', 'FEISHU_ENCRYPT_KEY', 'FEISHU_OPEN_ID', 'FEISHU_OWNER_ID', 'FEISHU_VERIFICATION_TOKEN'
     if ($Name -cnotmatch '^([A-Z][A-Z0-9]*_)*REDMINE_API_KEY$' -and
         (-not $Name.StartsWith('SUPERAGENT_', [StringComparison]::Ordinal) -or $Name.Substring(11) -cnotin $allowed)) {

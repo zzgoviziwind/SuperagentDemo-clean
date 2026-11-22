@@ -47,8 +47,11 @@ function handoff(store: WorkbenchStore, ident: string, principal: Principal) {
       `工作目录：${task.workspace_path || project?.repo_path || '尚未创建'}`, `原 Codex 会话：${task.codex_thread_id || '尚未创建'}`,
       `当前状态：${task.status}；任务版本：${task.state_version}`, `最近交付摘要：${summary?.content ?? '暂无'}`,
       '先核对现有修改与执行证据，再继续。不要自动对外回复、提交、部署或修改业务数据库。',
-      '平台任务需保持暂停；人工操作结果不会自动同步回平台，请返回事件补充验收证据。'].join('\n');
-    return { task_id: task.id, thread_id: task.codex_thread_id, workspace_path: task.workspace_path, content: text };
+      ['reply', 'analysis'].includes(task.kind)
+        ? '平台任务保持暂停。请返回原事件关联排查会话，或手动补充验收证据。'
+        : '平台任务保持暂停。请返回原事件手动补充验收证据。'].join('\n');
+    return { task_id: task.id, thread_id: task.codex_thread_id, workspace_path: task.workspace_path,
+      project_path: project?.repo_path ?? null, kind: task.kind, status: task.status, state_version: task.state_version, content: text };
   });
 }
 

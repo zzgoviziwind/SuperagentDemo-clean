@@ -11,6 +11,7 @@ import type { ApprovalRow, Attempt, Fields, Lease, Storage } from '../../../../p
 import { fail } from '../auth.js';
 import { reserveModelRun, settleBudget } from '../budget.js';
 import { assembleContext } from '../context.js';
+import { attachmentGate } from '../controls.js';
 import { prepareReplyDecision } from '../deliveries/replies.ts';
 import { assignedNode } from '../nodes.js';
 import { settings } from '../settings.js';
@@ -21,6 +22,8 @@ import { pinnedSelection, registerLocalAgents } from './local-agents.ts';
 import { buildWorkerPrompt } from './prompts.ts';
 import { captureReferenceScope, referenceScopeCurrent, registerReferenceControls } from './references.ts';
 import type { ReferenceScope } from './references.ts';
+import { stageAssessmentImages } from '../workbench/source-images.ts';
+import { workerSourceImages } from './source-attachments.ts';
 
 export { buildWorkerPrompt, WORKER_PROMPTS } from './prompts.ts';
 
@@ -43,6 +46,7 @@ interface Run {
   referenceScope?: ReferenceScope;
   binding?: TurnBinding;
   pending?: Pending;
+  clearSourceImages?:()=>Promise<void>;
   decision?: DecisionInFlight;
   done?: Promise<void>;
   deadline: number;
@@ -71,7 +75,8 @@ const fileApproval = 'item/fileChange/requestApproval';
 const benignReplyItems = new Set(['userMessage', 'agentMessage', 'reasoning', 'plan', 'contextCompaction']);
 const idSchema = z.coerce.number().int().positive();
 const decisionBody = z.object({ decision: z.enum(['approve', 'reject']), action_hash: z.string().trim().min(1).max(255) });
-const acceptanceBody = z.object({ accepted: z.boolean(), revision: z.int().positive(), comment: z.string().max(10_000).default('') });
+const acceptanceBody = z.object({ accepted: z.boolean(), revision: z.int().positive(), comment: z.string().max(10_000).default(''),
+  expected_state_version:z.int().positive().optional() });
 const reconciliationBody = z.object({ outcome: z.enum(['stopped', 'abandoned']), evidence: z.string().trim().min(1).max(10_000),
   expected_state_version: z.int().nonnegative() });
 const workerExitPoint = z.enum(['before_turn_response', 'after_turn_response', 'after_approval_response']);
@@ -332,6 +337,8 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
         }
       }
       if (event.method !== 'turn/completed') continue;
+      await run.clearSourceImages?.();
+      run.clearSourceImages=undefined;
       if (run.steering && !await run.steering) throw new RunStopped('本轮补充消息未确认');
       checkRunning(run);
       if (!started || run.pending || object(event.params.turn)?.status !== 'completed'
@@ -424,13 +431,13 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
       record(db, run.task.id, 'worker_thread_bound', '', { attempt_id: run.attempt.id, thread_id: thread,
         evidence_source: run.source, project_key: projectKey(run.project), kind: run.task.kind, resumed: !!existingThread,
         reference_scope_key: run.referenceScope?.roots.size ? run.referenceScope.bindingKey : undefined });
-      const task = db.prepare('SELECT goal FROM tasks WHERE id=? AND revision=? AND control_version=?')
+      const task = db.prepare('SELECT goal,source FROM tasks WHERE id=? AND revision=? AND control_version=?')
         .get(run.task.id, run.attempt.revision, run.attempt.control_version);
       if (typeof task?.goal !== 'string' || !task.goal.trim() || task.goal.length > 20_000) {
         throw new RunStopped('当前任务文本无效或超出长度');
       }
       run.messageCursor = latestMessage(run.task.id);
-      const assembled = env.SUPERAGENT_CONTEXT_MODE === 'decisions' ? assembleContext(db, run.task.id) : undefined;
+      const assembled = env.SUPERAGENT_CONTEXT_MODE === 'decisions' || task.source==='dingtalk' ? assembleContext(db, run.task.id) : undefined;
       const context = assembled?.prompt ?? legacyFollowups(run.task.id);
       const referenceAliases = [...(run.referenceScope?.roots.keys() ?? [])];
       let prompt = buildWorkerPrompt(run.task.kind, { goal: task.goal, context, workspace: cwd, referenceAliases,
@@ -438,6 +445,19 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
       if (run.task.kind === 'reply' && !db.prepare("SELECT id FROM events WHERE task_id=? AND event_type='analysis_reference_scope' LIMIT 1").get(run.task.id)) {
         prompt = prepareReplyDecision(db, run.task.id, run.attempt.id, prompt, assembled?.items);
       }
+      let staged:Awaited<ReturnType<typeof stageAssessmentImages>>|undefined;
+      let imageEventIds:number[]=[];
+      try {
+        const {images,omitted}=await workerSourceImages(db,env.SUPERAGENT_ATTACHMENTS_ROOT??join(root,'attachments'),run.task.id,run.abort.signal);
+        if(images.length) {
+          if(!client.startTurnWithImages) throw new Error('引擎不支持来源图片');
+          staged=await stageAssessmentImages(cwd,images);
+          run.clearSourceImages=staged.clear;
+          imageEventIds=images.map(image=>image.eventId);
+          prompt+='\n来源图片按如下事件编号顺序附加：'+imageEventIds.join('、')+'。图片仅供核验。';
+          if(omitted) prompt+='另有 '+omitted+' 张图片超过本轮容量，请在结论中说明。';
+        }
+      } catch {throw new RunStopped('本轮来源图片无法读取或暂存，须人工核对');}
       const configuration = settings(db);
       const profile = object(object(configuration.codex_task_profiles)?.[run.task.kind]);
       const model = profile?.model ?? configuration.codex_model;
@@ -463,8 +483,9 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
           plan: 'existing-subscription', phase: 'turn_intent' });
       }
       turnInvoked = true;
-      const turn = client.startTurn(thread, prompt, { model: typeof model === 'string' ? model : undefined,
-        effort: typeof effort === 'string' ? effort : undefined });
+      const profileOptions={model:typeof model==='string'?model:undefined,effort:typeof effort==='string'?effort:undefined};
+      const turn=staged ? client.startTurnWithImages!(thread,prompt,profileOptions,staged.paths)
+        : client.startTurn(thread,prompt,profileOptions);
       if (reservation !== undefined) {
         try {
           settleBudget(db, reservation, null, null, 'scheduler');
@@ -477,6 +498,7 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
       checkRunning(run);
       run.binding = binding;
       store.bindTurn(lease, run.attempt.id, binding);
+      if (imageEventIds.length) record(db,run.task.id,'worker_source_images','',{...binding,attempt_id:run.attempt.id,event_ids:imageEventIds});
       await observe(run, client, binding);
     } catch (error) {
       if (error instanceof FixtureProcessUnknown) run.workspaceExitUnknown = true;
@@ -502,6 +524,7 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
     } finally {
       clearTimeout(cutoff);
       if (run.client) run.treeExitConfirmed = await run.client.close();
+      await run.clearSourceImages?.().catch(()=>app.log.warn({taskId:run.task.id},'暂存来源图片未完成清理'));
       runs.delete(run.task.id);
     }
   }
@@ -539,6 +562,12 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
     let claimed = 0;
     for (const task of queued) {
       if (runs.has(task.id)) continue;
+      const media = attachmentGate(db,task.id);
+      if (media.error) {
+        db.prepare("UPDATE tasks SET status=?,last_error=?,state_version=state_version+1,updated_at=? WHERE id=? AND status='queued'")
+          .run(media.status,media.error,utc(),task.id);
+        continue;
+      }
       const project = projectOf(task.project_id);
       if (!project) continue;
       let blocked: string | undefined;
@@ -642,6 +671,7 @@ export function registerWorker(app: FastifyInstance, store: Storage, lease: Leas
       const task = owned(db, taskId, request.principal);
       const now = utc();
       assertController(now);
+      if(body.expected_state_version!==undefined && task.state_version!==body.expected_state_version) fail(409,'状态已变化，请刷新');
       acceptTask(db, task, taskId, body, env.SUPERAGENT_DRIVER === 'fixture', workspace);
       const status = body.accepted ? 'completed' : 'waiting_input';
       db.prepare('UPDATE tasks SET status=?,control_version=control_version+1,state_version=state_version+1,updated_at=? WHERE id=?')

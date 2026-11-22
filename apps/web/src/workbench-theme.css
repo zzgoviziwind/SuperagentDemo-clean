@@ -241,6 +241,11 @@ input.group-switch:checked { background: var(--accent); }
 .event-controls .control-hints { font-size: .8125rem; color: var(--muted); }
 .event-handoff-content { flex: 1 0 100%; min-width: 0; }
 .event-handoff-content textarea { width: 100%; }
+.event-handoff-return { margin-top: 12px; }
+.event-handoff-return label { margin-bottom: 8px; }
+.event-handoff-return input { margin-top: 4px; }
+.event-handoff-return p { margin: 8px 0; }
+.event-handoff-return [role="status"]:empty { margin: 0; }
 .settings-event-return { margin-bottom: 10px; }
 
 .topology-panel { border-radius: 12px; }

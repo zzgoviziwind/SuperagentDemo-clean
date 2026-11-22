@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
-import { createHash } from 'node:crypto';
+import { createCipheriv,createHash,randomBytes } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { readFileSync,readdirSync,existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -213,9 +213,78 @@ test('旧飞书通知表原地补列，实际 HTTP 卡片仅发一份，模糊�
       await until(()=>db.prepare('SELECT status FROM feishu_decision_notices WHERE approval_id=?').get(b)?.status,v=>v==='unknown');
     }finally{await h.stop();}
     const restart=host(f.dir,false,false,env);
-    try{await client(await restart.address())('/settings');await delay(1800);assert.equal(cards.length,2);}
+    try{
+      await client(await restart.address())('/settings');await delay(1800);
+      const approvalCards=cards.filter(card=>JSON.parse(card.content).body.elements.some((part:any)=>part.behaviors?.[0]?.value?.approval_id));
+      assert.equal(approvalCards.length,2);
+    }
     finally{await restart.stop();}
   }finally{db.close();server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));}
+});
+
+test('飞书卡片只允许任务负责人对账未知发送及重试当前任务的全部失败附件',{timeout:20000},async()=>{
+  const f=input('飞书任务操作'),db=new DatabaseSync(join(f.dir,'superagent.db'));
+  const key='offline-enc',token='offline-check',appId='test-app',recipient='ou_peer';
+  const script=fileURLToPath(new URL('../../../../../packages/channels/tests/fake-dws.mjs',import.meta.url));
+  save(db,'connectors.dingtalk',{enabled:true,profile:'offline-profile',self_ids:['operator'],kind:'all-direct',
+    executable:[process.execPath,script,join(f.dir,'dws.log')]});
+  db.prepare("UPDATE tasks SET status='waiting_input',revision=4,control_version=4 WHERE id=?").run(f.task);
+  for(const version of [1,3]) {
+    const msg='attachment-'+version;
+    const data={thread_id:'private-chat',metadata:{profile:'offline-profile',message_id:msg},
+      attachments:[{kind:'image'}],routing_status:'routed'};
+    const event=db.prepare("INSERT INTO events(task_id,source,external_id,event_type,content,data,created_at) VALUES(?,'dingtalk',?,'message.received','图片',?,datetime('now'))")
+      .run(f.task,msg,JSON.stringify(data)).lastInsertRowid;
+    db.prepare("INSERT INTO event_attachment_jobs VALUES(?,?,?,?,'failed','[]')").run(event,f.task,version,version);
+  }
+  const cards=new Map<string,any>();
+  const server=createServer(async(req,res)=>{
+    let raw='';for await(const b of req) raw+=b;
+    if(req.url==='/oauth/v3/token') return void res.end('{"access_token":"offline-token"}');
+    if(req.method==='PATCH') return void res.end('{"code":0}');
+    const {content}=JSON.parse(raw),id='om_'+(cards.size+1);
+    cards.set(id,JSON.parse(content));
+    res.end(JSON.stringify({code:0,data:{message_id:id}}));
+  });
+  server.listen(0,'127.0.0.1');await once(server,'listening');
+  const h=host(f.dir,false,false,{SUPERAGENT_FEISHU_ENABLED:'1',SUPERAGENT_FEISHU_MODE:'card',SUPERAGENT_FEISHU_APP_ID:appId,
+    SUPERAGENT_FEISHU_APP_SECRET:'test-secret',SUPERAGENT_FEISHU_OWNER_ID:'owner',SUPERAGENT_FEISHU_OPEN_ID:recipient,
+    SUPERAGENT_FEISHU_ENCRYPT_KEY:key,SUPERAGENT_FEISHU_VERIFICATION_TOKEN:token,
+    TEST_FEISHU_LOOPBACK:'http://127.0.0.1:'+(server.address() as {port:number}).port});
+  try {
+    const address=await h.address();
+    const valueFor=(id:string,action:string)=>cards.get(id).body.elements.flatMap((part:any)=>part.elements??[part])
+      .map((part:any)=>part.behaviors?.[0]?.value).find((value:any)=>value?.action===action);
+    async function submit(id:string,value:object,operator=recipient,note?:string) {
+      const ts=String(Math.floor(Date.now()/1000)),nonce='fixture-'+randomBytes(4).toString('hex');
+      const iv=randomBytes(16),cipher=createCipheriv('aes-256-cbc',createHash('sha256').update(key).digest(),iv);
+      const content=JSON.stringify({schema:'2.0',header:{event_type:'card.action.trigger',app_id:appId,token},event:{
+        operator:{open_id:operator},context:{open_message_id:id},action:{value,...(note?{form_value:{note}}:{})}}});
+      const raw=JSON.stringify({encrypt:Buffer.concat([iv,cipher.update(content),cipher.final()]).toString('base64')});
+      const signature=createHash('sha256').update(ts+nonce+key+raw).digest('hex');
+      return fetch(address+'/callbacks/feishu/card',{method:'POST',headers:{'content-type':'application/json',
+        'x-lark-request-timestamp':ts,'x-lark-request-nonce':nonce,'x-lark-signature':signature},body:raw});
+    }
+    await until(()=>db.prepare("SELECT status FROM feishu_workflow_notices WHERE message_id='om_1'").get()?.status,v=>v==='sent');
+    const retry=valueFor('om_1','retry_attachments');
+    assert.ok(retry);
+    assert.equal((await submit('om_1',retry,'ou_other')).status,403);
+    assert.equal((await (await submit('om_other',retry)).json()).toast.type,'error');
+    assert.equal((await (await submit('om_1',retry)).json()).toast.type,'success');
+    await until(()=>db.prepare("SELECT COUNT(*) n FROM event_attachment_jobs WHERE status='completed' AND revision=4").get()?.n,n=>n===2);
+    assert.equal(db.prepare('SELECT status FROM tasks WHERE id=?').get(f.task)?.status,'queued');
+    assert.equal((await (await submit('om_1',retry)).json()).toast.type,'info');
+
+    const approval=db.prepare("INSERT INTO approvals(task_id,revision,control_version,action_hash,action,status,created_at) VALUES(?,4,4,'fixture','{}','approved',datetime('now'))").run(f.task).lastInsertRowid;
+    db.prepare("INSERT INTO reply_drafts(task_id,event_id,approval_id,content,created_at) VALUES(?,?,?,'草稿',datetime('now'))").run(f.task,f.event,approval);
+    db.prepare("INSERT INTO delivery_records(action_id,action_hash,result,created_at) VALUES(?,'fixture','{\"write_status\":\"unknown\"}',datetime('now'))").run('reply-'+approval);
+    await until(()=>db.prepare("SELECT status FROM feishu_workflow_notices WHERE message_id='om_2'").get()?.status,v=>v==='sent');
+    const verify=valueFor('om_2','delivery_succeeded');
+    assert.ok(verify);
+    assert.equal((await (await submit('om_2',verify)).json()).toast.type,'error');
+    assert.equal((await (await submit('om_2',verify,recipient,'已在原钉钉会话确认')).json()).toast.type,'success');
+    assert.equal(db.prepare("SELECT json_extract(result,'$.write_status') status FROM delivery_records WHERE action_id=?").get('reply-'+approval)?.status,'succeeded');
+  } finally {await h.stop();db.close();server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));}
 });
 
 test('HTTP 自动发送、人审、静默、过时、跨版本、重启及独立收件计数',{timeout:25000},async()=>{

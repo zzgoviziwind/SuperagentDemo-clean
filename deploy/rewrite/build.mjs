@@ -8,7 +8,7 @@ await build({
   target: 'node24',
   format: 'esm',
   bundle: true,
-  external: ['fastify','@fastify/static','zod'],
+  external: ['fastify','@fastify/static','zod','@larksuiteoapi/node-sdk'],
   alias: { '@superagent/windows-job': './packages/windows-job/index.mjs' },
 });
 await cp('packages/runtime/fixtures','apps/server/dist/fixtures',{recursive:true});

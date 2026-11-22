@@ -29,11 +29,11 @@ const redmine = z.strictObject({
   enabled:flag.optional(),base_url:z.url().refine(s => {
     const u = new URL(s);
     return ['http:', 'https:'].includes(u.protocol) && !u.username && !u.password && !u.search && !u.hash;
-  }).optional(),project_ids:z.array(positive).max(1000).optional(),user_id:positive.optional(),
+  }).optional(),project_ids:z.array(positive).max(1000).optional(),all_assigned_projects:flag.optional(),user_id:positive.optional(),
   api_key_env:z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,127}$/).optional(),poll_seconds:z.number().min(1).max(86400).optional(),
   initial_since:z.string().datetime({offset:true}).optional(),account_map:z.record(text.max(100),z.array(positive).min(1).max(100))
     .refine(v=>Object.keys(v).length<=1000).optional()
-}).refine(v=>!v.enabled || !!(v.base_url && v.project_ids?.length && v.user_id));
+}).refine(v=>!v.enabled || !!(v.base_url && (v.all_assigned_projects || v.project_ids?.length) && v.user_id));
 const dingtalk = z.strictObject({
   enabled:flag.optional(),profile:text.optional(),self_ids:z.array(text).nonempty().max(100).optional(),
   executable:z.union([z.string().trim().min(1).max(4096),z.array(z.string().trim().min(1).max(4096)).nonempty().max(32)]).refine(v => !(Array.isArray(v)?v:[v]).some(s=>/[\u0000-\u001f]/.test(s)||/(?:^|[-_])(token|password|secret|api[-_]?key)(?:=|$)/i.test(s))).optional(),

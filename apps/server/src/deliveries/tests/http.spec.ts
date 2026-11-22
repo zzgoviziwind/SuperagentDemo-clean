@@ -171,12 +171,18 @@ test('本机 DWS HTTP 对私聊发件人及源消息精确绑定，账号变更�
   const f=input('本机 DWS'),db=new DatabaseSync(join(f.dir,'superagent.db'));
   const data={routing_status:'routed',actor_id:'peer',thread_id:'private-chat',occurred_at:new Date(Date.now()-60000).toISOString(),
     metadata:{profile:'offline-profile',conversation_type:'direct',message_id:'peer-message',dws_event_type:'user_im_message_receive_o2o_all'}};
-  db.prepare("UPDATE events SET source='dingtalk',data=? WHERE id=?").run(JSON.stringify(data),f.event);
+  db.prepare("UPDATE events SET source='dingtalk',external_id='offline-profile:private-chat:peer-message',event_type='message.received',data=? WHERE id=?")
+    .run(JSON.stringify(data),f.event);
   const log=join(f.dir,'dws.log'),script=fileURLToPath(new URL('../../../../../packages/channels/tests/fake-dws.mjs',import.meta.url));
   const cfg={enabled:true,profile:'offline-profile',self_ids:['operator'],executable:[process.execPath,script,log],kind:'all-direct'};
+  db.prepare("INSERT OR REPLACE INTO governance_settings VALUES('connectors.dingtalk',?,?)").run(JSON.stringify(cfg),new Date().toISOString());
   const h=host(f.dir,false);
   try {
     const call=client(await h.address());
+    const own=db.prepare("SELECT json_extract(data,'$.routing_status') status FROM events WHERE external_id LIKE '%:history-own'");
+    const syncDeadline=Date.now()+5000;
+    while(!own.get() && Date.now()<syncDeadline) await delay(50);
+    assert.equal(own.get()?.status,'self_context');
     await call('/settings','PATCH',{'connectors.dingtalk':cfg,external_delivery_enabled:true,
       dingtalk_response_policy:{delivery:'approved_send',direct_messages:'reply',group_messages:'off',default_project_id:null}});
     async function approved() {
@@ -200,9 +206,7 @@ test('本机 DWS HTTP 对私聊发件人及源消息精确绑定，账号变更�
     assert.ok(status.scopes[0].last_seen);assert.deepEqual(status.missing_configuration,[]);
     const sync='/event-groups/'+f.task+'/sync-own-dingtalk';
     await call(sync,'POST',{},403,'member');
-    assert.deepEqual(await call(sync,'POST',{}),{added:1});
     assert.deepEqual(await call(sync,'POST',{}),{added:0});
-    assert.equal(db.prepare("SELECT json_extract(data,'$.routing_status') status FROM events WHERE external_id LIKE '%:history-own'").get()?.status,'self_context');
     assert.equal(db.prepare("SELECT id FROM events WHERE external_id LIKE '%:history-unrelated'").get(),undefined);
     const other=await approved();
     await call('/settings','PATCH',{'connectors.dingtalk':{...cfg,self_ids:['different']}});

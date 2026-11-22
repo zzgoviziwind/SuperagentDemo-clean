@@ -5,6 +5,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { Lease } from '../../../../packages/storage/src/index.ts';
 import { directory } from '../../../../packages/channels/resources.ts';
 import { settleBudget } from '../budget.js';
+import { stopAffected } from '../intake.ts';
 import { roleOf } from '../auth.ts';
 import type { TurnBinding } from '../../../../packages/runtime/index.ts';
 import { invokeWorkbenchModel, pinnedWorkbenchDriver, type InvocationResult,
@@ -17,6 +18,7 @@ import { ensureSemantic } from './session-writes.ts';
 import type { RoutingJob } from './sessions.ts';
 import { fail, fields, now, type Event, type Fields, type Task, WorkbenchStore } from './store.ts';
 import { localThreadReader } from './thread-reader.ts';
+import { checkHandoffReturn } from './handoff-return.ts';
 import { clearInterruptedAssessmentImages, stageAssessmentImages } from './source-images.ts';
 
 export interface WorkbenchSchedulerOptions {
@@ -111,6 +113,8 @@ export function createWorkbenchScheduler(db: DatabaseSync, options: WorkbenchSch
   const store = new WorkbenchStore(db);
   const env = options.env ?? process.env;
   const driver = options.driver ?? pinnedWorkbenchDriver(db, env);
+  const readThread = options.ports?.readThread ?? (!options.driver && [undefined, 'codex'].includes(env.SUPERAGENT_DRIVER)
+    ? localThreadReader(db, options.stateRoot) : undefined);
   const pollMs = options.pollMs ?? 1000;
   const timeoutMs = options.timeoutMs ?? 120_000;
   if (!Number.isSafeInteger(pollMs) || pollMs < 0 || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1) {
@@ -506,6 +510,7 @@ export function createWorkbenchScheduler(db: DatabaseSync, options: WorkbenchSch
       result = { answered: false, unknown: false, reason: '未能准备工作台运行目录', treeExited: true };
     }
     const stop = finish(work, result);
+    if (work.kind==='semantic') stopAffected(db,work.scope);
     if (stop !== undefined) await finishPause(work, stop);
   }
 
@@ -515,8 +520,19 @@ export function createWorkbenchScheduler(db: DatabaseSync, options: WorkbenchSch
     return promise;
   }
 
+  function readyToTick() {
+    return started && !closing && !active;
+  }
+
   async function tick() {
-    if (!started || closing || active) return false;
+    if (!readyToTick()) return false;
+    if (readThread) {
+      const checking = checkHandoffReturn(store, readThread, write, user => roleOf(env, user), shutdown.signal)
+        .finally(() => { if (active === checking) active = undefined; });
+      active = checking;
+      await checking;
+      if (!readyToTick()) return false;
+    }
     // Also catch admitted inputs from intake builds which have not adopted the direct enqueue callback.
     if (flag('semantic_routing_enabled')) scanIntake();
     if (!driver.available()) return false;
@@ -638,8 +654,7 @@ export function createWorkbenchScheduler(db: DatabaseSync, options: WorkbenchSch
 
   return {
     ...options.ports,
-    readThread: options.ports?.readThread ?? (!options.driver && [undefined, 'codex'].includes(env.SUPERAGENT_DRIVER)
-      ? localThreadReader(db, options.stateRoot) : undefined),
+    readThread,
     workerPrompts: options.workerPrompts,
     recoverOnly: recover,
     start() {

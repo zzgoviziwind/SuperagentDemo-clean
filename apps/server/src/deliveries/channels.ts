@@ -10,7 +10,9 @@ import { listenDws, readDwsGroup, readDwsSourceImages, readOwnDingTalk, replyDws
 import { sourceImageReceipt } from '../../../../packages/channels/source-image.ts';
 import type { Scope, DwsConfig } from '../../../../packages/channels/dingtalk.ts';
 import { cardConfig, cardReceiver, decodeCard } from '../../../../packages/channels/feishu.ts';
-import { notifyCard,upgradeNoticeTable } from '../../../../packages/channels/feishu-notices.ts';
+import { notifyCard,notifyTriage,notifyWorkflow,updateWorkflowCard,upgradeNoticeTable,upgradeTriageNotices } from '../../../../packages/channels/feishu-notices.ts';
+import { connectFeishu } from '../../../../packages/channels/feishu-connection.ts';
+import { upgradeWorkflowNotices,workflowReceiver } from '../../../../packages/channels/feishu-workflow.ts';
 import { background } from './background.ts';
 import { registerAttachments } from './attachments.ts';
 import type { DeliveryPlan, Lease, Storage } from '../../../../packages/storage/index.ts';
@@ -20,12 +22,14 @@ import { admin } from '../sql.js';
 import { configureWorkbenchRuntime, workbenchRuntime } from '../workbench/runtime.ts';
 import type { DingTalkHistoryBinding, DingTalkImageBinding } from '../workbench/runtime.ts';
 import { unassignedContext } from '../workbench/semantic-engine.ts';
+import { nextTriageNotice } from '../workbench/event-groups.ts';
 import { WorkbenchStore, type Event } from '../workbench/store.ts';
+import { recentDingTalkAnchors, syncDingTalkHistory } from '../workbench/dingtalk-history.ts';
 
 type Name='redmine'|'dingtalk';
 const names=['dingtalk','redmine'] as const;
 const positive=z.int().positive(), nonempty=z.string().trim().min(1);
-const red=z.object({enabled:z.boolean(),base_url:z.url(),user_id:positive,project_ids:z.array(positive).default([]),
+const red=z.object({enabled:z.boolean(),base_url:z.url(),user_id:positive,project_ids:z.array(positive).default([]),all_assigned_projects:z.boolean().optional(),
   account_map:redmineAccountMap.optional(),poll_seconds:z.number().min(1).max(86400).default(60),
   api_key_env:z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,127}$/).default('HLZJ_REDMINE_API_KEY'),initial_since:z.string().optional()});
 const ding=z.object({enabled:z.boolean(),profile:nonempty,self_ids:z.array(nonempty).nonempty(),executable:z.union([nonempty,z.array(nonempty).nonempty()]),
@@ -73,10 +77,11 @@ export function registerChannels(app:FastifyInstance,store:Storage,lease:Lease,r
 function initialize(app:FastifyInstance,store:Storage,lease:Lease,root:string,env:NodeJS.ProcessEnv) {
   const db=store.db;
   const native=env.SUPERAGENT_DRIVER!=='fixture' && env.SUPERAGENT_SERVICE_MODE!=='preview';
+  const card=native?cardConfig(env):null;
   const cursor=new CursorStore(db), lifetime=new AbortController();
   const runs=new Map<Name,Run>(), stopped=new Set<Name>();
   db.exec('BEGIN IMMEDIATE');
-  try {upgradeNoticeTable(db);db.exec('COMMIT');} catch(err){db.exec('ROLLBACK');throw err;}
+  try {upgradeNoticeTable(db);if(card) {upgradeWorkflowNotices(db);upgradeTriageNotices(db);}db.exec('COMMIT');} catch(err){db.exec('ROLLBACK');throw err;}
   registerAttachments(app,store,lease,root,env,name=>channelConfig(db,env,name),name=>native && !stopped.has(name));
   function guard(signal:AbortSignal) {
     signal.throwIfAborted();lifetime.signal.throwIfAborted();
@@ -114,6 +119,12 @@ function initialize(app:FastifyInstance,store:Storage,lease:Lease,root:string,en
   async function run(name:Name,r:Run) {
     const signal=r.abort.signal, config=channelConfig(db,env,name);
     const emit=async(e:Incoming)=>{
+      guard(signal);
+      if(e.source==='dingtalk' && e.metadata.conversation_type==='direct' && !e.metadata.self_authored
+        && typeof e.metadata.profile==='string' && !db.prepare("SELECT 1 FROM events WHERE source='dingtalk' AND external_id=?").get(e.external_id)) {
+        const [anchor]=recentDingTalkAnchors(workbench,e.metadata.profile,0,0.5,e.thread_id,e.actor_id);
+        if(anchor) await syncOwn(anchor,AbortSignal.any([signal,AbortSignal.timeout(8000)])).catch(()=>{});
+      }
       guard(signal);
       ingestChannelEvent(db,e,env);
       guard(signal);r.lastSeen=new Date().toISOString();
@@ -184,8 +195,8 @@ function initialize(app:FastifyInstance,store:Storage,lease:Lease,root:string,en
   function statuses() {
     return names.map(name=>{
       const c=channelConfig(db,env,name)??{}, r=runs.get(name);
-      const configured=name==='redmine'?red.safeParse(c).success && !!env[c.api_key_env??'HLZJ_REDMINE_API_KEY'] && !!c.project_ids?.length:ding.safeParse(c).success;
-      const fields=name==='redmine' ? [['base_url','Redmine 服务地址'],['project_ids','Redmine 接收项目范围'],['user_id','Redmine 当前账号']]
+      const configured=name==='redmine'?red.safeParse(c).success && !!env[c.api_key_env??'HLZJ_REDMINE_API_KEY'] && (c.all_assigned_projects===true || !!c.project_ids?.length):ding.safeParse(c).success;
+      const fields=name==='redmine' ? [['base_url','Redmine 服务地址'],[c.all_assigned_projects===true?'all_assigned_projects':'project_ids','Redmine 接收项目范围'],['user_id','Redmine 当前账号']]
         : [['profile','DWS 组织 Profile'],['self_ids','自身账号 ID'],['executable','DWS 程序']];
       const missing=fields.filter(([key])=>Array.isArray(c[key])?!c[key].length:!c[key]).map(([,label])=>label);
       if(name==='redmine'&&!env[c.api_key_env??'HLZJ_REDMINE_API_KEY']) missing.push('API Key 环境变量');
@@ -250,21 +261,79 @@ function initialize(app:FastifyInstance,store:Storage,lease:Lease,root:string,en
     try {await Promise.race([Promise.allSettled([pending,...[...runs.values()].map(r=>r.done)]),
       new Promise<void>(resolve=>{timer=setTimeout(resolve,2500);})]);}finally {clearTimeout(timer);}
   });
-  const card=native?cardConfig(env):null;
   if(card) {
     const secret=env.SUPERAGENT_FEISHU_APP_SECRET;
-    if(secret) background(app,'feishu-notices',async signal=>{
-      if(!['member','admin'].includes(roleOf(env,card.owner)??'')) return;
-      await notifyCard(db,lease.owner,card,secret,signal,()=>guard(signal));
-    },1500);
-    const receive=cardReceiver(db,card,async(owner,aid,decision,hash)=>{
+    function checkFeishuOwner(owner:string) {
       guard(lifetime.signal);
       if(!['member','admin'].includes(roleOf(env,owner)??'')) throw new ChannelError('feishu_owner_unavailable');
-      const r=await app.inject({method:'POST',url:'/api/v1/approvals/'+aid+'/decision',headers:headers(env,owner),payload:{decision,action_hash:hash}});
-      if(r.statusCode!==200) throw new ChannelError('feishu_worker_decision_rejected');
-      return String(r.json().status);
+    }
+    async function applyFromCard(owner:string,url:string,payload:object={}) {
+      checkFeishuOwner(owner);
+      const result=await app.inject({method:'POST',url,headers:headers(env,owner),payload});
+      if(result.statusCode>=400) throw new ChannelError('feishu_action_rejected');
+      return result.json();
+    }
+    const workflow=workflowReceiver(db,card,async(task,action,note)=>{
+      const path='/api/v1/tasks/'+task.taskId;
+      const draft='/api/v1/deliveries/'+task.draft?.id;
+      const expected_state_version=task.version;
+      if(action==='publish'||action==='reject') {
+        if(task.draft?.status==='pending') await applyFromCard(card.owner,draft+'/decision',
+          {decision:action==='publish'?'approve':'reject',action_hash:task.draft.hash});
+        if(action==='reject') return '已拒绝回复草稿';
+        const result=await applyFromCard(card.owner,draft+'/publish');
+        return result?.write_status==='succeeded'?'原渠道已确认发送':'已提交渠道发送，请查看后续状态';
+      }
+      if(action==='delivery_succeeded'||action==='delivery_failed') {
+        await applyFromCard(card.owner,draft+'/reconcile',{outcome:action==='delivery_succeeded'?'succeeded':'failed',evidence:note});
+        return '已记录渠道发送核验结果';
+      }
+      if(action==='execution_stopped') {
+        await applyFromCard(card.owner,path+'/reconcile',{outcome:'stopped',evidence:note,expected_state_version});
+        return '已记录执行停止核验结果';
+      }
+      if(action==='retry_attachments') {
+        await applyFromCard(card.owner,path+'/retry-attachments',{expected_state_version});
+        return '已开始重试来源附件';
+      }
+      if(action==='accept') {
+        await applyFromCard(card.owner,path+'/acceptance',{accepted:true,revision:task.revision,expected_state_version});
+        return '任务已验收';
+      }
+      if(action==='supplement') {
+        await applyFromCard(card.owner,path+'/messages',{content:note,expected_state_version});
+        await applyFromCard(card.owner,path+'/controls',{action:'resume',expected_state_version:expected_state_version+1});
+        return '已补充信息并继续执行';
+      }
+      await applyFromCard(card.owner,path+'/controls',{action,expected_state_version});
+      return '操作已提交';
+    },secret?async(id,body)=>{
+      checkFeishuOwner(card.owner);
+      await updateWorkflowCard(card,secret,id,body,lifetime.signal);
+    }:undefined);
+    const receive=cardReceiver(db,card,async(owner,aid,decision,hash)=>String((await applyFromCard(owner,
+      '/api/v1/approvals/'+aid+'/decision',{decision,action_hash:hash})).status),workflow);
+    let callbackReady=()=>card.transport!=='ws';
+    if(card.transport==='ws' && secret) app.addHook('onReady',async()=>{
+      const warn=()=>app.log.warn('飞书卡片长连接未就绪');
+      try {callbackReady=await connectFeishu(card,secret,lifetime.signal,receive.fromConnection,warn);}
+      catch {warn();}
     });
-    app.register(async plugin=>{
+    if(secret) background(app,'feishu-notices',async signal=>{
+      if(!callbackReady() || !['member','admin'].includes(roleOf(env,card.owner)??'')) return;
+      const check=()=>guard(signal);
+      await notifyCard(db,lease.owner,card,secret,signal,check);
+      await notifyWorkflow(db,card,secret,signal,check);
+    },1500);
+    const port=Number(env.SUPERAGENT_PORT ?? 18765);
+    if(secret && roleOf(env,card.owner)==='admin' && Number.isInteger(port) && port>0 && port<=65535) {
+      app.decorate('feishuTriageDelivery',true);
+      background(app,'feishu-triage-notices',async signal=>{
+        const check=()=>{guard(signal);if(roleOf(env,card.owner)!=='admin') throw new ChannelError('feishu_owner_unavailable');};
+        await notifyTriage(db,card,secret,signal,check,id=>nextTriageNotice(workbench,id),`http://127.0.0.1:${port}`);
+      },15000);
+    }
+    if(card.transport!=='ws') app.register(async plugin=>{
       plugin.removeContentTypeParser('application/json');
       plugin.addContentTypeParser('application/json',{parseAs:'buffer',bodyLimit:128*1024},(_r,body,done)=>done(null,body));
       plugin.post('/callbacks/feishu/card',async req=>{
@@ -292,6 +361,18 @@ function initialize(app:FastifyInstance,store:Storage,lease:Lease,root:string,en
   const readOwn=(binding:DingTalkHistoryBinding,signal:AbortSignal)=>
     privateRead(signal,(config,active)=>readOwnDingTalk(config,binding,env,active));
   const workbench=new WorkbenchStore(db);
+  function syncOwn(anchor:Event,signal:AbortSignal) {
+    return syncDingTalkHistory(workbench,anchor.task_id!,()=>workbench.rows<Event>('events','WHERE id=? AND task_id=?',anchor.id,anchor.task_id),
+      'dingtalk-sync',{readOwnDingTalk:readOwn},signal);
+  }
+  let lastDingTalkTask=0;
+  if(native) background(app,'dingtalk-own-history',async signal=>{
+    const config=channelConfig(db,env,'dingtalk');
+    if(config?.enabled!==true || stopped.has('dingtalk') || !scopes(config,saved(db,'dingtalk_response_policy')).some(scope=>scope.kind==='all-direct')) return;
+    const [anchor]=recentDingTalkAnchors(workbench,config.profile,lastDingTalkTask,24);
+    lastDingTalkTask=anchor?.task_id??0;
+    if(anchor) await syncOwn(anchor,AbortSignal.any([signal,AbortSignal.timeout(20000)]));
+  },30000);
   const readImages=(binding:DingTalkImageBinding,signal:AbortSignal)=>privateRead(signal,async(config,active)=>{
     const authorizedReceipt=()=>{
       const receipt=sourceImageReceipt(db,binding);

@@ -25,6 +25,15 @@ export function triageReason(reason?: string) {
   } as Record<string, string>)[reason ?? ""] ?? reasonText(reason);
 }
 
+function noticeText(status: unknown) {
+  if (status === "disabled") return "飞书待研判提醒未启用，请在工作台处理";
+  if (status === "sent") return "飞书提醒已投递";
+  if (status === "failed") return "飞书拒绝了提醒，请在工作台处理";
+  if (status === "unknown" || status === "sending") return "飞书投递尚未确认";
+  if (status === "retrying") return "飞书提醒等待重试";
+  return "飞书暂无投递记录";
+}
+
 export function EventTriage({ item, busy, onAction, onRetry, onManage, onError }: {
   item: Row;
   busy: boolean;
@@ -85,9 +94,14 @@ export function EventTriage({ item, busy, onAction, onRetry, onManage, onError }
       {messages.map(m => <label key={m.id}>
         <input type="checkbox" checked={picked.includes(m.id)} onChange={e =>
           setPicked(previous => e.target.checked ? [...previous, m.id] : previous.filter(id => id !== m.id))} />
-        <span>{m.content?.slice(0, 80) || `消息 #${m.id}`} · {eventStates[m.state as EventState] ?? "待研判"}</span>
+        <span>{m.content?.slice(0, 80) || `消息 #${m.id}`} · {eventStates[m.state as EventState] ?? "待研判"}
+          {m.state === "triage" && <small className="triage-message-status">{triageReason(m.triage_reason ?? m.data?.routing_reason)}
+            {Object.hasOwn(m, "triage_notice_status") && <> · {noticeText(m.triage_notice_status)}</>}</small>}
+        </span>
       </label>)}
     </fieldset> : <p>{triageReason(messages[0]?.triage_reason ?? messages[0]?.data?.routing_reason)}</p>}
+    {messages.length === 1 && item.state === "triage" && Object.hasOwn(messages[0], "triage_notice_status") &&
+      <p className="muted">{noticeText(messages[0].triage_notice_status)}</p>}
     {assessment && <>
       <p>研判依据：{assessment.reason}</p>
       {assessment.missing_context && <p>需要补充：{assessment.missing_context}</p>}

@@ -10,8 +10,10 @@ import { accessSchema,admission,selectAdmissionProject } from './admission.js';
 import { actionHash } from '../../../packages/storage/src/index.ts';
 import { noActionReason } from './workbench/event-groups.js';
 import { enqueueSemanticReceipt } from './workbench/scheduler.js';
+import { semanticGroupRequest } from './workbench/semantic-engine.ts';
 import { stopFenced, type WorkerControl } from './controls.js';
 import { recordRedmineEcho } from './deliveries/echo.ts';
+import { dingtalkContextTarget } from './workbench/dingtalk-history.ts';
 
 const positive=z.int().positive(), kind=z.enum(['repair','analysis','reply']);
 const taskInput=z.strictObject({project_id:positive,title:z.string().trim().min(1).max(300),goal:z.string().trim().min(1).max(100000),
@@ -22,14 +24,14 @@ const receipt=z.object({source:z.enum(['dingtalk','redmine']),external_id:z.stri
   attachments:z.array(z.unknown()).max(100).default([]),metadata:z.record(z.string(),z.unknown()).default({})});
 type Receipt=z.infer<typeof receipt>;
 const followups=new WeakMap<DatabaseSync,{worker:WorkerControl;pending:Set<Promise<void>>}>();
-function stopAffected(db:DatabaseSync,eventId:number) {
+export function stopAffected(db:DatabaseSync,eventId:number) {
   const handler=followups.get(db);
   if(!handler) return;
-  const targets=db.prepare(`SELECT t.id,t.control_version,t.kind FROM event_targets et
+  const targets=db.prepare(`SELECT t.id,t.control_version,t.kind,json_extract(e.data,'$.auto_resume_after_interrupt') auto_resume FROM event_targets et
     JOIN tasks t ON t.id=et.task_id JOIN events e ON e.id=et.message_event_id
     WHERE et.event_id=? AND json_extract(e.data,'$.requires_interrupt') AND t.last_error='正在停止执行'`).all(eventId);
   for(const task of targets) {
-    const promise=stopFenced(db,Number(task.id),Number(task.control_version),task.kind==='reply'?'queued':'waiting_input',handler.worker);
+    const promise=stopFenced(db,Number(task.id),Number(task.control_version),task.auto_resume||task.kind==='reply'?'queued':'waiting_input',handler.worker);
     handler.pending.add(promise);
     void promise.then(()=>handler.pending.delete(promise),()=>handler.pending.delete(promise));
   }
@@ -37,20 +39,10 @@ function stopAffected(db:DatabaseSync,eventId:number) {
 function ownMessageTarget(db:DatabaseSync,e:Receipt) {
   const m=e.metadata;
   if(!e.thread_id || typeof m.profile!=='string' || !m.profile || m.needs_confirmation) return;
-  const base=`SELECT DISTINCT e.task_id FROM events e JOIN tasks t ON t.id=e.task_id
-    WHERE e.source='dingtalk' AND json_extract(e.data,'$.thread_id')=? AND json_extract(e.data,'$.metadata.profile')=?
-    AND json_extract(e.data,'$.routing_status') IN ('routed','manually_linked','self_context')`;
   const quote=m.reply_to_message_id;
-  if(typeof quote==='string' && quote) {
-    const rows=db.prepare(base+" AND json_extract(e.data,'$.metadata.message_id')=? LIMIT 2").all(e.thread_id,m.profile,quote);
-    return rows.length===1?Number(rows[0].task_id):undefined;
-  }
+  if(typeof quote==='string' && quote) return dingtalkContextTarget(db,m.profile,e.thread_id,e.occurred_at??'',undefined,quote);
   if(m.conversation_type!=='direct'||!e.occurred_at||!/(?:Z|[+-]\d\d:\d\d)$/.test(e.occurred_at)) return;
-  const rows=db.prepare(base+` AND json_extract(e.data,'$.metadata.conversation_type')='direct'
-    AND json_extract(e.data,'$.routing_status')!='self_context'
-    AND julianday(json_extract(e.data,'$.occurred_at')) BETWEEN julianday(?,'-30 minutes') AND julianday(?) LIMIT 2`)
-    .all(e.thread_id,m.profile,e.occurred_at,e.occurred_at);
-  return rows.length===1?Number(rows[0].task_id):undefined;
+  return dingtalkContextTarget(db,m.profile,e.thread_id,e.occurred_at);
 }
 function newTask(db:DatabaseSync,project:number,owner:string,type:string,title:string,goal:string,source:string,ref:string|null,criteria='') {
   const now=utc();
@@ -91,6 +83,10 @@ function route(db:DatabaseSync,e:Receipt,id:number,env:NodeJS.ProcessEnv) {
     db.prepare('UPDATE events SET data=? WHERE id=?').run(JSON.stringify(data),id);
   };
   const pending=(reason:string)=>{detail.blocked_reason=reason;set('pending_confirmation',reason);};
+  function pendingSemantic() {
+    pending('routing_policy_requires_review');
+    if(!enqueueSemanticReceipt(db,id,env)) pending('semantic_admission_blocked');
+  }
   const cfg=settings(db);
   const access=e.source==='dingtalk'&&cfg.dingtalk_request_access?accessSchema.parse(cfg.dingtalk_request_access):null;
   const {actor,candidates}=admission(db,e,access);
@@ -101,7 +97,7 @@ function route(db:DatabaseSync,e:Receipt,id:number,env:NodeJS.ProcessEnv) {
     return set('self_context','');
   }
   const ignored=noActionReason({...e,data:e});
-  if(ignored) return set('ignored',ignored);
+  if(ignored && ignored!=='acknowledgement_only') return set('ignored',ignored);
   const person=access?.people.find(p=>p.actor_id===e.actor_id);
   if(access && (access.mode==='off'||person?.reply===false||access.mode==='selected'&&!person)) return set('ignored','sender_reply_disabled');
   checks.identity={rule:'mapped_actor_enabled',allowed:!!actor};
@@ -174,6 +170,18 @@ function route(db:DatabaseSync,e:Receipt,id:number,env:NodeJS.ProcessEnv) {
   step('fast_filter','passed','identity_project_type_and_input_validated',detail);
   const rules=evaluateRules(db,e.source,project,type,e);
   if(rules.has('pause')||rules.has('quiet')) return pending('private_policy_hold');
+  if(ignored) {
+    const profile=e.metadata.profile;
+    const target=direct && typeof profile==='string' && e.thread_id && e.occurred_at
+      ? dingtalkContextTarget(db,profile,e.thread_id,e.occurred_at,e.actor_id) : undefined;
+    const scoped=target && db.prepare(`SELECT t.id FROM tasks t LEFT JOIN governance_task_owners o ON o.task_id=t.id
+      WHERE t.id=? AND t.project_id IN (SELECT value FROM json_each(?)) AND NOT t.outcome_unknown
+      AND (CASE WHEN t.owner_id='local-admin' THEN COALESCE(o.user_id,t.owner_id) ELSE t.owner_id END)=?`)
+      .get(target,JSON.stringify(grants),actor.user_id);
+    if (!scoped) return set('ignored',ignored);
+    db.prepare('UPDATE events SET task_id=? WHERE id=?').run(scoped.id,id);
+    return set('context_only',ignored,{actor:actor.user_id});
+  }
   const issues=new Set([...e.content.matchAll(/(?<![\p{L}\p{N}_])#(\d+)\b/gu)].map(m=>m[1]));
   if(e.issue_id) issues.add(String(e.issue_id));
   if(issues.size>1 || [...issues].some(n=>!/^\d+$/.test(n))) return pending('ambiguous_issue_reference');
@@ -219,7 +227,7 @@ function route(db:DatabaseSync,e:Receipt,id:number,env:NodeJS.ProcessEnv) {
   const targets=new Set(routes.map(r=>Number(r.task_id)));
   if(replyKey && !routes.some(r=>r.route_key===replyKey)) {
     const bound=db.prepare(`SELECT DISTINCT t.id FROM events e JOIN tasks t ON t.id=e.task_id WHERE
-      t.project_id=? AND e.source='dingtalk' AND json_extract(data,'$.routing_status') IN ('routed','manually_linked','self_context')
+      t.project_id=? AND e.source='dingtalk' AND json_extract(data,'$.routing_status') IN ('routed','manually_linked','self_context','context_only')
       AND json_extract(data,'$.thread_id')=? AND COALESCE(json_extract(data,'$.metadata.profile'),'')=? AND json_extract(data,'$.metadata.message_id')=?`)
       .all(project,e.thread_id??'',profile,String(quoted));
     const sent=db.prepare(`SELECT DISTINCT d.task_id id FROM reply_drafts d JOIN approvals a ON a.id=d.approval_id
@@ -254,10 +262,18 @@ function route(db:DatabaseSync,e:Receipt,id:number,env:NodeJS.ProcessEnv) {
   const previous=task && ['completed','cancelled'].includes(String(task.status))?Number(task.id):null;
   const created=!task||previous!==null;
   const interrupt=!!task && ['running','waiting_approval'].includes(String(task.status));
+  if(direct && cfg.semantic_routing_enabled && profile && !clarification && !replyKey && !issues.size && e.thread_id &&
+    db.prepare(`SELECT 1 FROM events prior WHERE prior.source='dingtalk' AND prior.external_id IS NOT NULL
+      AND prior.id<? AND julianday(prior.created_at)>=julianday('now','-7 days')
+      AND json_extract(prior.data,'$.thread_id')=? AND json_extract(prior.data,'$.metadata.profile')=?
+      AND json_extract(prior.data,'$.actor_id')=? LIMIT 1`).get(id,e.thread_id,profile,e.actor_id??'')) {
+    return pendingSemantic();
+  }
   if(created && cfg.semantic_routing_enabled && type!=='reply' && !clarification) {
-    pending('routing_policy_requires_review');
-    enqueueSemanticReceipt(db,id,env);
-    return;
+    if (e.source==='dingtalk' && !direct && !semanticGroupRequest(e.content,cfg.dingtalk_route_all_mentions,e.metadata.at_me)) {
+      return pending('semantic_request_not_recognized');
+    }
+    return pendingSemantic();
   }
   if(created && type!=='reply' && e.source==='dingtalk' && !(cfg.dingtalk_route_all_mentions && e.metadata.at_me) &&
     !/[？?]|请|帮我|分析|排查|检查|修复|修改|实现|新增|调整|继续|增加|优化|完成|为何|为什么|怎么|如何|什么|哪些|哪个|多少|是否|能否|可否|进度|进展|[吗么]\s*$|\b(?:fix|implement|please|investigate|add)\b/i.test(e.content)) return pending('explicit_request_required');

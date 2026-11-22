@@ -14,6 +14,7 @@ import type { Incoming } from '../common.ts';
 import { Redmine,RedminePoller } from '../redmine.ts';
 import { listenDws,normalizeDws,replyDws,verifyDws } from '../dingtalk.ts';
 import { cardReceiver,decodeCard } from '../feishu.ts';
+import { forwardCardFrames } from '../feishu-connection.ts';
 
 test('loopback Redmine 账号、分页、失败重放、旧快照恢复、同时间 A→B→A 及账号隔离',{timeout:15000},async()=>{
   const s=openStorage(':memory:'),state=new CursorStore(s.db), signal=AbortSignal.timeout(12000);
@@ -137,4 +138,16 @@ test('飞书受限回调：签名密文、时间窗、角色与消息绑定、�
   f.s.db.exec('UPDATE tasks SET control_version=2');assert.equal(await toast(),'error');
   f.s.db.exec('UPDATE tasks SET control_version=1');assert.equal(await toast(),'success');
   assert.equal(await toast(),'info');assert.equal(calls,1);
+  const sdk=await import('@larksuiteoapi/node-sdk');
+  const dispatcher=new sdk.EventDispatcher({logger:{debug(){},info(){},warn(){},error(){},trace(){}}})
+    .register({'card.action.trigger':receive.fromConnection});
+  assert.deepEqual(await dispatcher.invoke(payload,{needCheck:false}),{toast:{type:'info',content:'该审批已有决定'}});
+  await assert.rejects(dispatcher.invoke({...payload,header:{...payload.header,app_id:'other'}},{needCheck:false}),/payload_invalid/);
+  let received:unknown;
+  const frameHandler={async handleEventData(frame:unknown){received=frame;}};
+  forwardCardFrames(frameHandler);
+  const frame={headers:[{key:'type',value:'card'},{key:'message_id',value:'fixture'}],payload:raw};
+  await frameHandler.handleEventData(frame);
+  assert.deepEqual(received,{...frame,headers:[{key:'type',value:'event'},frame.headers[1]]});
+  assert.equal(frame.headers[0].value,'card');
 });

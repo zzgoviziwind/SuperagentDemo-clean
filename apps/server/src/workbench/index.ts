@@ -7,6 +7,7 @@ import { registerEventStream } from './event-stream.ts';
 import { registerReceipts } from './receipts.ts';
 import { registerSessions } from './sessions.ts';
 import { registerSessionActions } from './session-actions.ts';
+import { registerHandoffReturn } from './handoff-return.ts';
 import { postSessionMessage, reconcileSession } from './session-writes.ts';
 import { fields, WorkbenchStore } from './store.ts';
 import { registerTasks } from './tasks.ts';
@@ -37,6 +38,7 @@ export function registerWorkbench(app: FastifyInstance, db: DatabaseSync, runtim
   registerEventGroups(app, store);
   registerSessions(app, store);
   registerSessionActions(app, store);
+  registerHandoffReturn(app, store);
   app.post<{ Params: { id: string } }>('/api/v1/sessions/:id/messages',
     request => postSessionMessage(app, store, request, request.params.id, fields(request.body)));
   app.post<{ Params: { id: string } }>('/api/v1/sessions/:id/reconcile',

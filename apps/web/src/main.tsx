@@ -75,6 +75,12 @@ export function App() {
   const [focusedGroup, setFocusedGroup] = useState<string>();
   const [eventScope, setEventScope] = useState<EventScope>({ status:"", project:"" });
   const [eventHomeVersion, resetEventHome] = useState(0);
+  const [linkedEventId, setLinkedEventId] = useState(() => {
+    const value = new URLSearchParams(window.location.search).get("event") ?? "";
+    return /^[1-9]\d*$/.test(value) && Number.isSafeInteger(Number(value)) ? Number(value) : undefined;
+  });
+  const [attention, setAttention] = useState({ triage: 0, needs_action: 0 });
+  const [attentionUnavailable, setAttentionUnavailable] = useState(false);
   const [page, setPage] = useState("事件中心");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Row[]>([]);
@@ -265,6 +271,42 @@ export function App() {
   }, [refreshTask]);
   const signedIn = Boolean(user);
   useEffect(() => {
+    if (!signedIn) {
+      setAttention({ triage: 0, needs_action: 0 });
+      setAttentionUnavailable(false);
+      return;
+    }
+    let stopped = false, polling = false;
+    async function pollAttention() {
+      if (document.hidden || polling) return;
+      polling = true;
+      try {
+        const { counts } = await read<{ counts?: Record<string, number> }>("/event-groups/index?counts_only=1");
+        if (!counts) throw new Error("待办数量未返回");
+        if (!stopped) {
+          setAttention({ triage: counts.triage ?? 0, needs_action: (counts.review ?? 0) + (counts.attention ?? 0) });
+          setAttentionUnavailable(false);
+        }
+      } catch {
+        if (!stopped) setAttentionUnavailable(true);
+      } finally {
+        polling = false;
+      }
+    }
+    void pollAttention();
+    const timer = window.setInterval(() => void pollAttention(), 20000);
+    document.addEventListener("visibilitychange", pollAttention);
+    return () => { stopped = true; window.clearInterval(timer); document.removeEventListener("visibilitychange", pollAttention); };
+  }, [signedIn, read]);
+
+  function showAttention(status: "triage" | "needs_action") {
+    clearEvent();
+    setLinkedEventId(undefined);
+    setEventScope({ status, project: "" });
+    resetEventHome(version => version + 1);
+    setPage("事件中心");
+  }
+  useEffect(() => {
     if (!signedIn) return;
     const params = new URLSearchParams(window.location.search);
     const target = params.get("task") ?? "";
@@ -276,7 +318,10 @@ export function App() {
   function navigate(next: string) {
     const [destination, target = ""] = next.split("#");
     const nextPage = ["任务", "事件"].includes(destination) ? "事件中心" : destination === "会话工作台" ? "Worker 工作台" : destination;
-    if (page !== nextPage) clearEvent();
+    if (page !== nextPage) {
+      clearEvent();
+      setLinkedEventId(undefined);
+    }
     setConfigTarget(target);
     setPage(nextPage);
   }
@@ -502,7 +547,7 @@ export function App() {
           onRebind={(projectId, reason) => mutate(() => request(`/tasks/${task.id}/project`, {
             project_id: projectId, reason, expected_state_version: task.state_version,
           }), "所属项目已更换，确认后可在新工作区继续。")} />}
-        {canHandoff && <HandoffPanel taskId={task.id} blocked={busy || controlBlocked} />}
+        {canHandoff && <HandoffPanel key={task.id} taskId={task.id} blocked={busy || controlBlocked} canLink={isAdmin} />}
       </div>
       {(canAnalyzeReply || canHandoff || task.status === "cancelled" && canTaskWrite) && <p className="muted control-hints">
         {task.status === "cancelled" && "恢复原任务会按原目标和类型重新排队。"}
@@ -691,6 +736,7 @@ export function App() {
           onClick={(e) => {
             e.preventDefault();
             clearEvent();
+            setLinkedEventId(undefined);
             resetEventHome(version => version + 1);
             navigate("事件中心");
           }}
@@ -763,6 +809,14 @@ export function App() {
       <main className={page === "事件中心" ? "workspace-page event-center-page" : page === "Worker 工作台" ? "workspace-page worker-page" : page === "消息记录" ? "workspace-page" : "content-page"}>
         <header className="workbench-page-heading">
           <h1><WorkbenchIcon name={page} />{page}</h1>
+          {signedIn && <div className="workbench-attention">
+            {attention.triage > 0 && <button type="button" aria-label={`待研判 ${attention.triage}，查看待办队列`} onClick={() => showAttention("triage")}>待研判 {attention.triage}</button>}
+            {attention.needs_action > 0 && <button type="button" aria-label={`待处理 ${attention.needs_action}，查看待办队列`} onClick={() => showAttention("needs_action")}>待处理 {attention.needs_action}</button>}
+            <span role="status" className={attentionUnavailable ? undefined : "workbench-attention-announcement"}>
+              {attentionUnavailable ? "待办信息暂未更新" : attention.triage + attention.needs_action > 0
+                ? `待研判 ${attention.triage}，待处理 ${attention.needs_action}` : ""}
+            </span>
+          </div>}
         </header>
         {loginOpen && !user && (
           <section>
@@ -1015,7 +1069,7 @@ export function App() {
           void openTask(String(id));
         }} />}
         {page === "事件中心" && user && (
-            <GroupedEvents key={eventHomeVersion} taskDetail={detail} initialGroupId={focusedGroup} operations={eventOperations} reply={eventReply} replySnapshot={replySnapshot} operationsId={task ? String(task.id) : undefined}
+            <GroupedEvents key={eventHomeVersion} taskDetail={detail} initialGroupId={focusedGroup} initialEventId={linkedEventId} operations={eventOperations} reply={eventReply} replySnapshot={replySnapshot} operationsId={task ? String(task.id) : undefined}
               linkedApprovalId={reviewLinkId}
               initialScope={eventScope} onScopeChange={setEventScope} projects={projects} canManage={isAdmin}
               overview={<ArchitecturePanel onNavigate={navigate} isAdmin={isAdmin} eventStatus={eventScope.status} />}

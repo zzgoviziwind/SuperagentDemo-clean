@@ -5,7 +5,7 @@
 |场景|方法与路径|React 入口|数据与权限|
 |---|---|---|---|
 |1.1、2.1、2.5|`GET /projects`、`GET /tasks`、`GET /overview`|`main.tsx` 初始加载及 HTTP 契约|项目列表排除归档。任务按可见性、状态和项目筛选，保留有权限的归档项目历史。总览根据同一可见性计算计数、当前任务与待审批项。|
-|2.2|`GET /event-groups/index`、`GET /event-groups`、`GET /event-groups/:id`|`GroupedEvents.tsx`、`EventGroups.tsx`|`tasks`、`events`、`event_targets`、`worker_subscriptions`；管理员或任务所属成员；管理员可看未分派收件。先搜索/筛选，再分页，状态计数不受当前状态筛选影响。|
+|2.2|`GET /event-groups/index`、`GET /event-groups`、`GET /event-groups/:id`|`GroupedEvents.tsx`、`EventGroups.tsx`|`tasks`、`events`、`event_targets`、`worker_subscriptions`；管理员或任务所属成员；管理员可看未分派收件。先搜索/筛选，再分页，状态计数不受当前状态筛选影响。`counts_only=1` 仅返回 `{counts}`，`event_id` 按来源事件定位当前归属。待研判消息的 `triage_notice_status` 反映飞书配置及投递结果。|
 |2.2|`POST /event-groups/:id/events/:event_id/resolution`、`POST /event-groups/:id/following/:subscription_id`|`GroupedEvents.tsx`、`EventGroups.tsx`|沿用事件组可见性和版本保护；未知执行结果返回 409；逐组追加核验事件；跟进保留原订阅行及历史。|
 |2.2|`POST /event-groups/:id/rename`、`POST /event-groups/:id/delegations`、`GET /event-groups/triage-options`|`GroupedEvents.tsx`、`EventGroups.tsx`、`EventTriage.tsx`|重命名校验所有权和版本。委派以请求键去重，创建同项目子任务并继承有效 owner。分派选项仅管理员读取。|
 |2.2|`POST /event-groups/triage`、`POST /event-groups/:id/sync-own-dingtalk`|`GroupedEvents.tsx`|仅管理员。triage 支持关闭、创建及关联，事务内保留来源、目标、附件任务与审计。同步仅导入可核对私聊中明确归属本组的本账号发言。|
@@ -82,3 +82,8 @@ registerWorkbench(app, store.db, scheduler);
 |`POST /sessions/router:1/reconcile`|保留 409。无法确认旧未知会话的进程退出，仅凭文本不会解锁后续模型派发。|
 
 用 B328 原始合成底库的九个独立 SQLite 副本，在当前总控入口共复放 21 个请求。评估、接管、申请和应用各以四客户端并发运行，全部返回 200。每类并发结果一致，并核对只有一条对应的审计、接管、申请或新关联。九份副本的 SQLite 完整性检查均通过，底库散列保持 `5bc2b8435c673c4ebd74ae918e17ae2f72077ba6f1e725304f8ecfe9e067e93e`。这些是当前源码的复验证据。下一份安装包的独立验收仍需以新指纹记录。
+### Codex 接管结果回流
+
+- `POST /sessions/worker:{id}/handoff` 返回原线程、项目根目录及暂停后的任务版本。
+- 管理员可通过 `POST /sessions/worker:{id}/handoff-return` 提交 `{thread_id,turn_id?,expected_state_version}`。会话须来自本机并使用同一项目根目录。缺省轮次取提交时的最后一轮，关联后锁定该轮。
+- `GET /sessions/worker:{id}/handoff-return` 返回 `status` 与 `reason`。后台确认所选轮次完成并有最终结论后，将结论作为待核验证据写回原事件。原任务以只读分析继续，已有的附件检查仍生效。任务版本或项目变化后需重新关联。

@@ -16,7 +16,7 @@ const issueSchema=z.object({id,subject:z.string().nullish(),description:z.string
     details:z.array(z.record(z.string(),z.json())).default([])})).default([])});
 type Issue=z.infer<typeof issueSchema>;
 type Snapshot={fingerprint:string;sequence:number;assigned_to_id:string};
-export interface RedmineConfig {base_url:string;user_id:number;project_ids:number[];initial_since?:string;poll_seconds?:number;
+export interface RedmineConfig {base_url:string;user_id:number;project_ids:number[];all_assigned_projects?:boolean;initial_since?:string;poll_seconds?:number;
   account_map?:Record<string,number[]>}
 export class Redmine {
   readonly base:string;
@@ -79,10 +79,15 @@ export class Redmine {
     await this.#request('/issues/'+issueId+'.json',signal,{issue:{notes:content}});
     return {write_status:'succeeded',verification:'not_performed'};
   }
-  async *issues(project:number,since:string|null,signal:AbortSignal) {
+  async *issues(project:number|null,since:string|null,signal:AbortSignal) {
     const seen=new Set<number>();
     for(let offset=0;;) {
-      const params=new URLSearchParams({project_id:String(project),subproject_id:'!*',status_id:'*',sort:'id:asc',offset:String(offset),limit:'100'});
+      const params=new URLSearchParams({status_id:'*',sort:'id:asc',offset:String(offset),limit:'100'});
+      if(project===null) params.set('assigned_to_id',String(this.config.user_id));
+      else {
+        params.set('project_id',String(project));
+        params.set('subproject_id','!*');
+      }
       if(since) params.set('updated_on','>='+utc(since).slice(0,19)+'Z');
       const page=await this.#request('/issues.json?'+params,signal);
       if(!Array.isArray(page.issues)||!Number.isSafeInteger(page.total_count)||page.total_count<0||(page.offset??offset)!==offset)
@@ -92,8 +97,8 @@ export class Redmine {
         if(seen.has(n)) continue;
         seen.add(n);
         const issue=issueSchema.parse((await this.#request('/issues/'+n+'.json?include=journals,attachments',signal)).issue);
-        if(issue.id!==n || issue.project.id!==project) throw new ChannelError('redmine_issue_scope_mismatch');
-        yield issue;
+        if(issue.id!==n || (project!==null && issue.project.id!==project)) throw new ChannelError('redmine_issue_scope_mismatch');
+        if(project!==null || issue.assigned_to?.id===this.config.user_id) yield issue;
       }
       offset+=page.issues.length;
       if(offset>=page.total_count) return;
@@ -111,12 +116,12 @@ function mentions(text:string,config:RedmineConfig) {
   }
   return {mentions:definite,uncertain_mentions:uncertain};
 }
-function restored(state:CursorStore,c:Redmine,issue:number,projects:number[]):Snapshot|null {
+function restored(state:CursorStore,c:Redmine,issue:number,project:number):Snapshot|null {
   const row=state.db.prepare(`SELECT data,external_id FROM events WHERE source='redmine' AND json_extract(data,'$.metadata.redmine_endpoint')=?
     AND CAST(json_extract(data,'$.issue_id') AS TEXT)=? AND CAST(json_extract(data,'$.metadata.external_user_id') AS TEXT)=?
-    AND CAST(json_extract(data,'$.project_external_id') AS TEXT) IN (SELECT CAST(value AS TEXT) FROM json_each(?))
+    AND CAST(json_extract(data,'$.project_external_id') AS TEXT) =?
     AND COALESCE(json_extract(data,'$.original_event_type'),json_extract(data,'$.event_type'),event_type)='issue.updated'
-    ORDER BY id DESC LIMIT 1`).get(c.base,String(issue),String(c.config.user_id),JSON.stringify(projects));
+    ORDER BY id DESC LIMIT 1`).get(c.base,String(issue),String(c.config.user_id),String(project));
   if(!row) return null;
   const e=JSON.parse(String(row.data)),m=e.metadata, newline=typeof e.content==='string'?e.content.indexOf('\n'):-1;
   const assigned=m.assigned_to_id ?? (m.assigned_to_me===true?String(c.config.user_id):null);
@@ -139,16 +144,16 @@ export class RedminePoller {
   #busy=false;
   constructor(client:Redmine,state:CursorStore,emit:Emit) {
     this.client=client;this.state=state;this.emit=emit;
-    this.projects=[...new Set(z.array(id).nonempty().parse(client.config.project_ids))].sort((a,b)=>a-b);
-    this.key='redmine:'+client.base+':'+this.projects.join(',')+':'+client.config.user_id;
+    this.projects=[...new Set(z.array(id).min(client.config.all_assigned_projects?0:1).parse(client.config.project_ids))].sort((a,b)=>a-b);
+    this.key='redmine:'+client.base+':'+(client.config.all_assigned_projects?'all-assigned:'+this.projects.join(','):this.projects.join(','))+':'+client.config.user_id;
   }
   async #consume(issue:Issue,signal:AbortSignal,replay=false) {
     const c=this.client, config=c.config, user=String(config.user_id), project=String(issue.project.id), n=String(issue.id);
-    if(!this.projects.includes(issue.project.id)) throw new ChannelError('redmine_project_scope_mismatch');
+    if(!this.projects.includes(issue.project.id) && !(config.all_assigned_projects && issue.assigned_to?.id===config.user_id)) throw new ChannelError('redmine_project_scope_mismatch');
     const key=this.key+':issue:'+n+':semantics', pending=this.key+':pending_initial_issue';
     const checkpoint=this.state.get<Snapshot>(key);
     const valid=checkpoint && /^[0-9a-f]{64}$/.test(checkpoint.fingerprint) && Number.isSafeInteger(checkpoint.sequence) && checkpoint.sequence>0;
-    const previous=valid?checkpoint:restored(this.state,c,issue.id,this.projects);
+    const previous=valid?checkpoint:restored(this.state,c,issue.id,issue.project.id);
     const semantics={subject:issue.subject??'',description:issue.description??'',project_id:project,assigned_to_id:String(issue.assigned_to?.id??'')};
     const fingerprint=digest(semantics), changed=previous?.fingerprint!==fingerprint, sequence=(previous?.sequence??0)+Number(changed);
     const assigned=semantics.assigned_to_id===user, prefix=c.base+':issue:'+n+':';
@@ -190,6 +195,11 @@ export class RedminePoller {
       if(pending) await this.#consume(issueSchema.parse(pending),signal,true);
       for(const project of this.projects) for await(const issue of this.client.issues(project,since,signal)) await this.#consume(issue,signal);
       signal.throwIfAborted();
+      if(this.client.config.all_assigned_projects) {
+        for await(const issue of this.client.issues(null,since,signal)) {
+          if(!this.projects.includes(issue.project.id)) await this.#consume(issue,signal);
+        }
+      }
       this.state.set(this.key,before && before>boundary?before:boundary);
       return boundary;
     } finally {this.#busy=false;}

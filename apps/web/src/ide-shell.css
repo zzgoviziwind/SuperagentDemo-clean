@@ -236,6 +236,20 @@
   line-height: 1.4;
 }
 .ide-status .dot.online { background: #7ccea5; }
+.workbench-attention {
+  display: flex;
+  align-self: center;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-inline-start: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+.workbench-attention button { padding: 3px 8px; min-height: 28px; font-size: inherit; }
+.workbench-attention-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.triage-message-status { display: block; }
 .ide-preview { color: #e7c887; }
 .ide-channels { margin-inline-start: auto; }
 
@@ -263,6 +277,7 @@
   }
   .shell.ide-shell .ide-rail .ide-more-items button { width: 106px; flex-direction: row; gap: 8px; font-size: 12px; }
   .shell.ide-shell > main.workspace-page { overflow: visible; }
+  .workbench-attention button { min-height: 40px; }
   .ide-status { flex-wrap: wrap; gap: 3px 10px; min-height: 26px; }
   .ide-channels { display: none; }
 }

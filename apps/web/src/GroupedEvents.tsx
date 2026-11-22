@@ -357,11 +357,21 @@ export function GroupedEvents({
   }
 
   useEffect(()=>{
-    if(initialEventId && !selectedItem.current){
-      const found=items.find(i=>i.messages.some((m:Row)=>m.id===initialEventId));
-      if(found)void open(found);
-    }
-  },[items,initialEventId]);
+    if (!initialEventId || initialGroupId || selectedItem.current) return;
+    const seq=++selection.current;
+    setOpening(true);
+    enterDetail(false);
+    void request<Row>(`/event-groups/index?event_id=${initialEventId}&limit=1`).then(data=>{
+      if(seq!==selection.current) return;
+      const found=data.items?.find((item:Row)=>item.messages.some((m:Row)=>m.id===initialEventId));
+      if(found) return open(found,true,true);
+      setDetailError('无法读取此事件，请检查登录权限或从事件列表查找。');
+    }).catch(()=>{
+      if(seq===selection.current) setDetailError('事件读取失败，请刷新后重试。');
+    }).finally(()=>{
+      if(seq===selection.current) setOpening(false);
+    });
+  },[initialEventId,initialGroupId]);
 
   async function fetchGroup(id: string | number) {
     const data=await request<Row>(`/event-groups/${encodeURIComponent(id)}`);

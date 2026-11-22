@@ -1,16 +1,49 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState, type FormEvent } from "react";
 import { request } from "./api";
 
-export function HandoffPanel({ taskId, blocked = false }: { taskId: number | string; blocked?: boolean }) {
+type Material = { content: string; thread_id?: string; project_path?: string; status?: string; kind?: string; state_version?: number };
+type ReturnStatus = { status: string; reason: string | null };
+const threadIdPattern = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
+
+export function HandoffPanel({ taskId, blocked = false, canLink = false }:
+  { taskId: number | string; blocked?: boolean; canLink?: boolean }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [material, setMaterial] = useState("");
+  const [material, setMaterial] = useState<Material>();
+  const [chat, setChat] = useState("");
+  const [turn, setTurn] = useState("");
+  const [returnStatus, setReturnStatus] = useState<ReturnStatus>();
+  const [linking, setLinking] = useState(false);
+  const [linkError, setLinkError] = useState("");
   const contentId = useId();
+  const returnUrl = `/sessions/worker:${taskId}/handoff-return`;
+  const canReturn = canLink && material?.status === "paused" && ["reply", "analysis"].includes(material.kind ?? "");
+
+  useEffect(() => {
+    if (!open || !canReturn || linking || returnStatus && returnStatus.status !== "waiting") return;
+    let stopped = false;
+    async function refresh() {
+      try {
+        const result = await request<ReturnStatus>(returnUrl);
+        if (!stopped) setReturnStatus(result);
+      } catch { /* The server keeps checking even when the page cannot refresh. */ }
+    }
+    const initially = setTimeout(() => void refresh(), 0);
+    const timer = setInterval(() => void refresh(), 5000);
+    return () => {
+      stopped = true;
+      clearTimeout(initially);
+      clearInterval(timer);
+    };
+  }, [open, canReturn, linking, returnUrl, returnStatus?.status]);
+
   async function prepare() {
     setBusy(true);
     setError("");
-    setMaterial("");
+    setMaterial(undefined);
+    setReturnStatus(undefined);
+    setLinkError("");
     try {
       let { task } = await request<any>(`/tasks/${taskId}`);
       if (
@@ -43,15 +76,37 @@ export function HandoffPanel({ taskId, blocked = false }: { taskId: number | str
           break;
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
-      const result = await request<any>(
+      const result = await request<Material>(
         `/sessions/worker:${taskId}/handoff`,
         {},
       );
-      setMaterial(result.content);
+      setMaterial(result);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function link(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const threadId = chat.trim().replace(/^codex:\/\/threads\//, "");
+    if (!threadIdPattern.test(threadId) || turn.trim() && !threadIdPattern.test(turn.trim())) {
+      setLinkError("请粘贴 Codex 会话链接或编号，并核对选填的轮次编号。");
+      return;
+    }
+    setLinkError("");
+    setLinking(true);
+    try {
+      setReturnStatus(await request<ReturnStatus>(returnUrl, {
+        thread_id: threadId,
+        ...(turn.trim() ? { turn_id: turn.trim() } : {}),
+        expected_state_version: material?.state_version,
+      }));
+    } catch (e) {
+      setLinkError((e as Error).message);
+    } finally {
+      setLinking(false);
     }
   }
   return (
@@ -63,26 +118,27 @@ export function HandoffPanel({ taskId, blocked = false }: { taskId: number | str
       }}>{busy ? "正在等待执行安全退出…" : open ? "收起接管材料" : "由我接着做"}</button>
       {open && <div className="event-handoff-content" id={contentId} aria-busy={busy}>
       <p className="muted">
-        先暂停自动执行，再带着目标、工作目录和已有成果前往
-        Codex。人工进展需回到事件补充。
+        接管后任务暂停。请带着以下材料在 Codex 排查，再把结论补充到原事件。
       </p>
       {error && <p role="alert">{error}</p>}
       {material && (
         <>
-          <p>
-            在 Codex
-            打开下方工作目录，查找原会话继续；无法找到时，将材料粘贴到新会话。
-          </p>
+          <div className="actions wrap">
+            {material.thread_id && threadIdPattern.test(material.thread_id) &&
+              <a href={`codex://threads/${material.thread_id}`}>查看原 Codex 会话</a>}
+            {material.project_path &&
+              <a href={`codex://new?path=${encodeURIComponent(material.project_path)}`}>在事件项目中打开新会话</a>}
+          </div>
           <textarea
             aria-label="Codex 接管材料"
             readOnly
-            rows={12}
-            value={material}
+            rows={6}
+            value={material.content}
           />
           <button
             onClick={async () => {
               try {
-                await navigator.clipboard.writeText(material);
+                await navigator.clipboard.writeText(material.content);
               } catch {
                 setError("复制不可用，请手动选中材料复制。");
               }
@@ -90,6 +146,25 @@ export function HandoffPanel({ taskId, blocked = false }: { taskId: number | str
           >
             复制接管材料
           </button>
+          {canReturn && <form className="event-handoff-return" onSubmit={event => void link(event)}>
+            <label>Codex 排查会话链接或编号
+              <input value={chat} required aria-describedby={`${contentId}-return-hint`}
+                onChange={event => { setChat(event.target.value); setLinkError(""); }} />
+            </label>
+            <label>排查轮次编号（选填）
+              <input value={turn} onChange={event => { setTurn(event.target.value); setLinkError(""); }} />
+            </label>
+            <p id={`${contentId}-return-hint`} className="muted">提交时选定排查轮次，留空取当时的最后一轮。该轮完成后，结论会回到原事件并继续只读分析。</p>
+            {linkError && <p role="alert">{linkError}</p>}
+            <button type="submit" disabled={linking || returnStatus?.status === "imported"}>
+              {linking ? "正在关联…" : "关联并自动继续"}
+            </button>
+            <p role="status">
+              {returnStatus?.status === "waiting" && (returnStatus.reason ?? "等候选定轮次完成，关闭此页面后仍会继续。")}
+              {returnStatus?.status === "imported" && "排查结论已补充到原事件，可查看只读分析进度。"}
+              {["failed", "stale"].includes(returnStatus?.status ?? "") && returnStatus?.reason}
+            </p>
+          </form>}
         </>
       )}
     </div>}</>

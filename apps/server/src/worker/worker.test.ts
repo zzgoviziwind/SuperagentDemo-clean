@@ -1,4 +1,5 @@
-import { link, mkdir, mkdtemp, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { link, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -111,6 +112,27 @@ describe('Host uses the real fixture process and storage transactions', () => {
     expect(manifest).toMatchObject({ attempt_id: attempt.id, thread_id: attempt.thread_id, turn_id: attempt.turn_id, revision: 1 });
     expect(JSON.parse(String(manifest.items))).toMatchObject([{ type: 'decision', included: true }]);
   }, { SUPERAGENT_CONTEXT_MODE: 'decisions' }), 15_000);
+
+  test('钉钉 Worker 用已核验的原图启动本轮，结束后清理暂存文件',async()=>host(async f=>{
+    f.insert(1,'reply');
+    f.db.exec("UPDATE tasks SET source='dingtalk' WHERE id=1");
+    const eventId=Number(f.db.prepare("INSERT INTO events(task_id,source,external_id,event_type,content,data,created_at) VALUES(1,'dingtalk','fixture-image','message.received','图片','{}',?)")
+      .run(stamp).lastInsertRowid);
+    const original=join(f.root,'attachments','1',String(eventId),'batch-test');
+    await mkdir(original,{recursive:true});
+    const body=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP44KAAAAN0AVEsSGUpAAAAAElFTkSuQmCC','base64');
+    const path=join(original,'verified.png');
+    await writeFile(path,body);
+    f.db.prepare("INSERT INTO event_attachment_jobs VALUES(?,1,1,1,'completed',?)").run(eventId,JSON.stringify([{
+      local_path:path,filename:'verified.png',content_type:'image/png',size:body.length,sha256:createHash('sha256').update(body).digest('hex')
+    }]));
+    f.scheduler(true);
+    await until(()=>f.get(1).status,'review_ready');
+    const {codex_turn_id,workspace_path}=f.get(1);
+    expect(JSON.parse(String(f.db.prepare("SELECT data FROM events WHERE event_type='worker_source_images'").get()?.data)))
+      .toMatchObject({turnId:codex_turn_id,event_ids:[eventId]});
+    expect((await readdir(String(workspace_path))).filter(name=>name.startsWith('source-'))).toEqual([]);
+  }),15000);
 
   test('fixture is disabled unless selected, even when scheduling is enabled', async () => host(async f => {
     f.insert(1, 'reply');

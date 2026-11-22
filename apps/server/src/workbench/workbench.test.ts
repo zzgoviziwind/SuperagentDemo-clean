@@ -5,6 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { codexThreadReader, configureWorkbenchRuntime, registerWorkbench,
   type DingTalkHistoryBinding, type SemanticDecision, type SessionBinding } from './index.ts';
 import { registerControls } from '../controls.ts';
+import { checkHandoffReturn } from './handoff-return.ts';
+import { nextTriageNotice } from './event-groups.ts';
+import { notifyTriage } from '../../../../packages/channels/feishu-notices.ts';
+import { WorkbenchStore } from './store.ts';
+import { dirname } from 'node:path';
 
 const oracle = JSON.parse(readFileSync(new URL('../../../../tests/rewrite-acceptance/stage0-evidence.json', import.meta.url), 'utf8'));
 const schema: Record<string, string> = oracle.sample.oracle.sqlite_schema;
@@ -294,6 +299,52 @@ describe('工作台与冻结 SQLite 表兼容', () => {
     expect((await get('/routing/jobs')).json().items[0].correction_tasks).toEqual([]);
   });
 
+  it('待研判链接按权限定位，飞书提醒只投递一次且不携带来源正文', async () => {
+    const link = '/event-groups/index?event_id=7&limit=1';
+    expect((await get(link, 'alice')).json().items).toEqual([]);
+    expect((await get(link)).json().items).toMatchObject([{ state: 'triage', messages: [{ id: 7, triage_notice_status: 'disabled' }] }]);
+    expect((await get('/event-groups/index?counts_only=1')).json()).toEqual({ counts: expect.objectContaining({ triage: 1 }) });
+
+    const store = new WorkbenchStore(db);
+    const candidate = (id?: number) => nextTriageNotice(store, id);
+    const send = () => notifyTriage(db, { owner: 'admin', appId: 'fixture', recipient: 'ou_fixture',
+      encryptKey: '', verificationToken: '' }, 'fixture', AbortSignal.timeout(1000), () => {}, candidate, 'http://127.0.0.1:8878');
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(Response.json({ access_token: 'fixture' }))
+      .mockResolvedValueOnce(Response.json({ code: 0, data: { message_id: 'om_fixture' } }));
+    try {
+      await send();
+      await send();
+      expect(fetch).toHaveBeenCalledTimes(2);
+      const body = JSON.parse(String(fetch.mock.calls[1][1]?.body));
+      expect(body.content).toContain('http://127.0.0.1:8878/?event=7');
+      expect(body.content).not.toContain('待分派');
+      expect((await get(link)).json().items[0].messages[0].triage_notice_status).toBe('sent');
+
+      event(9, { source: 'dingtalk', external_id: 'later', event_type: 'message.received', content: '合成待办',
+        data: '{"routing_status":"pending_confirmation"}' });
+      fetch.mockImplementationOnce(async () => {
+        expect((await post('/event-groups/triage', { action: 'close', event_ids: [9] })).statusCode).toBe(200);
+        return Response.json({ access_token: 'fixture' });
+      });
+      await send();
+      expect(fetch).toHaveBeenCalledTimes(3);
+      expect(candidate()).toBeUndefined();
+
+      event(10, { source: 'dingtalk', external_id: 'quiet', content: '规则暂停',
+        data: '{"routing_status":"pending_confirmation","routing_reason":"private_policy_hold"}' });
+      expect(candidate()).toBeUndefined();
+      event(11, { source: 'dingtalk', external_id: 'unconfirmed', content: '合成待办',
+        data: '{"routing_status":"pending_confirmation"}' });
+      fetch.mockResolvedValueOnce(Response.json({ access_token: 'fixture' })).mockRejectedValueOnce(new TypeError('fixture timeout'));
+      await send();
+      await send();
+      expect(fetch).toHaveBeenCalledTimes(5);
+      expect((await get('/event-groups/index?event_id=11')).json().items[0].messages[0].triage_notice_status).toBe('unknown');
+    } finally {
+      fetch.mockRestore();
+    }
+  });
+
   it('人工分派批量校验、回滚旧版本并为历史来信追加执行输入', async () => {
     insert('semantic_routing_jobs', { event_id: 7, project_id: 1, status: 'queued', context: '{}',
       output: '', created_at: at, updated_at: at });
@@ -504,6 +555,57 @@ describe('工作台与冻结 SQLite 表兼容', () => {
     expect(requests[0].json()).toMatchObject({ task_id: 1, thread_id: 'saved-legacy' });
     expect(requests[0].json().content).toContain('当前状态：paused；任务版本：2');
     expect(db.prepare("SELECT count(*) AS n FROM events WHERE event_type='manual_handoff'").get()?.n).toBe(1);
+  });
+
+  it('关联明确的项目排查轮次，完成后只回填一次并继续原任务的只读分析', async () => {
+    const threadId = '00000000-0000-4000-8000-000000000001';
+    const turnId = '00000000-0000-4000-8000-000000000002';
+    const otherTurnId = '00000000-0000-4000-8000-000000000003';
+    const cwd = process.cwd();
+    let sourceCwd = dirname(cwd);
+    let turnStatus = 'interrupted';
+    const readThread = vi.fn(async () => ({ thread: { id: threadId, cwd: sourceCwd, turns: [
+      { id: turnId, status: turnStatus, completedAt: turnStatus === 'completed' ? 1795050000 : null, error: null, items: [
+        { type: 'agentMessage', phase: 'commentary', text: '过程消息' },
+        { type: 'agentMessage', phase: 'final_answer', text: '合成排查结论' },
+      ] },
+      { id: otherTurnId, status: 'completed', items: [{ type: 'agentMessage', phase: 'final_answer', text: '无关追问' }] },
+    ] } }));
+    db.prepare('UPDATE projects SET repo_path=? WHERE id=1').run(cwd);
+    db.exec("UPDATE tasks SET status='review_ready',kind='reply',codex_thread_id='old-reply' WHERE id=1");
+    configureWorkbenchRuntime(app, { readThread });
+    const handoff = (await post('/sessions/worker:1/handoff', {})).json();
+    const url = '/sessions/worker:1/handoff-return';
+    const body = { thread_id: threadId, turn_id: turnId, expected_state_version: handoff.state_version };
+    expect((await post(url, body, 'alice')).statusCode).toBe(403);
+    expect(readThread).not.toHaveBeenCalled();
+    expect((await post(url, body)).statusCode).toBe(409);
+    sourceCwd = cwd;
+    expect((await post(url, body)).json()).toMatchObject({ status: 'waiting' });
+    const store = new WorkbenchStore(db);
+    const poll = () => checkHandoffReturn(store, readThread, fn => store.write(fn), () => 'admin', new AbortController().signal);
+    const due = () => db.exec("UPDATE events SET data=json_set(data,'$.next_check',0) WHERE event_type='codex_handoff_return'");
+    await poll();
+    expect((await get(url)).json()).toMatchObject({ status: 'waiting' });
+    expect(db.prepare('SELECT status FROM tasks WHERE id=1').get()?.status).toBe('paused');
+    turnStatus = 'completed';
+    due();
+    await Promise.all([poll(), poll()]);
+    expect((await get(url)).json()).toMatchObject({ status: 'imported' });
+    expect(db.prepare('SELECT kind,status,codex_thread_id FROM tasks WHERE id=1').get())
+      .toMatchObject({ status: 'queued', kind: 'analysis', codex_thread_id: null });
+    const evidence = db.prepare("SELECT content FROM events WHERE task_id=1 AND json_extract(data,'$.provenance')='codex_handoff_result'").all();
+    expect(evidence).toEqual([{ content: 'Codex 接管排查结论（待核验）：\n合成排查结论' }]);
+
+    const nextHandoff = (await post('/sessions/worker:1/handoff', {}));
+    expect(nextHandoff.statusCode).toBe(409);
+    db.exec("UPDATE tasks SET status='review_ready' WHERE id=1");
+    const resumed = (await post('/sessions/worker:1/handoff', {})).json();
+    expect((await post(url, { ...body, expected_state_version: resumed.state_version })).statusCode).toBe(200);
+    db.exec('UPDATE tasks SET state_version=state_version+1 WHERE id=1');
+    await poll();
+    expect((await get(url)).json()).toMatchObject({ status: 'stale' });
+    expect(db.prepare('SELECT status FROM tasks WHERE id=1').get()?.status).toBe('paused');
   });
 
   it('跨所有权的调配申请不可见，管理员并发重复申请及应用只追加一次', async () => {

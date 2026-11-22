@@ -7,6 +7,81 @@ async function capture(page: Page, info: TestInfo, name: string) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual((page.viewportSize()?.width ?? 0) + 1);
 }
 
+test('pending attention is visible across pages and card links open the exact receipt', async ({ page }, info) => {
+  const message = { id: 684, source: 'dingtalk', state: 'triage', created_at: '2026-11-19T03:26:21Z',
+    content: '之前报告的审核状态还是有问题', triage_notice_status: 'disabled',
+    data: { routing_status: 'pending_confirmation', routing_reason: 'semantic_request_not_recognized' } };
+  const item = { key: 'message:684', state: 'triage', group: null, event: { id: 684 }, messages: [message] };
+  const other = { key: 'message:686', state: 'closed', group: null, event: { id: 686 }, messages: [{ ...message,
+    id: 686, state: 'closed', content: '另一条已归档的消息', data: { routing_status: 'ignored' } }] };
+  const writes: string[] = [];
+  await page.route('**/api/**', route => {
+    if (route.request().method() === 'GET') return route.fallback();
+    writes.push(route.request().url());
+    return route.abort();
+  });
+  await page.route('**/api/v1/events/684/trace', route => route.fulfill({ json: { event: message, attempts: [] } }));
+  await page.route('**/api/v1/event-groups/index?*', route => {
+    const params = new URL(route.request().url()).searchParams;
+    const counts = { triage: 1, review: 2, closed: 1 };
+    if (params.has('counts_only')) return route.fulfill({ json: { counts } });
+    const items = params.get('status') === 'triage' || params.get('event_id') === '684' ? [item] : [other];
+    return route.fulfill({ json: { counts, items, total: items.length, has_more: false } });
+  });
+  await page.goto('/?event=684');
+  const triage = page.getByRole('region', { name: '事件研判' });
+  await expect(triage.getByText('飞书待研判提醒未启用，请在工作台处理')).toBeVisible();
+  await expect(triage.getByText('群消息未达到自动研判条件。', { exact: false })).toBeVisible();
+  await expect(triage.getByRole('button', { name: '指定项目并安排处理' })).toBeVisible();
+  await capture(page, info, 'pending-event-from-card');
+
+  await page.getByRole('button', { name: '运行状态', exact: true }).click();
+  const pending = page.getByRole('button', { name: '待研判 1，查看待办队列', exact: true });
+  await expect(pending).toBeInViewport();
+  await pending.focus();
+  await capture(page, info, 'pending-count-from-status');
+  await pending.press('Enter');
+  await expect(page.locator('.event-choice[data-event-key="message:684"]')).toBeVisible();
+  expect(writes).toEqual([]);
+});
+
+test('Codex handoff opens the project and displays when the selected result returns', async ({ page }, info) => {
+  const thread = '00000000-0000-4000-8000-000000000001';
+  let linked = false;
+  await page.route('**/api/**', route => route.request().method() === 'GET' ? route.fallback() : route.abort());
+  await page.route(/\/api\/v1\/tasks\/\d+$/, async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    await route.fulfill({ response, json: { ...body, task: { ...body.task, kind: 'reply', status: 'paused', state_version: 2 } } });
+  });
+  await page.route('**/api/v1/sessions/*/handoff', route => route.fulfill({
+    json: { thread_id: thread, project_path: 'E:\\预览\\医院 项目', status: 'paused', kind: 'reply', state_version: 2,
+      content: '继续核对合成报告。\n成果请保留日志位置和验证范围。' },
+  }));
+  await page.route('**/api/v1/sessions/*/handoff-return', route => {
+    if (route.request().method() !== 'POST') return route.fulfill({ json: { status: linked ? 'imported' : 'unlinked' } });
+    expect(route.request().postDataJSON()).toEqual({ thread_id: thread, expected_state_version: 2 });
+    linked = true;
+    return route.fulfill({ json: { status: 'waiting' } });
+  });
+  await page.goto('/');
+  await expect(page.getByText('独立预览 · 自动执行已关闭', { exact: true })).toBeVisible();
+  await page.locator('.event-choice').filter({ hasText: '模拟验收任务' }).click();
+  const open = page.getByRole('button', { name: '由我接着做' });
+  await open.focus();
+  await open.press('Enter');
+  const panel = page.locator('.event-handoff-content');
+  await expect(panel.getByRole('link', { name: '查看原 Codex 会话' })).toHaveAttribute('href', `codex://threads/${thread}`);
+  await expect(panel.getByRole('link', { name: '在事件项目中打开新会话' })).toHaveAttribute('href', /^codex:\/\/new\?path=/);
+  const chat = panel.getByRole('textbox', { name: 'Codex 排查会话链接或编号' });
+  await chat.fill(`codex://threads/${thread}`);
+  await panel.getByRole('button', { name: '关联并自动继续' }).focus();
+  await capture(page, info, 'codex-handoff-ready');
+  await panel.getByRole('button', { name: '关联并自动继续' }).press('Enter');
+  await expect(panel.getByRole('status')).toContainText('排查结论已补充到原事件');
+  await capture(page, info, 'codex-handoff-returned');
+});
+
 test('Redmine changes without notes show titles and open the original issue', async ({ page }, info) => {
   const issueUrl = 'https://redmine.example.invalid/redmine/issues/12345';
   await page.context().route(issueUrl, route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: '<h1>模拟 Redmine 工单 #12345</h1>' }));

@@ -42,6 +42,22 @@ export function selectAdmissionProject(db:DatabaseSync,id:number,e:Source,access
     .some(w=>w.trim() && input.includes(w.trim().toLowerCase())));}
   let matches=named(e.content.toLowerCase());
   if(!matches.length) matches=named(group);
+  const quoted=e.metadata.reply_to_message_id;
+  if(e.metadata.dws_event_type==='user_im_message_receive_o2o_all' && typeof quoted==='string' && quoted.trim() && e.thread_id) {
+    const projects=db.prepare(`SELECT DISTINCT t.project_id FROM events e JOIN tasks t ON t.id=e.task_id
+      WHERE e.id<? AND e.source='dingtalk' AND json_extract(e.data,'$.thread_id')=?
+      AND COALESCE(json_extract(e.data,'$.metadata.profile'),'')=? AND json_extract(e.data,'$.metadata.message_id')=?
+      AND json_extract(e.data,'$.routing_status') IN ('routed','manually_linked','self_context','context_only')
+      AND (json_extract(e.data,'$.actor_id')=? OR json_extract(e.data,'$.metadata.self_authored')=1)`)
+      .all(id,e.thread_id,String(e.metadata.profile??''),quoted,e.actor_id??'');
+    if(projects.length) {
+      const quotedProject=rows.find(row=>row.id===projects[0].project_id);
+      if(projects.length!==1 || !quotedProject || matches.some(row=>row.id!==quotedProject.id)) {
+        return {projects:[],clarification:false};
+      }
+      return {projects:[quotedProject],clarification:false};
+    }
+  }
   if(matches.length) return {projects:matches,clarification:false};
   matches=rows.filter(r=>(JSON.parse(String(r.dingtalk_chat_ids)) as unknown[]).includes(e.thread_id));
   if(matches.length===1) return {projects:matches,clarification:false};
@@ -56,5 +72,5 @@ export function selectAdmissionProject(db:DatabaseSync,id:number,e:Source,access
     if(!recent.length && rows.length===1) return {projects:rows,clarification:false};
   }
   const fallback:Row[]=access.on_unmatched!=='pending'&&access.default_project_id?db.prepare('SELECT id,enabled FROM projects WHERE id=? AND enabled AND NOT archived').all(access.default_project_id):[];
-  return {projects:fallback,clarification:access.on_unmatched==='ask' && fallback.length===1};
+  return {projects:fallback,clarification:access.on_unmatched==='ask' && fallback.length===1, fallback:true};
 }
